@@ -43,7 +43,7 @@ const DefenseManagementPage = () => {
     setError('');
     try {
       const response = await api.get('/defense-management/rounds');
-      setRounds(Array.isArray(response.data) ? response.data : []);
+      setRounds(Array.isArray(response.data) ? response.data : (response.data?.items || []));
     } catch (err) {
       setError('Failed to fetch defense rounds.');
     } finally {
@@ -55,10 +55,35 @@ const DefenseManagementPage = () => {
     if (activeTab === 'rounds') fetchRounds();
   }, [activeTab]);
 
+  const handleRoundStartChange = (e) => {
+    const val = e.target.value;
+    setRoundStart(val);
+    if (val) {
+      const d = new Date(val);
+      d.setDate(d.getDate() + 6);
+      setRoundEnd(d.toISOString().split('T')[0]);
+    }
+  };
+
   const handleCreateRound = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    if (!roundStart || !roundEnd) {
+      setError('Vui lòng chọn đầy đủ Ngày bắt đầu và Ngày kết thúc.');
+      return;
+    }
+    const start = new Date(roundStart);
+    const end = new Date(roundEnd);
+    if (end < start) {
+      setError('Ngày kết thúc không được nhỏ hơn Ngày bắt đầu.');
+      return;
+    }
+    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
+    if (diffDays !== 6) {
+      setError(`Ràng buộc: 1 đợt có độ dài đúng 6 ngày (Hiện tại từ ${roundStart} đến ${roundEnd} là ${diffDays} ngày).`);
+      return;
+    }
     try {
       await api.post('/defense-management/rounds', {
         code: roundCode,
@@ -416,7 +441,7 @@ const DefenseManagementPage = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
                   <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ngày bắt đầu</label>
-                  <input type="date" className="form-input" value={roundStart} onChange={(e) => setRoundStart(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                  <input type="date" className="form-input" value={roundStart} onChange={handleRoundStartChange} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
                 </div>
                 <div className="form-group">
                   <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ngày kết thúc</label>

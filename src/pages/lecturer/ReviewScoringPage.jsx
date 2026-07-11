@@ -120,10 +120,10 @@ const ReviewScoringPage = () => {
     try {
       await api.put(`/review-submissions/${subId}/draft`, {
         result: evalResult,
-        score: Number(evalScore),
+        score: evalResult === 'Pass' ? 10 : (evalResult === 'Fail' ? 0 : 5),
         notes: evalNotes
       });
-      setSuccess('Đã lưu bản nháp đánh giá phản biện thành công!');
+      setSuccess('Đã lưu bản nháp nhận xét & đánh giá thành công!');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save review draft.');
     }
@@ -137,10 +137,10 @@ const ReviewScoringPage = () => {
     try {
       await api.post(`/review-submissions/${subId}/submit`, {
         result: evalResult,
-        score: Number(evalScore),
+        score: evalResult === 'Pass' ? 10 : (evalResult === 'Fail' ? 0 : 5),
         notes: evalNotes
       });
-      setSuccess('Đã nhấn nút KẾT THÚC BUỔI REVIEW! Điểm số, ghi chú nhận xét và trạng thái điểm danh E360 đã được nộp chính thức cho sinh viên và hệ thống.');
+      setSuccess('Đã gửi KẾT QUẢ ĐÁNH GIÁ REVIEW! Nhận xét, kết quả đạt yêu cầu và điểm danh đã được nộp chính thức cho sinh viên.');
       fetchSessionDetails(selectedSession);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to submit final checkpoint review.');
@@ -157,8 +157,8 @@ const ReviewScoringPage = () => {
     <div className="page-container animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title" style={{ color: '#0F172A' }}>Chấm điểm Phản biện Đồ án</h1>
-          <p className="page-subtitle" style={{ color: '#475569' }}>Điểm danh sinh viên, nhập nhận xét tiến độ và gửi kết quả chấm điểm chính thức.</p>
+          <h1 className="page-title" style={{ color: '#0F172A' }}>Nhận xét & Đánh giá Review Đồ án</h1>
+          <p className="page-subtitle" style={{ color: '#475569' }}>Điểm danh sinh viên, nhập ý kiến nhận xét chuyên môn và đánh giá kết quả (Đạt yêu cầu / Không đạt).</p>
         </div>
 
         <button className="btn btn-secondary" onClick={fetchMySessions} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
@@ -186,14 +186,14 @@ const ReviewScoringPage = () => {
         <div className="glass-card" style={{ padding: '1.25rem', height: 'fit-content', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0F172A' }}>
             <CheckSquare size={18} color="#F26522" />
-            <span>Ca Phản biện được Phân công ({sessions.length})</span>
+            <span>Ca Review được Phân công ({sessions.length})</span>
           </h3>
 
           {loading && !sessions.length ? (
             <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Đang tải...</div>
           ) : sessions.length === 0 ? (
             <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B', fontSize: '0.8rem' }}>
-              Hiện chưa có lịch phản biện nào được phân công cho bạn trong tuần này.
+              Hiện chưa có lịch review nào được phân công cho bạn trong tuần này.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -233,14 +233,14 @@ const ReviewScoringPage = () => {
         <div className="glass-card" style={{ padding: '1.75rem', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
           {!selectedSession ? (
             <div style={{ padding: '4rem', textAlign: 'center', color: '#64748B' }}>
-              Vui lòng chọn một ca phản biện từ danh sách bên trái để bắt đầu chấm điểm.
+              Vui lòng chọn một ca review từ danh sách bên trái để bắt đầu chấm điểm.
             </div>
           ) : (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #CBD5E1', paddingBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                   <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0F172A' }}>
-                    Chấm điểm Phản biện Nhóm {selectedSession.groupCode || `#${selectedSession.groupId}`}
+                    Chấm điểm Checkpoint Nhóm {selectedSession.groupCode || `#${selectedSession.groupId}`}
                   </h2>
                   <p style={{ fontSize: '0.85rem', color: '#64748B' }}>
                     ID Ca: #{selectedSession.id} — Ngày: {selectedSession.sessionDate} — Phòng: {selectedSession.room || 'N/A'}
@@ -350,7 +350,7 @@ const ReviewScoringPage = () => {
                       commentsList.map((comm, idx) => (
                         <div key={idx} className="glass-panel" style={{ padding: '1rem', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-                            <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#F26522' }}>{comm.authorName || 'Giảng viên Phản biện'}</span>
+                            <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#F26522' }}>{comm.authorName || 'Giảng viên'}</span>
                             <span style={{ fontSize: '0.7rem', color: '#64748B' }}>{new Date(comm.createdAt || Date.now()).toLocaleString()}</span>
                           </div>
                           <p style={{ fontSize: '0.85rem', margin: 0, color: '#0F172A' }}>{comm.commentText || comm.content}</p>
@@ -383,46 +383,29 @@ const ReviewScoringPage = () => {
               {/* EVALUATION PANEL */}
               {activeTab === 'evaluation' && (
                 <div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem', color: '#0F172A' }}>Kết quả & Điểm Đánh giá Chính thức</h3>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem', color: '#0F172A' }}>Kết quả & Nhận xét Đánh giá Chính thức</h3>
                   <p style={{ fontSize: '0.8rem', color: '#64748B', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-                    Theo quy chế đánh giá, kết quả phản biện được chia thành Pass (Đạt), Fail (Không đạt), Defense 2 (Phản biện vòng 2) hoặc Drop (Hủy/Đình chỉ).
+                    Theo quy chế review đồ án, giảng viên tập trung đưa ra các ý kiến góp ý chuyên môn và đánh giá mức độ đáp ứng tiến độ của nhóm: Đạt yêu cầu (Pass) hoặc Không đạt (Fail).
                   </p>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
-                    <div className="form-group">
-                      <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Kết quả Phản biện</label>
-                      <select className="form-select" value={evalResult} onChange={(e) => setEvalResult(e.target.value)} style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}>
-                        <option value="Pass">Pass (Đạt - Được bước tiếp vào giai đoạn sau)</option>
-                        <option value="Fail">Fail (Không đạt - Cần sửa đổi toàn diện)</option>
-                        <option value="Defense2">Defense 2 Required (Yêu cầu Phản biện vòng 2)</option>
-                        <option value="Drop">Drop (Đình chỉ đồ án do vi phạm/chậm tiến độ nghiêm trọng)</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Điểm số đánh giá chung (0.0 đến 10.0)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="10"
-                        className="form-input"
-                        value={evalScore}
-                        onChange={(e) => setEvalScore(e.target.value)}
-                        style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
-                      />
-                    </div>
+                  <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="form-label" style={{ color: '#334155', fontWeight: 700, fontSize: '0.9rem' }}>Đánh giá mức độ đáp ứng tiến độ & yêu cầu Review</label>
+                    <select className="form-select" value={evalResult} onChange={(e) => setEvalResult(e.target.value)} style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', padding: '0.65rem 1rem', fontWeight: 600, fontSize: '0.9rem' }}>
+                      <option value="Pass">✓ ĐẠT YÊU CẦU (Pass - Nhóm đáp ứng tốt tiến độ, được bước tiếp giai đoạn sau)</option>
+                      <option value="Fail">✗ KHÔNG ĐẠT (Fail - Chưa đáp ứng yêu cầu, cần điều chỉnh toàn diện & review lại)</option>
+                      <option value="Defense2">⚠ YÊU CẦU REVIEW LẠI (Defense 2 Required - Cần bảo vệ lại trước hội đồng)</option>
+                    </select>
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Tổng hợp Ý kiến Đánh giá & Giải trình Điểm số</label>
+                    <label className="form-label" style={{ color: '#334155', fontWeight: 700, fontSize: '0.9rem' }}>Ý kiến Nhận xét & Góp ý chuyên môn chi tiết cho Nhóm</label>
                     <textarea
                       className="form-input"
-                      rows="4"
+                      rows="6"
                       value={evalNotes}
                       onChange={(e) => setEvalNotes(e.target.value)}
-                      placeholder="Nhập tổng hợp nhận xét, giải thích rõ lý do cho kết quả và điểm số bên trên..."
-                      style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
+                      placeholder="Nhập chi tiết các nhận xét về kiến trúc, chức năng đã hoàn thành, những điểm hạn chế cần khắc phục và định hướng cho giai đoạn tiếp theo..."
+                      style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', fontSize: '0.9rem', lineHeight: 1.6 }}
                     />
                   </div>
 

@@ -50,7 +50,7 @@ const AccountsPage = () => {
     setSuccess('');
     try {
       const payload = { ...formData };
-      if (payload.role !== 'Lecturer' && payload.role !== 'TrainingDepartment') {
+      if (payload.role !== 'Lecturer' && payload.role !== 'TrainingDepartment' && payload.role !== 'SystemAdministrator' && payload.role !== 'Moderator') {
         payload.department = null;
       }
       if (payload.role !== 'Student') {
@@ -107,7 +107,8 @@ const AccountsPage = () => {
   const filteredAccounts = accounts.filter((acc) => {
     const matchesSearch = (acc.username || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (acc.email || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'ALL' || acc.role === roleFilter;
+    const effectiveRole = (acc.role === 'SystemAdministrator' || acc.role === 'TrainingDepartment' || acc.role === 'Moderator') ? 'Moderator' : acc.role;
+    const matchesRole = roleFilter === 'ALL' || effectiveRole === roleFilter;
     return matchesSearch && matchesRole;
   });
 
@@ -168,11 +169,9 @@ const AccountsPage = () => {
               style={{ minWidth: '180px', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
             >
               <option value="ALL">Tất cả vai trò</option>
-              <option value="Lecturer">Giảng viên</option>
               <option value="Student">Sinh viên</option>
-              <option value="TrainingDepartment">Phòng Đào Tạo</option>
-              <option value="SystemAdministrator">Quản trị Hệ thống</option>
-              <option value="Moderator">Điều phối viên</option>
+              <option value="Lecturer">Giảng viên</option>
+              <option value="Moderator">Moderator</option>
             </select>
           </div>
         </div>
@@ -209,15 +208,17 @@ const AccountsPage = () => {
                       <td>
                         <select
                           className="form-select"
-                          value={acc.role}
-                          onChange={(e) => handleRoleChange(acc.id, e.target.value)}
+                          value={(acc.role === 'SystemAdministrator' || acc.role === 'TrainingDepartment' || acc.role === 'Moderator') ? 'Moderator' : acc.role}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const targetRole = val === 'Moderator' ? (acc.role === 'SystemAdministrator' ? 'SystemAdministrator' : 'TrainingDepartment') : val;
+                            handleRoleChange(acc.id, targetRole);
+                          }}
                           style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', fontWeight: 600, background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
                         >
-                          <option value="Lecturer">Giảng viên</option>
                           <option value="Student">Sinh viên</option>
-                          <option value="TrainingDepartment">Phòng Đào Tạo</option>
-                          <option value="Moderator">Điều phối viên</option>
-                          <option value="SystemAdministrator">Quản trị Hệ thống</option>
+                          <option value="Lecturer">Giảng viên</option>
+                          <option value="Moderator">Moderator</option>
                         </select>
                       </td>
                       <td>
@@ -274,11 +275,9 @@ const AccountsPage = () => {
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
                 >
-                  <option value="Lecturer">Giảng viên (Chấm phản biện, Hướng dẫn, Hội đồng)</option>
                   <option value="Student">Sinh viên (Thành viên Nhóm Đồ án)</option>
-                  <option value="TrainingDepartment">Phòng Đào Tạo (Điều hành học kỳ)</option>
-                  <option value="Moderator">Điều phối viên (Quản lý vận hành)</option>
-                  <option value="SystemAdministrator">Quản trị Hệ thống (Root Admin)</option>
+                  <option value="Lecturer">Giảng viên (Chấm checkpoint, Hướng dẫn)</option>
+                  <option value="TrainingDepartment">Moderator (Điều phối viên / Quản trị hệ thống)</option>
                 </select>
               </div>
 
@@ -335,7 +334,7 @@ const AccountsPage = () => {
                 </div>
               </div>
 
-              {(formData.role === 'Lecturer' || formData.role === 'TrainingDepartment') && (
+              {(formData.role === 'Lecturer' || formData.role === 'TrainingDepartment' || formData.role === 'SystemAdministrator' || formData.role === 'Moderator') && (
                 <div className="form-group">
                   <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Khoa / Phòng ban</label>
                   <input

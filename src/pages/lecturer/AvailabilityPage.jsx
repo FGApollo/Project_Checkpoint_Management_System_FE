@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Clock, Calendar, CheckCircle2, AlertCircle, RefreshCw, Send, Save, Check, ShieldAlert } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, RefreshCw, Save, Send, Check, ArrowLeft, ArrowRight, BookOpen, Layers, Sparkles, Calendar, ShieldCheck } from 'lucide-react';
 
 const DAYS_OF_WEEK = [
   { id: 1, name: 'Thứ 2' },
@@ -9,28 +9,61 @@ const DAYS_OF_WEEK = [
   { id: 4, name: 'Thứ 5' },
   { id: 5, name: 'Thứ 6' },
   { id: 6, name: 'Thứ 7' },
-  { id: 7, name: 'Chủ nhật' },
 ];
 
 const SLOTS = [
-  { id: 1, time: '07:30 - 09:00' },
-  { id: 2, time: '09:15 - 10:45' },
-  { id: 3, time: '11:00 - 12:30' },
-  { id: 4, time: '13:00 - 14:30' },
-  { id: 5, time: '14:45 - 16:15' },
-  { id: 6, time: '16:30 - 18:00' },
-  { id: 7, time: '18:15 - 19:45' },
-  { id: 8, time: '20:00 - 21:30' },
+  { id: 1, name: 'Slot 1', time: '07:30 – 09:00' },
+  { id: 2, name: 'Slot 2', time: '09:10 – 10:40' },
+  { id: 3, name: 'Slot 3', time: '10:50 – 12:20' },
+  { id: 4, name: 'Slot 4', time: '12:50 – 14:20' },
+  { id: 5, name: 'Slot 5', time: '14:30 – 16:00' },
 ];
 
 const AvailabilityPage = () => {
+  const [step, setStep] = useState(1); // 1: Chọn Đợt Review Hub, 2: Bảng Khai báo 30 ô
   const [semesterId, setSemesterId] = useState(1);
   const [weekStart, setWeekStart] = useState('2026-06-15');
-  const [selectedSlots, setSelectedSlots] = useState([]); // Array of { dayOfWeek, slot }
+  const [selectedSlots, setSelectedSlots] = useState([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const [rounds, setRounds] = useState([]);
+  const [selectedRoundId, setSelectedRoundId] = useState('');
+
+  const handleSelectRoundStep2 = (roundObj) => {
+    setSelectedRoundId(roundObj.id);
+    setSemesterId(roundObj.semesterId || 1);
+    if (roundObj.startDate) setWeekStart(roundObj.startDate);
+    setStep(2);
+  };
+
+  const fetchRounds = async () => {
+    try {
+      const res = await api.get('/defense-management/rounds').catch(() => ({ data: [] }));
+      const list = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+      setRounds(list);
+      if (list.length > 0 && !selectedRoundId) {
+        const first = list[0];
+        setSelectedRoundId(first.id);
+        setSemesterId(first.semesterId || 1);
+        if (first.startDate) setWeekStart(first.startDate);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRoundChange = (e) => {
+    const rId = Number(e.target.value);
+    setSelectedRoundId(rId);
+    const found = rounds.find(r => r.id === rId);
+    if (found) {
+      setSemesterId(found.semesterId || 1);
+      if (found.startDate) setWeekStart(found.startDate);
+    }
+  };
 
   const fetchAvailability = async () => {
     setLoading(true);
@@ -42,7 +75,6 @@ const AvailabilityPage = () => {
       setSelectedSlots(Array.isArray(data.slots) ? data.slots : []);
       setIsSubmitted(Boolean(data.isSubmitted || data.status === 'Submitted'));
     } catch (err) {
-      // If not found (new week), reset cleanly
       setSelectedSlots([]);
       setIsSubmitted(false);
     } finally {
@@ -51,8 +83,14 @@ const AvailabilityPage = () => {
   };
 
   useEffect(() => {
-    fetchAvailability();
-  }, [semesterId, weekStart]);
+    fetchRounds();
+  }, []);
+
+  useEffect(() => {
+    if (selectedRoundId || weekStart) {
+      fetchAvailability();
+    }
+  }, [semesterId, weekStart, selectedRoundId]);
 
   const toggleSlot = (dayId, slotId) => {
     if (isSubmitted) return;
@@ -78,10 +116,10 @@ const AvailabilityPage = () => {
       await api.put(`/review-availability/week?semesterId=${semesterId}&weekStart=${weekStart}`, {
         slots: selectedSlots
       });
-      setSuccess('Lưu bản nháp lịch rảnh thành công! Bạn có thể chỉnh sửa và hoàn thiện trước khi nộp chính thức.');
+      setSuccess('Đã lưu bản nháp. Bạn có thể chỉnh sửa trước khi nộp chính thức.');
       setIsSubmitted(false);
     } catch (err) {
-      setError(err.response?.data?.error || 'Lỗi khi lưu nháp lịch rảnh.');
+      setError(err.response?.data?.error || 'Lỗi khi lưu nháp.');
     } finally {
       setLoading(false);
     }
@@ -92,15 +130,14 @@ const AvailabilityPage = () => {
     setError('');
     setSuccess('');
     try {
-      // Ensure saved first
       await api.put(`/review-availability/week?semesterId=${semesterId}&weekStart=${weekStart}`, {
         slots: selectedSlots
       });
       await api.post(`/review-availability/week/submit?semesterId=${semesterId}&weekStart=${weekStart}`);
-      setSuccess('Đã nộp lịch rảnh chính thức cho Phòng Đào tạo! Lịch tuần này hiện đã khóa chỉnh sửa để phục vụ xếp lịch.');
+      setSuccess('Đã nộp chính thức! Lịch tuần này hiện đã khóa chỉnh sửa.');
       setIsSubmitted(true);
     } catch (err) {
-      setError(err.response?.data?.error || 'Lỗi khi gửi lịch chính thức cho Phòng Đào tạo.');
+      setError(err.response?.data?.error || 'Lỗi khi nộp chính thức.');
     } finally {
       setLoading(false);
     }
@@ -108,179 +145,388 @@ const AvailabilityPage = () => {
 
   const selectAllDay = (dayId) => {
     if (isSubmitted) return;
-    const allSelected = SLOTS.every((slot) => isSlotSelected(dayId, slot.id));
+    const allSelected = SLOTS.every((s) => isSlotSelected(dayId, s.id));
     if (allSelected) {
       setSelectedSlots(selectedSlots.filter((s) => s.dayOfWeek !== dayId));
     } else {
-      const newForDay = SLOTS.map((slot) => ({ dayOfWeek: dayId, slot: slot.id }));
-      const remaining = selectedSlots.filter((s) => s.dayOfWeek !== dayId);
-      setSelectedSlots([...remaining, ...newForDay]);
+      const newSlots = [...selectedSlots.filter((s) => s.dayOfWeek !== dayId)];
+      SLOTS.forEach((s) => newSlots.push({ dayOfWeek: dayId, slot: s.id }));
+      setSelectedSlots(newSlots);
     }
   };
 
+  const currentRound = rounds.find(r => r.id === Number(selectedRoundId)) || rounds[0];
+
   return (
     <div className="page-container animate-fade-in">
-      <div className="page-header">
+      {step === 1 ? (
+        /* STEP 1: LECTURER ROUND SELECTION PORTAL HUB */
         <div>
-          <h1 className="page-title" style={{ color: '#0F172A' }}>Đăng ký Lịch Rảnh Phản biện hàng tuần</h1>
-          <p className="page-subtitle" style={{ color: '#475569' }}>Đánh dấu các ngày (Thứ 2 đến Chủ nhật) và các ca học trong tuần bạn có thể tham gia hội đồng phản biện.</p>
-        </div>
+          <div className="page-header" style={{ marginBottom: '2rem' }}>
+            <div>
+              <h1 className="page-title" style={{ color: '#0F172A', fontSize: '1.8rem', fontWeight: 850 }}>
+                Khai báo Lịch rảnh Giảng viên & Hội đồng Review
+              </h1>
+              <p className="page-subtitle" style={{ color: '#475569', fontSize: '0.95rem' }}>
+                Bước 1: Vui lòng chọn một Đợt chấm tiến trình (Checkpoint / Defense) bên dưới để khai báo 30 ô khung giờ rảnh trong tuần của bạn.
+              </p>
+            </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={fetchAvailability} disabled={loading} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
-            <RefreshCw size={16} color="#F26522" />
-            <span style={{ fontWeight: 600 }}>Tải lại Lịch</span>
-          </button>
-          <button className="btn btn-secondary" onClick={handleSaveDraft} disabled={loading || isSubmitted} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
-            <Save size={16} color="#0EA5E9" />
-            <span style={{ fontWeight: 600 }}>Lưu Bản nháp</span>
-          </button>
-          <button className="btn btn-primary" onClick={handleSubmitFinal} disabled={loading || isSubmitted || selectedSlots.length === 0}>
-            <Send size={16} />
-            <span>Chính thức Nộp cho Đào tạo</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Week Selector Bar */}
-      <div className="glass-card" style={{ padding: '1.25rem', marginBottom: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'center', justifyContent: 'space-between', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Calendar size={18} color="#F26522" />
-            <label className="form-label" style={{ margin: 0, color: '#334155', fontWeight: 600 }}>ID Học kỳ:</label>
-            <input
-              type="number"
-              className="form-input"
-              value={semesterId}
-              onChange={(e) => setSemesterId(e.target.value)}
-              style={{ width: '80px', padding: '0.35rem 0.6rem', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
-            />
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <button className="btn btn-secondary" onClick={fetchRounds} disabled={loading} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.2rem', borderRadius: '12px' }}>
+                <RefreshCw size={16} color="#4F46E5" />
+                <span>Tải lại Đợt</span>
+              </button>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Clock size={18} color="#10B981" />
-            <label className="form-label" style={{ margin: 0, color: '#334155', fontWeight: 600 }}>Tuần bắt đầu (Thứ 2):</label>
-            <input
-              type="date"
-              className="form-input"
-              value={weekStart}
-              onChange={(e) => setWeekStart(e.target.value)}
-              style={{ padding: '0.35rem 0.6rem', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
-            />
-          </div>
-        </div>
+          {error && (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+              <AlertCircle size={18} /> {error}
+            </div>
+          )}
+          {success && (
+            <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#16A34A', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+              <CheckCircle2 size={18} /> {success}
+            </div>
+          )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>Trạng thái:</span>
-          {isSubmitted ? (
-            <span className="badge" style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem', background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', fontWeight: 700 }}>
-              <CheckCircle2 size={14} /> Đã nộp & Khóa lịch bởi Phòng Đào tạo
-            </span>
+          {rounds.length === 0 ? (
+            <div className="glass-card" style={{ padding: '4.5rem 2rem', textAlign: 'center', background: '#FFFFFF', border: '1px dashed #CBD5E1', borderRadius: '20px' }}>
+              <BookOpen size={52} color="#CBD5E1" style={{ margin: '0 auto 1.25rem' }} />
+              <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#334155', marginBottom: '0.5rem' }}>Chưa có Đợt Review/Checkpoint nào được tạo</h3>
+              <p style={{ color: '#64748B', maxWidth: '520px', margin: '0 auto 1.5rem', lineHeight: 1.6 }}>
+                Hiện tại Ban quản lý (Admin / Trưởng bộ môn) chưa mở hoặc chưa công bố đợt chấm tiến trình nào cho học kỳ này. Bạn vui lòng quay lại sau!
+              </p>
+              <button className="btn btn-primary" onClick={fetchRounds} style={{ padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '12px', background: '#4F46E5' }}>
+                <RefreshCw size={18} />
+                <span>Kiểm tra lại ngay</span>
+              </button>
+            </div>
           ) : (
-            <span className="badge" style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem', background: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B', fontWeight: 700 }}>
-              Chế độ Nháp ({selectedSlots.length} ca đã chọn)
-            </span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.75rem', marginBottom: '3rem' }}>
+              {rounds.map((r) => {
+                const isOpen = r.status === 'Open' || r.status === 0 || r.status === 'Draft' || r.status === 'Đang mở';
+                return (
+                  <div
+                    key={r.id}
+                    style={{
+                      background: '#FFFFFF',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '20px',
+                      padding: '1.75rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+                      transition: 'all 0.25s ease',
+                      cursor: 'pointer',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}
+                    onClick={() => handleSelectRoundStep2(r)}
+                    onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 16px 24px -6px rgba(79, 70, 229, 0.14)'; e.currentTarget.style.borderColor = '#4F46E5'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.05)'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', gap: '0.5rem' }}>
+                        <span className="badge" style={{ background: 'rgba(79, 70, 229, 0.12)', color: '#4F46E5', fontWeight: 800, fontSize: '0.8rem', padding: '0.4rem 0.85rem', borderRadius: '8px' }}>
+                          {r.description || r.type || 'Review Checkpoint'}
+                        </span>
+                        <span className="badge" style={{
+                          background: isOpen ? '#DCFCE7' : '#FEE2E2',
+                          color: isOpen ? '#16A34A' : '#DC2626',
+                          fontWeight: 800,
+                          fontSize: '0.75rem',
+                          padding: '0.4rem 0.85rem',
+                          borderRadius: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem'
+                        }}>
+                          <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'currentColor' }}></span>
+                          {isOpen ? 'ĐANG MỞ KHAI BÁO' : 'ĐÃ ĐÓNG'}
+                        </span>
+                      </div>
+
+                      <h3 style={{ fontSize: '1.3rem', fontWeight: 850, color: '#0F172A', marginBottom: '0.5rem', lineHeight: 1.35 }}>
+                        {r.name}
+                      </h3>
+                      <p style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                        <Sparkles size={16} color="#4F46E5" />
+                        <span>Mã đợt: <strong>{r.code || `R-${r.id}`}</strong> | Học kỳ ID: <strong>#{r.semesterId || 1}</strong></span>
+                      </p>
+
+                      <div style={{ background: '#F8FAFC', padding: '1.15rem', borderRadius: '14px', border: '1px solid #F1F5F9', marginBottom: '1.75rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontSize: '0.88rem', color: '#334155', fontWeight: 650 }}>
+                          <Calendar size={17} color="#3B82F6" />
+                          <span>Thời gian: <strong>{r.startDate || r.weekStartDate ? new Date(r.startDate || r.weekStartDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{r.endDate || r.weekEndDate ? new Date(r.endDate || r.weekEndDate).toLocaleDateString('vi-VN') : '---'}</strong></span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      style={{
+                        width: '100%',
+                        padding: '0.95rem 1.35rem',
+                        borderRadius: '14px',
+                        fontWeight: 800,
+                        fontSize: '0.98rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        background: isOpen ? 'linear-gradient(135deg, #4F46E5, #4338CA)' : '#F1F5F9',
+                        color: isOpen ? '#FFFFFF' : '#475569',
+                        border: 'none',
+                        boxShadow: isOpen ? '0 6px 16px rgba(79, 70, 229, 0.28)' : 'none',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onClick={(e) => { e.stopPropagation(); handleSelectRoundStep2(r); }}
+                    >
+                      <span>{isOpen ? '👉 Chọn Đợt & Vào Khai Báo Lịch Rảnh' : '👁 Xem Bảng Lịch Rảnh Đã Khai Báo'}</span>
+                      <ArrowRight size={19} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
-      </div>
+      ) : (
+        /* STEP 2: LECTURER 30-SLOT AVAILABILITY WORKSPACE */
+        <div className="animate-fade-in">
+          {/* Navigation Bar Header */}
+          <div style={{
+            background: '#FFFFFF',
+            padding: '1.25rem 1.75rem',
+            borderRadius: '20px',
+            border: '1px solid #E2E8F0',
+            marginBottom: '1.75rem',
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '1.25rem',
+            boxShadow: '0 4px 10px -1px rgba(0, 0, 0, 0.05)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  background: '#F1F5F9',
+                  color: '#0F172A',
+                  border: '1px solid #E2E8F0',
+                  padding: '0.7rem 1.25rem',
+                  borderRadius: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  fontSize: '0.92rem'
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = '#E2E8F0'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#F1F5F9'; }}
+              >
+                <ArrowLeft size={18} />
+                <span>Quay lại Chọn Đợt</span>
+              </button>
 
-      {error && (
-        <div style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-          <AlertCircle size={18} />
-          <span>{error}</span>
-        </div>
-      )}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                  <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 850, color: '#0F172A' }}>
+                    {currentRound?.name} ({currentRound?.code})
+                  </h2>
+                  <span className="badge" style={{ background: 'rgba(79, 70, 229, 0.15)', color: '#4F46E5', fontWeight: 800, fontSize: '0.8rem', padding: '0.35rem 0.75rem', borderRadius: '8px' }}>
+                    {currentRound?.description || currentRound?.type || 'Review Checkpoint'}
+                  </span>
+                </div>
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.88rem', color: '#64748B', fontWeight: 600 }}>
+                  Thời gian: <strong>{currentRound?.startDate || currentRound?.weekStartDate ? new Date(currentRound?.startDate || currentRound?.weekStartDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{currentRound?.endDate || currentRound?.weekEndDate ? new Date(currentRound?.endDate || currentRound?.weekEndDate).toLocaleDateString('vi-VN') : '---'}</strong>
+                </p>
+              </div>
+            </div>
 
-      {success && (
-        <div style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10B981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-          <CheckCircle2 size={18} />
-          <span>{success}</span>
-        </div>
-      )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+              <span className="badge" style={{
+                background: isSubmitted ? '#DCFCE7' : '#FEF3C7',
+                color: isSubmitted ? '#16A34A' : '#D97706',
+                fontWeight: 800,
+                padding: '0.55rem 1.1rem',
+                borderRadius: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                fontSize: '0.82rem'
+              }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'currentColor' }}></span>
+                {isSubmitted ? '✓ Đã nộp chính thức' : 'Đang soạn nháp'}
+              </span>
 
-      {/* Grid Table */}
-      <div className="glass-card" style={{ padding: '1.5rem', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
-        <div className="table-container">
-          <table className="table" style={{ textAlign: 'center' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left', minWidth: '130px', color: '#0F172A' }}>Ca học / Thời gian</th>
-                {DAYS_OF_WEEK.map((day) => (
-                  <th key={day.id} style={{ textAlign: 'center', minWidth: '120px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
-                      <span style={{ fontWeight: 800, fontSize: '0.85rem', color: '#0F172A' }}>{day.name}</span>
-                      {!isSubmitted && (
+              <button className="btn btn-secondary" onClick={fetchAvailability} disabled={loading} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.1rem', borderRadius: '12px' }}>
+                <RefreshCw size={16} color="#4F46E5" />
+                <span>Tải lại</span>
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+              <AlertCircle size={18} /> {error}
+            </div>
+          )}
+          {success && (
+            <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#16A34A', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+              <CheckCircle2 size={18} /> {success}
+            </div>
+          )}
+
+          {/* Action Tools Card right above 30-slot grid */}
+          <div className="glass-card" style={{ padding: '1.25rem 1.75rem', marginBottom: '1.75rem', display: 'flex', flexWrap: 'wrap', gap: '1.25rem', alignItems: 'center', justifyContent: 'space-between', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <ShieldCheck size={20} color="#4F46E5" />
+              <span style={{ fontWeight: 700, color: '#334155', fontSize: '0.95rem' }}>
+                Đã tick rảnh: <strong style={{ color: '#4F46E5', fontSize: '1.1rem' }}>{selectedSlots.length}</strong> / 30 ô slot
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={handleSaveDraft}
+                disabled={loading || isSubmitted}
+                className="btn btn-secondary"
+                style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#334155', opacity: isSubmitted ? 0.5 : 1, fontWeight: 700, padding: '0.65rem 1.25rem', borderRadius: '10px' }}
+              >
+                <Save size={16} /> <span>Lưu nháp</span>
+              </button>
+              <button
+                onClick={handleSubmitFinal}
+                disabled={loading || isSubmitted || selectedSlots.length === 0}
+                className="btn btn-primary"
+                style={{ background: 'linear-gradient(135deg, #4F46E5, #4338CA)', border: 'none', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)', opacity: (isSubmitted || selectedSlots.length === 0) ? 0.5 : 1, fontWeight: 800, padding: '0.65rem 1.5rem', borderRadius: '10px' }}
+              >
+                <Send size={16} /> <span>Nộp chính thức</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 6×5 Grid */}
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '20px',
+            border: '1px solid #E2E8F0',
+            overflow: 'hidden',
+            marginBottom: '2rem',
+            boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.04)'
+          }}>
+            <div style={{ padding: '1.5rem 1.85rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 850, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '0.6rem', margin: 0 }}>
+                  <BookOpen size={22} color="#4F46E5" />
+                  <span>Bảng Khai báo Lịch Rảnh</span>
+                </h3>
+                <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0.3rem 0 0', fontWeight: 500 }}>
+                  Giảng viên bấm chọn các ô rảnh trong tuần để hệ thống thu thập dữ liệu và tự động phân công hội đồng chấm review đồ án phù hợp.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto', padding: '1.5rem' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '0.85rem 1rem', background: '#F8FAFC', borderBottom: '2px solid #E2E8F0', fontSize: '0.85rem', fontWeight: 800, color: '#334155', textAlign: 'left', width: '140px' }}>
+                      Slot / Ngày
+                    </th>
+                    {DAYS_OF_WEEK.map((day) => (
+                      <th key={day.id} style={{ padding: '0.85rem 0.5rem', background: '#F8FAFC', borderBottom: '2px solid #E2E8F0', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0F172A' }}>{day.name}</div>
                         <button
-                          type="button"
                           onClick={() => selectAllDay(day.id)}
+                          disabled={isSubmitted}
                           style={{
-                            background: '#F8FAFC',
-                            border: '1px solid #CBD5E1',
-                            borderRadius: 'var(--radius-sm)',
-                            padding: '0.15rem 0.4rem',
-                            fontSize: '0.65rem',
-                            color: '#475569',
-                            cursor: 'pointer',
-                            fontWeight: 600
+                            marginTop: '0.3rem', fontSize: '0.72rem', color: '#4F46E5', background: 'none', border: 'none', cursor: isSubmitted ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: isSubmitted ? 0.4 : 1,
                           }}
                         >
-                          Chọn/Bỏ cả ngày
+                          {SLOTS.every((s) => isSlotSelected(day.id, s.id)) ? 'Bỏ tất cả' : '+ Chọn tất cả'}
                         </button>
-                      )}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {SLOTS.map((slot) => (
-                <tr key={slot.id}>
-                  <td style={{ textAlign: 'left', fontWeight: 700, background: '#F8FAFC' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontSize: '0.85rem', color: '#F26522', fontWeight: 800 }}>Ca {slot.id}</span>
-                      <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{slot.time}</span>
-                    </div>
-                  </td>
-                  {DAYS_OF_WEEK.map((day) => {
-                    const selected = isSlotSelected(day.id, slot.id);
-                    return (
-                      <td
-                        key={`${day.id}-${slot.id}`}
-                        onClick={() => toggleSlot(day.id, slot.id)}
-                        style={{
-                          padding: '1rem',
-                          background: selected ? 'linear-gradient(135deg, #F26522, #FF7A00)' : 'transparent',
-                          cursor: isSubmitted ? 'not-allowed' : 'pointer',
-                          transition: 'all var(--transition-fast)',
-                          border: `1px solid ${selected ? '#F26522' : '#E2E8F0'}`
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '36px' }}>
-                          {selected ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'white', fontWeight: 700, fontSize: '0.8rem' }}>
-                              <Check size={18} />
-                              <span>Có thể chấm</span>
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>—</span>
-                          )}
-                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {SLOTS.map((slot) => (
+                    <tr key={slot.id}>
+                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #F1F5F9', fontSize: '0.85rem', textAlign: 'left' }}>
+                        <div style={{ fontWeight: 850, color: '#0F172A', fontSize: '0.95rem' }}>{slot.name}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 700, marginTop: '0.15rem' }}>{slot.time}</div>
                       </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                      {DAYS_OF_WEEK.map((day) => {
+                        const selected = isSlotSelected(day.id, slot.id);
+                        return (
+                          <td key={`${day.id}-${slot.id}`} style={{ padding: '0.5rem', borderBottom: '1px solid #F1F5F9', textAlign: 'center' }}>
+                            <button
+                              onClick={() => toggleSlot(day.id, slot.id)}
+                              disabled={isSubmitted}
+                              style={{
+                                width: '100%',
+                                height: '48px',
+                                borderRadius: '10px',
+                                border: selected ? '2px solid #4F46E5' : '1px solid #E2E8F0',
+                                background: selected ? '#EEF2FF' : '#FFFFFF',
+                                cursor: isSubmitted ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.15s ease',
+                                opacity: isSubmitted ? 0.6 : 1,
+                                boxShadow: selected ? '0 2px 6px rgba(79, 70, 229, 0.15)' : 'none'
+                              }}
+                            >
+                              {selected ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#4F46E5', fontWeight: 800, fontSize: '0.8rem' }}>
+                                  <Check size={18} strokeWidth={3} />
+                                  <span>Rảnh</span>
+                                </div>
+                              ) : (
+                                <span style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 500 }}>---</span>
+                              )}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      <div className="glass-panel" style={{ marginTop: '1.5rem', padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
-        <ShieldAlert size={24} color="#F26522" style={{ flexShrink: 0 }} />
-        <p style={{ fontSize: '0.8rem', color: '#475569', margin: 0, lineHeight: 1.5 }}>
-          <strong>Lưu ý xếp lịch:</strong> Theo quy chế của Trường, Phòng Đào tạo chỉ có thể xem và xếp lịch cho bạn sau khi bạn bấm **Chính thức Nộp cho Đào tạo (`POST /week/submit`)**. Sau khi nộp, lịch của tuần đó sẽ được khóa để đảm bảo tính ổn định cho sinh viên.
-        </p>
-      </div>
+          {/* Bottom Actions Bar */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '2rem' }}>
+            <button
+              onClick={handleSaveDraft}
+              disabled={loading || isSubmitted}
+              className="btn btn-secondary"
+              style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#334155', opacity: isSubmitted ? 0.5 : 1, fontWeight: 700, padding: '0.8rem 1.5rem', borderRadius: '12px' }}
+            >
+              <Save size={18} /> <span>Lưu nháp</span>
+            </button>
+            <button
+              onClick={handleSubmitFinal}
+              disabled={loading || isSubmitted || selectedSlots.length === 0}
+              className="btn btn-primary"
+              style={{ background: 'linear-gradient(135deg, #4F46E5, #4338CA)', border: 'none', boxShadow: '0 4px 14px rgba(79, 70, 229, 0.28)', opacity: (isSubmitted || selectedSlots.length === 0) ? 0.5 : 1, fontWeight: 800, padding: '0.8rem 2rem', borderRadius: '12px' }}
+            >
+              <Send size={18} /> <span>Nộp chính thức ({selectedSlots.length} ô)</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

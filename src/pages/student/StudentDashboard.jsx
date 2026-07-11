@@ -34,13 +34,13 @@ const StudentDashboard = () => {
       <div className="page-header">
         <div>
           <h1 className="page-title" style={{ color: '#0F172A' }}>Khu vực Làm việc Sinh viên & Nhóm Đồ án</h1>
-          <p className="page-subtitle" style={{ color: '#475569' }}>Xin chào, {user?.fullName || user?.username}. Theo dõi lịch phản biện, đăng ký ca bảo vệ và xem đánh giá chính thức từ hội đồng.</p>
+          <p className="page-subtitle" style={{ color: '#475569' }}>Xin chào, {user?.fullName || user?.username}. Theo dõi lịch review, đăng ký ca checkpoint và xem đánh giá chính thức từ hội đồng.</p>
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <Link to="/student/review-schedule" className="btn btn-secondary" style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
             <BookOpen size={16} color="#F26522" />
-            <span style={{ fontWeight: 600 }}>Đăng ký Lịch Phản biện</span>
+            <span style={{ fontWeight: 600 }}>Đăng ký Lịch Review</span>
           </Link>
           <Link to="/student/results" className="btn btn-primary">
             <CheckSquare size={16} />
@@ -92,12 +92,12 @@ const StudentDashboard = () => {
             </div>
             <span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522' }}>{mySchedules.length} Đã xếp lịch</span>
           </div>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem', color: '#0F172A' }}>Đăng ký Ca & Lịch Phản biện</h3>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem', color: '#0F172A' }}>Đăng ký Ca & Lịch Review</h3>
           <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem', flex: 1, lineHeight: 1.5 }}>
-            Đăng ký ca và ngày phản biện theo nguyện vọng của nhóm. Xem lịch phản biện chính thức ngay khi Phòng Đào tạo chốt và công bố.
+            Đăng ký ca và ngày review theo nguyện vọng của nhóm. Xem lịch review chính thức ngay khi Phòng Đào tạo chốt và công bố.
           </p>
           <Link to="/student/review-schedule" className="btn btn-secondary" style={{ justifyContent: 'space-between', background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A' }}>
-            <span style={{ fontWeight: 600 }}>Quản lý Đăng ký Phản biện</span>
+            <span style={{ fontWeight: 600 }}>Quản lý Đăng ký Review</span>
             <ArrowRight size={16} />
           </Link>
         </div>
@@ -111,7 +111,7 @@ const StudentDashboard = () => {
           </div>
           <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem', color: '#0F172A' }}>Kết quả Chấm & Nhận xét từ Giảng viên</h3>
           <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem', flex: 1, lineHeight: 1.5 }}>
-            Xem tình trạng điểm danh, nhận xét chi tiết từ giảng viên phản biện qua các vòng Review 1, 2, 3 và tải về phiếu đánh giá chính thức.
+            Xem tình trạng điểm danh, nhận xét chi tiết từ giảng viên review qua các vòng Review 1, 2, 3 và tải về phiếu đánh giá chính thức.
           </p>
           <Link to="/student/results" className="btn btn-primary" style={{ justifyContent: 'space-between' }}>
             <span>Xem Kết quả Đánh giá</span>
@@ -124,14 +124,14 @@ const StudentDashboard = () => {
       <div className="glass-card" style={{ padding: '1.75rem', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
         <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0F172A' }}>
           <Layers size={20} color="#F26522" />
-          <span>Lịch Phản biện Chính thức của Nhóm</span>
+          <span>Lịch Review Chính thức của Nhóm</span>
         </h3>
 
         {loading ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B' }}>Đang tải lịch phản biện của nhóm...</div>
+          <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B' }}>Đang tải lịch review của nhóm...</div>
         ) : mySchedules.length === 0 ? (
           <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B', background: '#F8FAFC', borderRadius: 'var(--radius-md)', border: '1px solid #E2E8F0' }}>
-            Nhóm chưa có lịch phản biện chính thức nào được công bố. Nếu bạn đã đăng ký ca rảnh, vui lòng chờ Phòng Đào tạo xếp lịch và thông báo.
+            Nhóm chưa có lịch review chính thức nào được công bố. Nếu bạn đã đăng ký ca rảnh, vui lòng chờ Phòng Đào tạo xếp lịch và thông báo.
           </div>
         ) : (
           <div className="table-container">
@@ -142,7 +142,7 @@ const StudentDashboard = () => {
                   <th>Mã Nhóm</th>
                   <th>Ngày & Ca học</th>
                   <th>Phòng</th>
-                  <th>Vòng Phản biện</th>
+                  <th>Vòng Review</th>
                   <th>Trạng thái</th>
                 </tr>
               </thead>
@@ -153,7 +153,7 @@ const StudentDashboard = () => {
                     <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522' }}>{sc.groupCode || `Nhóm #${sc.groupId}`}</span></td>
                     <td style={{ color: '#475569' }}>{sc.sessionDate || sc.dayOfWeek} — Ca {sc.slot}</td>
                     <td style={{ fontWeight: 700, color: '#0F172A' }}>{sc.room || 'TBD'}</td>
-                    <td style={{ color: '#475569' }}>{sc.reviewType || 'Chấm Phản biện'}</td>
+                    <td style={{ color: '#475569' }}>{sc.reviewType || 'Chấm Checkpoint'}</td>
                     <td><span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981' }}>{sc.status || 'Đã công bố'}</span></td>
                   </tr>
                 ))}

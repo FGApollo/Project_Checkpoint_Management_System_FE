@@ -12,13 +12,14 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AccountsPage from './pages/admin/AccountsPage';
 import ExcelImportPage from './pages/admin/ExcelImportPage';
 import ReviewManagementPage from './pages/admin/ReviewManagementPage';
+import ReviewTrackingPage from './pages/admin/ReviewTrackingPage';
 import DefenseManagementPage from './pages/admin/DefenseManagementPage';
 
 // Lecturer Pages
 import LecturerDashboard from './pages/lecturer/LecturerDashboard';
 import AvailabilityPage from './pages/lecturer/AvailabilityPage';
 import ReviewScoringPage from './pages/lecturer/ReviewScoringPage';
-import DefenseRoomPage from './pages/lecturer/DefenseRoomPage';
+
 
 // Student Pages
 import StudentDashboard from './pages/student/StudentDashboard';
@@ -126,6 +127,14 @@ const AppContent = () => {
           }
         />
         <Route
+          path="/admin/review-tracking"
+          element={
+            <ProtectedRoute allowedRoles={['SystemAdministrator', 'TrainingDepartment', 'Moderator']}>
+              <ReviewTrackingPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/defenses"
           element={
             <ProtectedRoute allowedRoles={['SystemAdministrator', 'TrainingDepartment', 'Moderator']}>
@@ -133,6 +142,7 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
+
 
         {/* LECTURER ROUTES */}
         <Route
@@ -159,14 +169,7 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/lecturer/defense-room"
-          element={
-            <ProtectedRoute allowedRoles={['Lecturer']}>
-              <DefenseRoomPage />
-            </ProtectedRoute>
-          }
-        />
+
 
         {/* STUDENT ROUTES */}
         <Route

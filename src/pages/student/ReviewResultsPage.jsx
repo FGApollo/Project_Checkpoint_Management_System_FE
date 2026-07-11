@@ -70,8 +70,8 @@ const ReviewResultsPage = () => {
     <div className="page-container animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title" style={{ color: '#0F172A' }}>Kết quả Phản biện & Nhật ký Nhận xét</h1>
-          <p className="page-subtitle" style={{ color: '#475569' }}>Xem kết quả đánh giá từ hội đồng phản biện, điểm số nhóm, trạng thái điểm danh và tải biên bản đánh giá.</p>
+          <h1 className="page-title" style={{ color: '#0F172A' }}>Kết quả & Nhận xét Review Đồ án</h1>
+          <p className="page-subtitle" style={{ color: '#475569' }}>Xem nhận xét chuyên môn từ hội đồng giảng viên, kết quả đạt yêu cầu hay không đạt và tải biên bản review.</p>
         </div>
 
         <button className="btn btn-secondary" onClick={fetchMySubmissions} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 600 }}>
@@ -90,9 +90,9 @@ const ReviewResultsPage = () => {
       {submissions.length === 0 ? (
         <div className="glass-card" style={{ padding: '4rem', textAlign: 'center', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
           <FileText size={48} color="#F26522" style={{ margin: '0 auto 1rem', opacity: 0.8 }} />
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0F172A' }}>Chưa có Báo cáo Đánh giá Phản biện nào</h3>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0F172A' }}>Chưa có Báo cáo Đánh giá Review nào</h3>
           <p style={{ color: '#64748B', fontSize: '0.875rem', maxWidth: '440px', margin: '0.5rem auto 0', lineHeight: 1.5 }}>
-            Khi Giảng viên phản biện hoàn thành đánh giá (Review 1, Review 2, hoặc Review 3) và gửi điểm chính thức, kết quả chi tiết của nhóm sẽ hiển thị tại đây.
+            Khi Giảng viên hoàn thành đánh giá (Review 1, Review 2, hoặc Review 3) và gửi điểm chính thức, kết quả chi tiết của nhóm sẽ hiển thị tại đây.
           </p>
         </div>
       ) : (
@@ -118,7 +118,7 @@ const ReviewResultsPage = () => {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                      <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>{sub.reviewType || `Vòng Phản biện #${sub.id}`}</span>
+                      <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>{sub.reviewType || `Vòng Review #${sub.id}`}</span>
                       <span className={`badge ${isSelected ? '' : getResultBadge(sub.result)}`} style={{ background: isSelected ? 'rgba(255,255,255,0.2)' : undefined, color: isSelected ? 'white' : undefined, fontWeight: 700 }}>
                         {sub.result || 'Đã chấm'}
                       </span>
@@ -146,9 +146,9 @@ const ReviewResultsPage = () => {
                       Kết quả: {selectedSubmission.result || 'Đạt (Pass)'}
                     </span>
                   </div>
-                  <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A' }}>{selectedSubmission.reviewType || 'Kết quả Phản biện Đồ án'}</h2>
+                  <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A' }}>{selectedSubmission.reviewType || 'Kết quả Review Đồ án'}</h2>
                   <p style={{ color: '#64748B', fontSize: '0.85rem' }}>
-                    Được đánh giá bởi Hội đồng Phản biện — ID Phiên: #{selectedSubmission.sessionId || selectedSubmission.id}
+                    Được đánh giá bởi Giảng viên — ID Phiên: #{selectedSubmission.sessionId || selectedSubmission.id}
                   </p>
                 </div>
 
@@ -164,14 +164,16 @@ const ReviewResultsPage = () => {
                 </div>
               </div>
 
-              {/* Score & Notes Banner */}
-              <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-                <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Điểm số Nhóm</span>
-                  <h3 style={{ fontSize: '2.75rem', fontWeight: 800, color: '#F26522', margin: '0.25rem 0' }}>
-                    {selectedSubmission.score || '8.5'}
+              {/* Verdict & Notes Banner */}
+              <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+                <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: (selectedSubmission.result === 'Fail' || selectedSubmission.result === 'Drop') ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)', border: (selectedSubmission.result === 'Fail' || selectedSubmission.result === 'Drop') ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748B', textTransform: 'uppercase' }}>KẾT QUẢ REVIEW</span>
+                  <h3 style={{ fontSize: '1.65rem', fontWeight: 800, color: (selectedSubmission.result === 'Fail' || selectedSubmission.result === 'Drop') ? '#EF4444' : '#10B981', margin: '0.4rem 0' }}>
+                    {(selectedSubmission.result === 'Fail' || selectedSubmission.result === 'Drop') ? 'KHÔNG ĐẠT' : 'ĐẠT YÊU CẦU'}
                   </h3>
-                  <span style={{ fontSize: '0.7rem', color: '#64748B' }}>thang điểm 10.0</span>
+                  <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>
+                    {(selectedSubmission.result === 'Fail' || selectedSubmission.result === 'Drop') ? 'Yêu cầu sửa chữa & bảo vệ lại' : '✓ Đủ điều kiện bước tiếp'}
+                  </span>
                 </div>
 
                 <div className="glass-panel" style={{ padding: '1.5rem', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
@@ -227,13 +229,13 @@ const ReviewResultsPage = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {comments.length === 0 ? (
                   <div style={{ padding: '1.5rem', textAlign: 'center', background: '#F8FAFC', borderRadius: 'var(--radius-md)', color: '#64748B', fontSize: '0.85rem', border: '1px solid #E2E8F0' }}>
-                    Không có nhận xét bổ sung nào cho phiên phản biện này.
+                    Không có nhận xét bổ sung nào cho phiên review này.
                   </div>
                 ) : (
                   comments.map((c, i) => (
                     <div key={i} className="glass-panel" style={{ padding: '1rem', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#F26522' }}>{c.authorName || 'Giảng viên Phản biện'}</span>
+                        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#F26522' }}>{c.authorName || 'Giảng viên'}</span>
                         <span style={{ fontSize: '0.7rem', color: '#64748B' }}>{new Date(c.createdAt || Date.now()).toLocaleString('vi-VN')}</span>
                       </div>
                       <p style={{ fontSize: '0.85rem', margin: 0, color: '#334155' }}>{c.commentText || c.content}</p>
