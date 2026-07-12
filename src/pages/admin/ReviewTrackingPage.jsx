@@ -19,71 +19,134 @@ import {
 } from 'lucide-react';
 
 const ReviewTrackingPage = () => {
-  const [selectedRound, setSelectedRound] = useState('Review1');
+  const [semesters, setSemesters] = useState([]);
+  const [selectedSemesterId, setSelectedSemesterId] = useState('');
+  
+  const [roundsList, setRoundsList] = useState([]);
+  const [selectedRound, setSelectedRound] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
-  // Real or mock data
   const [trackingData, setTrackingData] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
+  // Fetch semesters on mount
+  useEffect(() => {
+    const fetchSemesters = async () => {
+      try {
+        const semRes = await api.get('/semesters?pageSize=100');
+        const sems = Array.isArray(semRes.data) ? semRes.data : (semRes.data?.items || []);
+        setSemesters(sems);
+        if (sems.length > 0) {
+          const activeSem = sems.find(s => s.isActive) || sems[0];
+          setSelectedSemesterId(activeSem.id);
+        }
+      } catch (err) {
+        console.error('Lỗi tải danh sách kỳ học:', err);
+      }
+    };
+    fetchSemesters();
+  }, []);
+
+  // Fetch rounds when selectedSemesterId changes
+  useEffect(() => {
+    if (!selectedSemesterId) return;
+    const fetchRoundsForSemester = async () => {
+      setLoading(true);
+      try {
+        const revRoundsRes = await api.get(`/review-scheduling/rounds?semesterId=${selectedSemesterId}`).catch(() => ({ data: [] }));
+        
+        const revRounds = Array.isArray(revRoundsRes.data) ? revRoundsRes.data : [];
+        
+        const mappedRevRounds = revRounds.map(r => {
+          const typeStr = typeof r.type === 'number' 
+            ? ['Review1', 'Review2', 'Review3'][r.type] || `Review ${r.type}` 
+            : (r.type || `Review #${r.id}`);
+          const displayType = typeof r.type === 'number'
+            ? ['Review 1', 'Review 2', 'Review 3'][r.type] || `Review ${r.type}`
+            : (typeof r.type === 'string' ? r.type.replace('Review', 'Review ') : `Review #${r.id}`);
+            
+          return {
+            id: `rev_${r.id}`,
+            rawId: r.id,
+            category: 'REVIEW',
+            type: typeStr,
+            name: r.name || `Đợt ${displayType}`,
+            weekStart: r.weekStartDate || r.startDate || '2026-06-15',
+            weekEnd: r.weekEndDate || r.endDate || '',
+            status: r.status || 'Open',
+            groupCount: r.registeredGroupCount || 0
+          };
+        });
+
+        setRoundsList(mappedRevRounds);
+        setSelectedRound('ALL');
+      } catch (err) {
+        console.error('Lỗi tải danh sách đợt:', err);
+        setRoundsList([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRoundsForSemester();
+  }, [selectedSemesterId]);
+
+  const mapBoardItem = (item, roundName) => ({
+    id: item.id,
+    round: roundName,
+    groupCode: item.groupCode || `Group #${item.groupId}`,
+    projectTitle: item.projectTitle || 'Báo cáo Review Checkpoint Tiến trình',
+    sessionDate: item.sessionDate ? item.sessionDate.split('T')[0] : 'N/A',
+    slot: item.slot || 1,
+    slotTime: getSlotTime(item.slot || 1),
+    room: item.room || 'BE-401',
+    reviewers: item.reviewerIds ? item.reviewerIds.map(id => `Giảng viên #${id}`) : [],
+    studentSubmitted: item.status !== 'Scheduled' && item.status !== 'Assigned',
+    submissionTime: item.sessionDate ? item.sessionDate.split('T')[0] : 'N/A',
+    scoringStatus: item.status === 'Completed' ? 'COMPLETED' : 'PENDING',
+    result: item.status === 'Completed' ? 'Pass' : null,
+    reviewer1Result: item.status === 'Completed' ? 'Pass' : null,
+    reviewer2Result: item.status === 'Completed' ? 'Pass' : null,
+    comments: item.notes || ''
+  });
+
   const fetchTrackingData = async () => {
+    if (!selectedSemesterId) return;
     setLoading(true);
     setError('');
     try {
-      // Fetch real sessions from both checkpoint review board and defense sessions
-      const revType = selectedRound === 'ALL' ? 'Review1' : selectedRound;
-      const [boardRes, defRes] = await Promise.all([
-        api.get(`/review-scheduling/board?semesterId=1&reviewType=${revType}&weekStart=2026-07-06`).catch(() => ({ data: { sessions: [] } })),
-        api.get('/defense-sessions').catch(() => ({ data: [] }))
-      ]);
+      let mappedSessions = [];
 
-      const boardSessions = Array.isArray(boardRes.data?.sessions) ? boardRes.data.sessions : [];
-      const defenseSessions = Array.isArray(defRes.data) ? defRes.data : [];
+      if (selectedRound === 'ALL' || typeof selectedRound !== 'object') {
+        const reviewRoundsToFetch = roundsList;
+        if (reviewRoundsToFetch.length === 0) {
+          setTrackingData([]);
+          setLoading(false);
+          return;
+        }
 
-      const mappedBoard = boardSessions.map((item) => ({
-        id: item.id,
-        round: revType,
-        groupCode: item.groupCode || `Group #${item.groupId}`,
-        projectTitle: item.projectTitle || 'Capstone Project System',
-        sessionDate: item.sessionDate ? item.sessionDate.split('T')[0] : 'N/A',
-        slot: item.slot || 1,
-        slotTime: getSlotTime(item.slot || 1),
-        room: item.room || 'BE-401',
-        reviewers: item.reviewerIds ? item.reviewerIds.map(id => `Giảng viên #${id}`) : [],
-        studentSubmitted: item.status !== 'Scheduled' && item.status !== 'Assigned',
-        submissionTime: item.sessionDate ? item.sessionDate.split('T')[0] : 'N/A',
-        scoringStatus: item.status === 'Completed' ? 'COMPLETED' : 'PENDING',
-        result: item.status === 'Completed' ? 'Pass' : null,
-        reviewer1Result: item.status === 'Completed' ? 'Pass' : null,
-        reviewer2Result: item.status === 'Completed' ? 'Pass' : null,
-        comments: item.notes || ''
-      }));
+        const boardPromises = reviewRoundsToFetch.map(r => 
+          api.get(`/review-scheduling/board?semesterId=${selectedSemesterId}&reviewType=${r.type}&weekStart=${r.weekStart || '2026-06-15'}`).catch(() => ({ data: { sessions: [] } }))
+        );
 
-      const mappedDef = defenseSessions.map((item) => ({
-        id: item.id,
-        round: item.roundName || 'Defense',
-        groupCode: item.groupCode || `Group #${item.groupId}`,
-        projectTitle: item.projectTitle || 'Capstone Project System',
-        sessionDate: item.sessionDate ? item.sessionDate.split('T')[0] : 'N/A',
-        slot: item.slot || 1,
-        slotTime: getSlotTime(item.slot || 1),
-        room: item.room || 'BE-401',
-        reviewers: item.reviewers || [],
-        studentSubmitted: true,
-        submissionTime: item.sessionDate ? item.sessionDate.split('T')[0] : 'N/A',
-        scoringStatus: item.status === 'Completed' ? 'COMPLETED' : 'PENDING',
-        result: item.result || (item.averageScore >= 5 ? 'Pass' : 'Fail'),
-        reviewer1Result: item.result === 'Fail' ? 'Fail' : 'Pass',
-        reviewer2Result: item.result === 'Fail' ? 'Fail' : 'Pass',
-        comments: item.notes || ''
-      }));
+        const results = await Promise.all(boardPromises);
+        
+        for (let i = 0; i < reviewRoundsToFetch.length; i++) {
+          const boardSessions = Array.isArray(results[i].data?.sessions) ? results[i].data.sessions : [];
+          const roundName = reviewRoundsToFetch[i].name || reviewRoundsToFetch[i].type;
+          mappedSessions.push(...boardSessions.map(item => mapBoardItem(item, roundName)));
+        }
+      } else {
+        const boardRes = await api.get(`/review-scheduling/board?semesterId=${selectedSemesterId}&reviewType=${selectedRound.type}&weekStart=${selectedRound.weekStart || '2026-06-15'}`).catch(() => ({ data: { sessions: [] } }));
+        const boardSessions = Array.isArray(boardRes.data?.sessions) ? boardRes.data.sessions : [];
+        mappedSessions = boardSessions.map(item => mapBoardItem(item, selectedRound.name));
+      }
 
-      setTrackingData([...mappedBoard, ...mappedDef]);
+      setTrackingData(mappedSessions);
     } catch (err) {
       setError('Không thể tải dữ liệu theo dõi từ Database.');
       setTrackingData([]);
@@ -93,8 +156,10 @@ const ReviewTrackingPage = () => {
   };
 
   useEffect(() => {
-    fetchTrackingData();
-  }, []);
+    if (selectedSemesterId) {
+      fetchTrackingData();
+    }
+  }, [selectedSemesterId, selectedRound, roundsList]);
 
   const getSlotTime = (slotNum) => {
     switch (slotNum) {
@@ -113,14 +178,16 @@ const ReviewTrackingPage = () => {
   };
 
   const filteredList = trackingData.filter(item => {
-    const matchesRound = selectedRound === 'ALL' || item.round === selectedRound;
+    const matchesRound = selectedRound === 'ALL' || typeof selectedRound !== 'object'
+      ? true 
+      : (item.round === selectedRound.name || item.round === selectedRound.type || item.round?.includes(selectedRound.type));
     const matchesStatus = statusFilter === 'ALL' || item.scoringStatus === statusFilter;
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = !searchTerm || 
-      item.groupCode.toLowerCase().includes(searchLower) ||
-      item.projectTitle.toLowerCase().includes(searchLower) ||
-      item.room.toLowerCase().includes(searchLower) ||
-      item.reviewers.some(r => r.toLowerCase().includes(searchLower));
+      item.groupCode?.toLowerCase().includes(searchLower) ||
+      item.projectTitle?.toLowerCase().includes(searchLower) ||
+      item.room?.toLowerCase().includes(searchLower) ||
+      item.reviewers?.some(r => r.toLowerCase().includes(searchLower));
     return matchesRound && matchesStatus && matchesSearch;
   });
 
@@ -140,7 +207,7 @@ const ReviewTrackingPage = () => {
             <h1 className="page-title" style={{ color: '#0F172A', margin: 0 }}>Theo dõi Review & Phản biện</h1>
           </div>
           <p className="page-subtitle" style={{ color: '#475569', margin: 0 }}>
-            Giám sát thời gian thực việc nộp tài liệu đồ án của sinh viên và trạng thái chấm điểm từ giảng viên phản biện.
+            Giám sát thời gian thực việc nộp báo cáo checkpoint của sinh viên và trạng thái chấm điểm từ giảng viên phản biện.
           </p>
         </div>
 
@@ -181,7 +248,9 @@ const ReviewTrackingPage = () => {
               <Calendar size={20} />
             </div>
           </div>
-          <div style={{ fontSize: '0.8rem', color: '#64748B' }}>Đang lọc theo đợt <strong style={{ color: '#0F172A' }}>{selectedRound}</strong></div>
+          <div style={{ fontSize: '0.8rem', color: '#64748B' }}>
+            Đang lọc theo: <strong style={{ color: '#0F172A' }}>{selectedRound === 'ALL' || typeof selectedRound !== 'object' ? 'Tất cả các đợt' : selectedRound.name}</strong>
+          </div>
         </div>
 
         <div className="glass-card" style={{ padding: '1.25rem', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px' }}>
@@ -219,59 +288,182 @@ const ReviewTrackingPage = () => {
         </div>
       </div>
 
-      {/* Filter and Search Section */}
-      <div className="glass-card" style={{ padding: '1.25rem', marginBottom: '1.5rem', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between', alignItems: 'center' }}>
-          {/* Round selector tabs */}
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {['ALL', 'Review1', 'Review2', 'Review3'].map(round => (
+      {/* Semester Selection & Dynamic Rounds List Section */}
+      <div className="glass-card" style={{ padding: '1.25rem', marginBottom: '1.25rem', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between', alignItems: 'center', borderBottom: roundsList.length > 0 ? '1px solid #F1F5F9' : 'none', paddingBottom: roundsList.length > 0 ? '1rem' : '0', marginBottom: roundsList.length > 0 ? '1rem' : '0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div style={{ padding: '0.5rem', borderRadius: '8px', background: 'rgba(79, 70, 229, 0.1)', color: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Calendar size={20} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                Kỳ học:
+              </label>
+              <select
+                className="form-select"
+                value={selectedSemesterId}
+                onChange={(e) => setSelectedSemesterId(Number(e.target.value))}
+                style={{
+                  background: '#F8FAFC',
+                  color: '#0F172A',
+                  border: '1px solid #CBD5E1',
+                  padding: '0.45rem 2rem 0.45rem 0.75rem',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  minWidth: '220px'
+                }}
+              >
+                {semesters.map((s) => {
+                  const label = `${s.name} (${s.code}) ${s.isActive ? '• [Kỳ hiện tại]' : ''}`;
+                  return (
+                    <option key={s.id} value={s.id}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <span className="badge" style={{ background: roundsList.length > 0 ? '#EEF2FF' : '#F1F5F9', color: roundsList.length > 0 ? '#4F46E5' : '#64748B', fontWeight: 700, padding: '0.35rem 0.75rem', borderRadius: '6px' }}>
+              {roundsList.length} đợt review trong kỳ
+            </span>
+          </div>
+        </div>
+
+        {/* Dynamic Rounds List / Selector */}
+        {roundsList.length === 0 && !loading ? (
+          <div style={{ padding: '1rem 1.25rem', background: '#F8FAFC', borderRadius: '10px', border: '1px dashed #CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#475569' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4F46E5', flexShrink: 0 }}>
+                <Calendar size={18} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1E293B' }}>Chưa có đợt review phản biện nào được tạo cho kỳ học này</div>
+                <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '0.15rem' }}>Vui lòng chọn kỳ học khác ở danh sách trên hoặc chuyển sang trang Quản lý Đợt & Xếp lịch Review để thiết lập đợt mới.</div>
+              </div>
+            </div>
+            <a 
+              href="/admin/review-management" 
+              style={{ 
+                padding: '0.5rem 1rem', 
+                background: '#4F46E5', 
+                color: '#FFFFFF', 
+                borderRadius: '8px', 
+                fontWeight: 600, 
+                fontSize: '0.825rem', 
+                textDecoration: 'none', 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '0.35rem',
+                boxShadow: '0 2px 6px rgba(79, 70, 229, 0.25)',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <span>Thiết lập đợt review</span>
+              <ArrowRight size={14} />
+            </a>
+          </div>
+        ) : (
+          <div>
+            <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginRight: '0.25rem' }}>
+                Lọc theo đợt:
+              </span>
               <button
-                key={round}
-                onClick={() => setSelectedRound(round)}
+                onClick={() => setSelectedRound('ALL')}
                 style={{
                   padding: '0.5rem 1rem',
                   borderRadius: '8px',
-                  fontWeight: 600,
+                  fontWeight: 700,
                   fontSize: '0.825rem',
-                  border: selectedRound === round ? '1px solid #4F46E5' : '1px solid #CBD5E1',
-                  background: selectedRound === round ? '#4F46E5' : '#F8FAFC',
-                  color: selectedRound === round ? '#FFFFFF' : '#475569',
+                  border: selectedRound === 'ALL' ? '1.5px solid #4F46E5' : '1px solid #CBD5E1',
+                  background: selectedRound === 'ALL' ? 'linear-gradient(135deg, #4F46E5, #6366F1)' : '#F8FAFC',
+                  color: selectedRound === 'ALL' ? '#FFFFFF' : '#475569',
                   cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  boxShadow: selectedRound === 'ALL' ? '0 2px 8px rgba(79, 70, 229, 0.25)' : 'none',
                   transition: 'all 0.15s ease'
                 }}
               >
-                {round === 'ALL' ? 'Tất cả các đợt' : `Đợt ${round}`}
+                <span>Tất cả các đợt ({roundsList.length})</span>
               </button>
-            ))}
+
+              {roundsList.map((round) => {
+                const isSelected = selectedRound?.id === round.id;
+                return (
+                  <button
+                    key={round.id}
+                    onClick={() => setSelectedRound(round)}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      fontSize: '0.825rem',
+                      border: isSelected ? '1.5px solid #4F46E5' : '1px solid #CBD5E1',
+                      background: isSelected ? 'linear-gradient(135deg, #4F46E5, #6366F1)' : '#FFFFFF',
+                      color: isSelected ? '#FFFFFF' : '#0F172A',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      boxShadow: isSelected ? '0 2px 8px rgba(79, 70, 229, 0.25)' : 'none',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <span>{round.name}</span>
+                    <span style={{
+                      background: isSelected ? 'rgba(255, 255, 255, 0.22)' : (round.status === 'Open' || round.status === 'Published' ? '#DCFCE7' : '#F1F5F9'),
+                      color: isSelected ? '#FFF' : (round.status === 'Open' || round.status === 'Published' ? '#15803D' : '#64748B'),
+                      padding: '0.1rem 0.4rem',
+                      borderRadius: '4px',
+                      fontSize: '0.68rem',
+                      textTransform: 'uppercase',
+                      fontWeight: 700
+                    }}>
+                      {round.status}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Search & Status Filter Section */}
+      <div className="glass-card" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '240px', flex: 1, maxWidth: '400px' }}>
+            <Search size={18} color="#64748B" />
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Tìm mã nhóm, đề tài, giảng viên, phòng..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ width: '100%', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', padding: '0.5rem 0.85rem', borderRadius: '8px' }}
+            />
           </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '220px', flex: 1, maxWidth: '320px' }}>
-              <Search size={18} color="#64748B" />
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Tìm mã nhóm, đề tài, phòng..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ width: '100%', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', padding: '0.45rem 0.75rem' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Filter size={18} color="#64748B" />
-              <select
-                className="form-select"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', padding: '0.45rem 0.75rem', fontWeight: 600 }}
-              >
-                <option value="ALL">Tất cả trạng thái</option>
-                <option value="COMPLETED">Đã có kết quả review</option>
-                <option value="PENDING">Đang chờ đánh giá</option>
-                <option value="OVERDUE_SUBMISSION">SV chưa nộp bài</option>
-              </select>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Filter size={18} color="#64748B" />
+            <select
+              className="form-select"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', padding: '0.5rem 0.85rem', fontWeight: 600, borderRadius: '8px' }}
+            >
+              <option value="ALL">Tất cả trạng thái</option>
+              <option value="COMPLETED">Đã có kết quả review</option>
+              <option value="PENDING">Đang chờ đánh giá</option>
+              <option value="OVERDUE_SUBMISSION">SV chưa nộp bài</option>
+            </select>
           </div>
         </div>
       </div>
@@ -283,9 +475,9 @@ const ReviewTrackingPage = () => {
             <thead>
               <tr>
                 <th>KHUNG GIỜ / PHÒNG</th>
-                <th>NHÓM ĐỒ ÁN</th>
+                <th>NHÓM SINH VIÊN</th>
                 <th>GIẢNG VIÊN PHẢN BIỆN</th>
-                <th>TÀI LIỆU SINH VIÊN</th>
+                <th>BÁO CÁO CHECKPOINT</th>
                 <th>KẾT QUẢ ĐÁNH GIÁ</th>
                 <th style={{ textAlign: 'right' }}>THAO TÁC</th>
               </tr>

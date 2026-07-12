@@ -157,7 +157,7 @@ const ReviewScoringPage = () => {
     <div className="page-container animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title" style={{ color: '#0F172A' }}>Nhận xét & Đánh giá Review Đồ án</h1>
+          <h1 className="page-title" style={{ color: '#0F172A' }}>Nhận xét & Đánh giá Review Checkpoint</h1>
           <p className="page-subtitle" style={{ color: '#475569' }}>Điểm danh sinh viên, nhập ý kiến nhận xét chuyên môn và đánh giá kết quả (Đạt yêu cầu / Không đạt).</p>
         </div>
 
@@ -308,7 +308,7 @@ const ReviewScoringPage = () => {
                           attendanceList.map((att, idx) => (
                             <tr key={att.studentId || idx}>
                               <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontWeight: 700 }}>{att.studentCode || `SE#${att.studentId}`}</span></td>
-                              <td style={{ fontWeight: 600, color: '#0F172A' }}>{att.studentName || 'Sinh viên Đồ án'}</td>
+                              <td style={{ fontWeight: 600, color: '#0F172A' }}>{att.studentName || 'Sinh viên Nhóm'}</td>
                               <td>
                                 <span className="badge" style={{
                                   background: att.isPresent !== false ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
@@ -367,7 +367,7 @@ const ReviewScoringPage = () => {
                         rows="3"
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Chi tiết góp ý về kiến trúc, các lỗi cần khắc phục, tiến độ đồ án..."
+                        placeholder="Chi tiết góp ý về kiến trúc, các lỗi cần khắc phục, tiến độ checkpoint..."
                         style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
                         required
                       />
@@ -385,7 +385,7 @@ const ReviewScoringPage = () => {
                 <div>
                   <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem', color: '#0F172A' }}>Kết quả & Nhận xét Đánh giá Chính thức</h3>
                   <p style={{ fontSize: '0.8rem', color: '#64748B', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-                    Theo quy chế review đồ án, giảng viên tập trung đưa ra các ý kiến góp ý chuyên môn và đánh giá mức độ đáp ứng tiến độ của nhóm: Đạt yêu cầu (Pass) hoặc Không đạt (Fail).
+                    Theo quy chế review checkpoint, giảng viên tập trung đưa ra các ý kiến góp ý chuyên môn và đánh giá mức độ đáp ứng tiến độ của nhóm: Đạt yêu cầu (Pass) hoặc Không đạt (Fail).
                   </p>
 
                   <div className="form-group" style={{ marginBottom: '1.5rem' }}>

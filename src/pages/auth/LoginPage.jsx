@@ -109,7 +109,7 @@ const LoginPage = () => {
             </div>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A' }}>Cổng thông tin CPMS</h1>
             <p style={{ color: '#475569', fontSize: '0.875rem', marginTop: '0.375rem', fontWeight: 500 }}>
-              Hệ thống Quản lý & Đánh giá Đồ án Tốt nghiệp SEP490 - Đại học FPT
+              Hệ thống Quản lý & Review Checkpoint - Đại học FPT
             </p>
           </div>
 

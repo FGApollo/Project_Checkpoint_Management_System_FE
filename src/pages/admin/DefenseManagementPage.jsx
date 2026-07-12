@@ -164,8 +164,8 @@ const DefenseManagementPage = () => {
     <div className="page-container animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title" style={{ color: '#0F172A' }}>Quản lý Hội đồng & Lịch Bảo vệ Đồ án</h1>
-          <p className="page-subtitle" style={{ color: '#475569' }}>Thiết lập các đợt bảo vệ, thành lập hội đồng 5 thành viên hoặc 3 thành viên, và phân công ca bảo vệ đồ án.</p>
+          <h1 className="page-title" style={{ color: '#0F172A' }}>Quản lý Hội đồng & Lịch Bảo vệ Checkpoint</h1>
+          <p className="page-subtitle" style={{ color: '#475569' }}>Thiết lập các đợt bảo vệ, thành lập hội đồng 5 thành viên hoặc 3 thành viên, và phân công ca bảo vệ checkpoint.</p>
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -370,10 +370,10 @@ const DefenseManagementPage = () => {
             <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <ShieldAlert size={20} color="#EF4444" />
             </div>
-            <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0F172A' }}>Phân công Lịch Bảo vệ cho Nhóm Đồ án</h3>
+            <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0F172A' }}>Phân công Lịch Bảo vệ cho Nhóm Checkpoint</h3>
           </div>
           <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem', lineHeight: 1.4 }}>
-            Phân công nhóm đồ án vào hội đồng bảo vệ (`POST /defense-management/sessions`). Hệ thống tự động kiểm tra và ngăn chặn tuyệt đối xung đột giảng viên hướng dẫn (GVHD không được tham gia hội đồng chấm nhóm của mình).
+            Phân công nhóm checkpoint vào hội đồng bảo vệ (`POST /defense-management/sessions`). Hệ thống tự động kiểm tra và ngăn chặn tuyệt đối xung đột giảng viên hướng dẫn (GVHD không được tham gia hội đồng chấm nhóm của mình).
           </p>
 
           <form onSubmit={handleAssignSession}>
@@ -383,7 +383,7 @@ const DefenseManagementPage = () => {
                 <input type="number" className="form-input" value={sessCouncilId} onChange={(e) => setSessCouncilId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
               </div>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Nhóm Đồ án</label>
+                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Nhóm Checkpoint</label>
                 <input type="number" className="form-input" value={sessGroupId} onChange={(e) => setSessGroupId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
               </div>
             </div>

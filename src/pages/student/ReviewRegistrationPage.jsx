@@ -20,9 +20,18 @@ const SLOTS = [
   { id: 5, name: 'Slot 5', time: '14:30 – 16:00' },
 ];
 
+const formatReviewType = (type) => {
+  if (type === 'Review1' || type === 0) return 'Review 1';
+  if (type === 'Review2' || type === 1) return 'Review 2';
+  if (type === 'Review3' || type === 2) return 'Review 3';
+  if (typeof type === 'string' && type.startsWith('Review')) return type.replace('Review', 'Review ');
+  return type || 'Review Checkpoint';
+};
+
 const ReviewRegistrationPage = () => {
   const { user } = useAuth();
   const [step, setStep] = useState(1); // 1: Chọn Đợt Review Hub, 2: Bảng chọn Slot 30 ô
+  const [semesters, setSemesters] = useState([]);
   const [semesterId, setSemesterId] = useState(1);
   const [groupId, setGroupId] = useState(user?.groupId || user?.group?.id || 1);
 
@@ -31,7 +40,7 @@ const ReviewRegistrationPage = () => {
       setGroupId(user.groupId || user?.group?.id);
     }
   }, [user]);
-  const [reviewType, setReviewType] = useState('Review1');
+  const [reviewType, setReviewType] = useState('Review 1');
   const [selectedSlots, setSelectedSlots] = useState([]); // Array of { dayOfWeek, slot }
 
   const [rounds, setRounds] = useState([]);
@@ -46,37 +55,35 @@ const ReviewRegistrationPage = () => {
 
   const handleSelectRoundStep2 = (roundObj) => {
     setSelectedRoundId(roundObj.id);
-    setSemesterId(roundObj.semesterId || 1);
-    setReviewType(roundObj.description || roundObj.type || 'Review1');
+    setSemesterId(roundObj.semesterId || semesterId);
+    setReviewType(formatReviewType(roundObj.type));
     updateRoundStatus(roundObj);
     setStep(2);
   };
 
-  const fetchRounds = async () => {
+  const fetchRounds = async (semId) => {
+    const targetSem = semId !== undefined ? semId : semesterId;
+    setLoading(true);
     try {
-      const [defRes, revRes] = await Promise.all([
-        api.get('/defense-management/rounds').catch(() => ({ data: [] })),
-        api.get('/student-review/rounds').catch(() => ({ data: [] }))
-      ]);
-      const list1 = Array.isArray(defRes.data) ? defRes.data : (defRes.data?.items || []);
-      const list2 = Array.isArray(revRes.data) ? revRes.data : [];
-      // Combine avoiding duplicates by id
-      const combined = [...list1];
-      list2.forEach(item => {
-        if (!combined.some(c => c.id === item.id)) {
-          combined.push(item);
-        }
-      });
-      setRounds(combined);
-      if (combined.length > 0 && !selectedRoundId) {
-        const first = combined[0];
+      const revRes = await api.get(`/student-review/rounds?semesterId=${targetSem}`).catch(() => ({ data: [] }));
+      let list = Array.isArray(revRes.data) ? revRes.data : [];
+      if (list.length === 0) {
+        const fallbackRes = await api.get(`/review-scheduling/rounds?semesterId=${targetSem}`).catch(() => ({ data: [] }));
+        list = Array.isArray(fallbackRes.data) ? fallbackRes.data : [];
+      }
+      setRounds(list);
+      if (list.length > 0 && (!selectedRoundId || !list.some(r => r.id === selectedRoundId))) {
+        const first = list[0];
         setSelectedRoundId(first.id);
-        setSemesterId(first.semesterId || 1);
-        setReviewType(first.description || first.type || 'Review1');
+        setReviewType(formatReviewType(first.type));
         updateRoundStatus(first);
+      } else if (list.length === 0) {
+        setSelectedRoundId('');
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -95,10 +102,17 @@ const ReviewRegistrationPage = () => {
     setSelectedRoundId(rId);
     const found = rounds.find(r => r.id === rId);
     if (found) {
-      setSemesterId(found.semesterId || 1);
-      setReviewType(found.description || found.type || 'Review1');
+      setSemesterId(found.semesterId || semesterId);
+      setReviewType(formatReviewType(found.type));
       updateRoundStatus(found);
     }
+  };
+
+  const handleSemesterChange = (newSemId) => {
+    const numId = Number(newSemId);
+    setSemesterId(numId);
+    setSelectedRoundId('');
+    fetchRounds(numId);
   };
 
   const fetchData = async () => {
@@ -138,7 +152,23 @@ const ReviewRegistrationPage = () => {
   };
 
   useEffect(() => {
-    fetchRounds();
+    const initData = async () => {
+      try {
+        const semRes = await api.get('/semesters?pageSize=100');
+        const sems = Array.isArray(semRes.data) ? semRes.data : (semRes.data?.items || []);
+        setSemesters(sems);
+        if (sems.length > 0) {
+          const activeSem = sems.find(s => s.isActive) || sems[0];
+          setSemesterId(activeSem.id);
+          fetchRounds(activeSem.id);
+          return;
+        }
+      } catch (err) {
+        console.error('Lỗi tải kỳ học:', err);
+      }
+      fetchRounds(semesterId);
+    };
+    initData();
   }, []);
 
   useEffect(() => {
@@ -210,23 +240,41 @@ const ReviewRegistrationPage = () => {
           <div className="page-header" style={{ marginBottom: '2rem' }}>
             <div>
               <h1 className="page-title" style={{ color: '#0F172A', fontSize: '1.8rem', fontWeight: 850 }}>
-                Đăng ký Nguyện vọng Lịch Review & Bảo vệ
+                Đăng ký Nguyện vọng Lịch Review Checkpoint
               </h1>
               <p className="page-subtitle" style={{ color: '#475569', fontSize: '0.95rem' }}>
-                Bước 1: Vui lòng chọn một Đợt chấm tiến trình (Checkpoint / Defense) từ danh sách dưới đây để bắt đầu chọn khung giờ rảnh cho nhóm.
+                Bước 1: Vui lòng chọn Học kỳ và Đợt chấm tiến trình (Review Checkpoint) từ danh sách dưới đây để bắt đầu chọn khung giờ rảnh cho nhóm.
               </p>
             </div>
 
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              {semesters.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#F8FAFC', padding: '0.4rem 0.8rem', borderRadius: '12px', border: '1px solid #CBD5E1' }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#334155' }}>Học kỳ:</span>
+                  <select
+                    className="form-select"
+                    value={semesterId}
+                    onChange={(e) => handleSemesterChange(e.target.value)}
+                    style={{ border: 'none', background: 'transparent', fontWeight: 750, color: '#4F46E5', fontSize: '0.92rem', cursor: 'pointer', outline: 'none' }}
+                  >
+                    {semesters.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.code}) {s.isActive ? '• [Hiện tại]' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', background: '#FFF7ED', padding: '0.6rem 1.25rem', borderRadius: '12px', border: '1px solid #FFEDD5', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                 <Users size={18} color="#F26522" />
-                <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#334155' }}>Nhóm đồ án của bạn:</span>
+                <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#334155' }}>Nhóm checkpoint của bạn:</span>
                 <span className="badge" style={{ background: '#F26522', color: '#FFFFFF', fontWeight: 850, fontSize: '0.92rem', padding: '0.35rem 0.85rem', borderRadius: '8px' }}>
                   Nhóm #{groupId}
                 </span>
               </div>
 
-              <button className="btn btn-secondary" onClick={fetchRounds} disabled={loading} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.2rem', borderRadius: '12px' }}>
+              <button className="btn btn-secondary" onClick={() => fetchRounds()} disabled={loading} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.2rem', borderRadius: '12px' }}>
                 <RefreshCw size={16} color="#F26522" />
                 <span>Tải lại Đợt</span>
               </button>
@@ -250,11 +298,11 @@ const ReviewRegistrationPage = () => {
           {rounds.length === 0 ? (
             <div className="glass-card" style={{ padding: '4.5rem 2rem', textAlign: 'center', background: '#FFFFFF', border: '1px dashed #CBD5E1', borderRadius: '20px' }}>
               <BookOpen size={52} color="#CBD5E1" style={{ margin: '0 auto 1.25rem' }} />
-              <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#334155', marginBottom: '0.5rem' }}>Chưa có Đợt Review/Checkpoint nào được tạo</h3>
+              <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#334155', marginBottom: '0.5rem' }}>Chưa có Đợt Review Checkpoint nào được tạo cho học kỳ này</h3>
               <p style={{ color: '#64748B', maxWidth: '520px', margin: '0 auto 1.5rem', lineHeight: 1.6 }}>
-                Hiện tại Ban quản lý (Admin / Trưởng bộ môn) chưa mở hoặc chưa công bố đợt chấm tiến trình nào cho học kỳ này. Bạn vui lòng quay lại sau!
+                Hiện tại Ban quản lý (Admin / Trưởng bộ môn) chưa mở hoặc chưa tạo đợt chấm tiến trình nào cho học kỳ đang chọn. Bạn vui lòng kiểm tra kỳ học hoặc quay lại sau!
               </p>
-              <button className="btn btn-primary" onClick={fetchRounds} style={{ padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '12px' }}>
+              <button className="btn btn-primary" onClick={() => fetchRounds()} style={{ padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '12px' }}>
                 <RefreshCw size={18} />
                 <span>Kiểm tra lại ngay</span>
               </button>
@@ -287,7 +335,7 @@ const ReviewRegistrationPage = () => {
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', gap: '0.5rem' }}>
                         <span className="badge" style={{ background: 'rgba(242, 101, 34, 0.12)', color: '#F26522', fontWeight: 800, fontSize: '0.8rem', padding: '0.4rem 0.85rem', borderRadius: '8px' }}>
-                          {r.description || r.type || 'Checkpoint Review'}
+                          {formatReviewType(r.type)}
                         </span>
                         <span className="badge" style={{
                           background: isOpen ? '#DCFCE7' : '#FEE2E2',
@@ -306,17 +354,17 @@ const ReviewRegistrationPage = () => {
                       </div>
 
                       <h3 style={{ fontSize: '1.3rem', fontWeight: 850, color: '#0F172A', marginBottom: '0.5rem', lineHeight: 1.35 }}>
-                        {r.name}
+                        Đợt {formatReviewType(r.type)}
                       </h3>
                       <p style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                         <Sparkles size={16} color="#F26522" />
-                        <span>Mã đợt: <strong>{r.code || `R-${r.id}`}</strong> | Học kỳ ID: <strong>#{r.semesterId || 1}</strong></span>
+                        <span>Mã đợt: <strong>{`REV-${r.id}`}</strong> | Học kỳ ID: <strong>#{r.semesterId || semesterId}</strong></span>
                       </p>
 
                       <div style={{ background: '#F8FAFC', padding: '1.15rem', borderRadius: '14px', border: '1px solid #F1F5F9', marginBottom: '1.75rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontSize: '0.88rem', color: '#334155', fontWeight: 650 }}>
                           <Calendar size={17} color="#3B82F6" />
-                          <span>Thời gian: <strong>{r.startDate || r.weekStartDate ? new Date(r.startDate || r.weekStartDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{r.endDate || r.weekEndDate ? new Date(r.endDate || r.weekEndDate).toLocaleDateString('vi-VN') : '---'}</strong></span>
+                          <span>Thời gian: <strong>{r.weekStartDate ? new Date(r.weekStartDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{r.weekEndDate ? new Date(r.weekEndDate).toLocaleDateString('vi-VN') : '---'}</strong></span>
                         </div>
                       </div>
                     </div>
@@ -354,7 +402,7 @@ const ReviewRegistrationPage = () => {
           <div className="glass-card" style={{ padding: '1.75rem', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '20px' }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 850, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#0F172A' }}>
               <Layers size={22} color="#F26522" />
-              <span>Lịch Review & Bảo vệ Chính thức của Nhóm #{groupId}</span>
+              <span>Lịch Review Checkpoint Chính thức của Nhóm #{groupId}</span>
             </h3>
 
             {mySchedules.length === 0 ? (
@@ -438,14 +486,14 @@ const ReviewRegistrationPage = () => {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
                   <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 850, color: '#0F172A' }}>
-                    {currentRound?.name} ({currentRound?.code})
+                    Đợt {formatReviewType(currentRound?.type || reviewType)} (REV-{currentRound?.id || selectedRoundId})
                   </h2>
                   <span className="badge" style={{ background: 'rgba(242, 101, 34, 0.15)', color: '#F26522', fontWeight: 800, fontSize: '0.8rem', padding: '0.35rem 0.75rem', borderRadius: '8px' }}>
-                    {reviewType}
+                    {formatReviewType(reviewType)}
                   </span>
                 </div>
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.88rem', color: '#64748B', fontWeight: 600 }}>
-                  Thời gian: <strong>{currentRound?.startDate || currentRound?.weekStartDate ? new Date(currentRound?.startDate || currentRound?.weekStartDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{currentRound?.endDate || currentRound?.weekEndDate ? new Date(currentRound?.endDate || currentRound?.weekEndDate).toLocaleDateString('vi-VN') : '---'}</strong> | Đang thao tác cho Nhóm ID: <strong style={{ color: '#F26522' }}>#{groupId}</strong>
+                  Thời gian: <strong>{currentRound?.weekStartDate ? new Date(currentRound?.weekStartDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{currentRound?.weekEndDate ? new Date(currentRound?.weekEndDate).toLocaleDateString('vi-VN') : '---'}</strong> | Đang thao tác cho Nhóm ID: <strong style={{ color: '#F26522' }}>#{groupId}</strong>
                 </p>
               </div>
             </div>

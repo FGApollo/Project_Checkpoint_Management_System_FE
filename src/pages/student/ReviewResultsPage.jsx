@@ -70,7 +70,7 @@ const ReviewResultsPage = () => {
     <div className="page-container animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title" style={{ color: '#0F172A' }}>Kết quả & Nhận xét Review Đồ án</h1>
+          <h1 className="page-title" style={{ color: '#0F172A' }}>Kết quả & Nhận xét Review Checkpoint</h1>
           <p className="page-subtitle" style={{ color: '#475569' }}>Xem nhận xét chuyên môn từ hội đồng giảng viên, kết quả đạt yêu cầu hay không đạt và tải biên bản review.</p>
         </div>
 
@@ -146,7 +146,7 @@ const ReviewResultsPage = () => {
                       Kết quả: {selectedSubmission.result || 'Đạt (Pass)'}
                     </span>
                   </div>
-                  <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A' }}>{selectedSubmission.reviewType || 'Kết quả Review Đồ án'}</h2>
+                  <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A' }}>{selectedSubmission.reviewType || 'Kết quả Review Checkpoint'}</h2>
                   <p style={{ color: '#64748B', fontSize: '0.85rem' }}>
                     Được đánh giá bởi Giảng viên — ID Phiên: #{selectedSubmission.sessionId || selectedSubmission.id}
                   </p>
@@ -182,7 +182,7 @@ const ReviewResultsPage = () => {
                     <span>Nhận xét Tổng hợp của Giảng viên</span>
                   </h4>
                   <p style={{ fontSize: '0.9rem', color: '#334155', lineHeight: 1.6, margin: 0 }}>
-                    {selectedSubmission.notes || 'Nhóm trình bày đáp ứng yêu cầu kiến trúc và chức năng đồ án. Các mục tiêu học tập (CLO) đã được bao phủ đầy đủ trong giải pháp kỹ thuật.'}
+                    {selectedSubmission.notes || 'Nhóm trình bày đáp ứng yêu cầu tiến độ và nội dung checkpoint. Các mục tiêu học tập đã được bao phủ tốt.'}
                   </p>
                 </div>
               </div>

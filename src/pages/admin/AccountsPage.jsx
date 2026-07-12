@@ -275,7 +275,7 @@ const AccountsPage = () => {
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
                 >
-                  <option value="Student">Sinh viên (Thành viên Nhóm Đồ án)</option>
+                  <option value="Student">Sinh viên (Thành viên Nhóm Checkpoint)</option>
                   <option value="Lecturer">Giảng viên (Chấm checkpoint, Hướng dẫn)</option>
                   <option value="TrainingDepartment">Moderator (Điều phối viên / Quản trị hệ thống)</option>
                 </select>

@@ -78,7 +78,7 @@ const ExcelImportPage = () => {
       <div className="page-header">
         <div>
           <h1 className="page-title" style={{ color: '#0F172A' }}>Nhập dữ liệu Học kỳ từ Excel (.xlsx)</h1>
-          <p className="page-subtitle" style={{ color: '#475569' }}>Nhập hàng loạt danh sách đề tài, nhóm đồ án, sinh viên và giảng viên hướng dẫn SEP490.</p>
+          <p className="page-subtitle" style={{ color: '#475569' }}>Nhập hàng loạt danh sách đề tài, nhóm checkpoint, sinh viên và giảng viên hướng dẫn SEP490.</p>
         </div>
       </div>
 
@@ -108,7 +108,7 @@ const ExcelImportPage = () => {
             <div style={{ padding: '1.25rem', textAlign: 'center', background: '#F8FAFC', borderRadius: 'var(--radius-md)', border: '1px solid #E2E8F0' }}>
               <Layers size={22} color="#F26522" style={{ margin: '0 auto 0.5rem' }} />
               <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A' }}>{result.groupsCreated}</h3>
-              <span style={{ fontSize: '0.75rem', color: '#64748B' }}>Nhóm Đồ án được tạo</span>
+              <span style={{ fontSize: '0.75rem', color: '#64748B' }}>Nhóm Checkpoint được tạo</span>
             </div>
 
             <div style={{ padding: '1.25rem', textAlign: 'center', background: '#F8FAFC', borderRadius: 'var(--radius-md)', border: '1px solid #E2E8F0' }}>
@@ -211,10 +211,10 @@ const ExcelImportPage = () => {
         </h4>
         <ul style={{ fontSize: '0.85rem', color: '#475569', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '0.75rem', paddingLeft: '1.25rem' }}>
           <li>Tự động từ chối các hàng thiếu dữ liệu bắt buộc hoặc sai định dạng.</li>
-          <li>Ngăn chặn trùng lặp mã số sinh viên (MSSV) giữa các nhóm đồ án.</li>
+          <li>Ngăn chặn trùng lặp mã số sinh viên (MSSV) giữa các nhóm checkpoint.</li>
           <li>Kiểm tra và loại bỏ các ô chứa lỗi công thức Excel (#REF!, #DIV/0!, #VALUE!).</li>
           <li>Tự động liên kết giảng viên hướng dẫn dựa theo chính xác mã số giảng viên.</li>
-          <li>Tạo cấu trúc nhóm đồ án thuộc học kỳ đang được tra cứu trong hệ thống.</li>
+          <li>Tạo cấu trúc nhóm checkpoint thuộc học kỳ đang được tra cứu trong hệ thống.</li>
         </ul>
       </div>
     </div>

@@ -43,7 +43,7 @@ const AdminDashboard = () => {
         <div>
           <h1 className="page-title" style={{ color: '#0F172A' }}>Dashboard</h1>
           <p className="page-subtitle" style={{ color: '#64748B' }}>
-            Xin chào, <strong>{user?.fullName || user?.username}</strong>. Tổng quan hệ thống chấm checkpoint đồ án.
+            Xin chào, <strong>{user?.fullName || user?.username}</strong>. Tổng quan hệ thống theo dõi và đánh giá review checkpoint.
           </p>
         </div>
       </div>

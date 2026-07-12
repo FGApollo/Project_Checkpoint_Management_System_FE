@@ -252,7 +252,7 @@ const DefenseRoomPage = () => {
             onChange={(e) => { setSelectedSessionId(e.target.value); setSearchParams({ session: e.target.value }); }}
             style={{ minWidth: '220px', fontWeight: 600, background: '#FFFFFF', color: '#0F172A', border: '1px solid #CBD5E1' }}
           >
-            <option value="">-- Chọn Phiên Bảo vệ Đồ án --</option>
+            <option value="">-- Chọn Phiên Bảo vệ Checkpoint --</option>
             {mySessions.map((s) => (
               <option key={s.id} value={s.id || s.code}>
                 {s.code || `Phiên #${s.id}`} — {s.sessionDate} (Ca {s.slot})
@@ -301,7 +301,7 @@ const DefenseRoomPage = () => {
                   )}
                 </div>
                 <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0F172A' }}>
-                  Phiên Bảo vệ Đồ án: Nhóm {sessionState.groupCode || `#${sessionState.groupId}`}
+                  Phiên Bảo vệ Checkpoint: Nhóm {sessionState.groupCode || `#${sessionState.groupId}`}
                 </h2>
                 <p style={{ fontSize: '0.8rem', color: '#64748B' }}>
                   Ngày: {sessionState.sessionDate} — Ca {sessionState.slot} — Phòng: {sessionState.room || 'N/A'}
@@ -368,7 +368,7 @@ const DefenseRoomPage = () => {
                 <div>
                   <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>Phiếu Chấm điểm của Thành viên Hội đồng (`0.0 đến 10.0`)</h3>
                   <p style={{ fontSize: '0.8rem', color: '#64748B' }}>
-                    Đánh giá riêng biệt theo 2 tiêu chí: Điểm Bảo vệ Đồ án chung (`ChamBaoVe`) và Điểm Hỏi đáp/Vấn đáp Cá nhân (`ChamNguoi`).
+                    Đánh giá riêng biệt theo 2 tiêu chí: Điểm Bảo vệ Checkpoint chung (`ChamBaoVe`) và Điểm Hỏi đáp/Vấn đáp Cá nhân (`ChamNguoi`).
                   </p>
                 </div>
               </div>
@@ -379,7 +379,7 @@ const DefenseRoomPage = () => {
                     <tr>
                       <th>Mã SV</th>
                       <th>Họ và tên Sinh viên</th>
-                      <th style={{ minWidth: '180px' }}>Điểm Bảo vệ Đồ án (ChamBaoVe)</th>
+                      <th style={{ minWidth: '180px' }}>Điểm Bảo vệ Checkpoint (ChamBaoVe)</th>
                       <th style={{ minWidth: '180px' }}>Điểm Vấn đáp Cá nhân (ChamNguoi)</th>
                       <th>Thao tác</th>
                     </tr>

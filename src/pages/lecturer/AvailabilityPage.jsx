@@ -19,8 +19,17 @@ const SLOTS = [
   { id: 5, name: 'Slot 5', time: '14:30 – 16:00' },
 ];
 
+const formatReviewType = (type) => {
+  if (type === 'Review1' || type === 0) return 'Review 1';
+  if (type === 'Review2' || type === 1) return 'Review 2';
+  if (type === 'Review3' || type === 2) return 'Review 3';
+  if (typeof type === 'string' && type.startsWith('Review')) return type.replace('Review', 'Review ');
+  return type || 'Review Checkpoint';
+};
+
 const AvailabilityPage = () => {
   const [step, setStep] = useState(1); // 1: Chọn Đợt Review Hub, 2: Bảng Khai báo 30 ô
+  const [semesters, setSemesters] = useState([]);
   const [semesterId, setSemesterId] = useState(1);
   const [weekStart, setWeekStart] = useState('2026-06-15');
   const [selectedSlots, setSelectedSlots] = useState([]);
@@ -34,24 +43,29 @@ const AvailabilityPage = () => {
 
   const handleSelectRoundStep2 = (roundObj) => {
     setSelectedRoundId(roundObj.id);
-    setSemesterId(roundObj.semesterId || 1);
-    if (roundObj.startDate) setWeekStart(roundObj.startDate);
+    setSemesterId(roundObj.semesterId || semesterId);
+    if (roundObj.weekStartDate || roundObj.startDate) setWeekStart(roundObj.weekStartDate || roundObj.startDate);
     setStep(2);
   };
 
-  const fetchRounds = async () => {
+  const fetchRounds = async (semId) => {
+    const targetSem = semId !== undefined ? semId : semesterId;
+    setLoading(true);
     try {
-      const res = await api.get('/defense-management/rounds').catch(() => ({ data: [] }));
+      const res = await api.get(`/review-scheduling/rounds?semesterId=${targetSem}`).catch(() => ({ data: [] }));
       const list = Array.isArray(res.data) ? res.data : (res.data?.items || []);
       setRounds(list);
-      if (list.length > 0 && !selectedRoundId) {
+      if (list.length > 0 && (!selectedRoundId || !list.some(r => r.id === selectedRoundId))) {
         const first = list[0];
         setSelectedRoundId(first.id);
-        setSemesterId(first.semesterId || 1);
-        if (first.startDate) setWeekStart(first.startDate);
+        if (first.weekStartDate || first.startDate) setWeekStart(first.weekStartDate || first.startDate);
+      } else if (list.length === 0) {
+        setSelectedRoundId('');
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -60,9 +74,16 @@ const AvailabilityPage = () => {
     setSelectedRoundId(rId);
     const found = rounds.find(r => r.id === rId);
     if (found) {
-      setSemesterId(found.semesterId || 1);
-      if (found.startDate) setWeekStart(found.startDate);
+      setSemesterId(found.semesterId || semesterId);
+      if (found.weekStartDate || found.startDate) setWeekStart(found.weekStartDate || found.startDate);
     }
+  };
+
+  const handleSemesterChange = (newSemId) => {
+    const numId = Number(newSemId);
+    setSemesterId(numId);
+    setSelectedRoundId('');
+    fetchRounds(numId);
   };
 
   const fetchAvailability = async () => {
@@ -83,7 +104,23 @@ const AvailabilityPage = () => {
   };
 
   useEffect(() => {
-    fetchRounds();
+    const initData = async () => {
+      try {
+        const semRes = await api.get('/semesters?pageSize=100');
+        const sems = Array.isArray(semRes.data) ? semRes.data : (semRes.data?.items || []);
+        setSemesters(sems);
+        if (sems.length > 0) {
+          const activeSem = sems.find(s => s.isActive) || sems[0];
+          setSemesterId(activeSem.id);
+          fetchRounds(activeSem.id);
+          return;
+        }
+      } catch (err) {
+        console.error('Lỗi tải kỳ học:', err);
+      }
+      fetchRounds(semesterId);
+    };
+    initData();
   }, []);
 
   useEffect(() => {
@@ -165,15 +202,33 @@ const AvailabilityPage = () => {
           <div className="page-header" style={{ marginBottom: '2rem' }}>
             <div>
               <h1 className="page-title" style={{ color: '#0F172A', fontSize: '1.8rem', fontWeight: 850 }}>
-                Khai báo Lịch rảnh Giảng viên & Hội đồng Review
+                Khai báo Lịch rảnh Giảng viên & Hội đồng Review Checkpoint
               </h1>
               <p className="page-subtitle" style={{ color: '#475569', fontSize: '0.95rem' }}>
-                Bước 1: Vui lòng chọn một Đợt chấm tiến trình (Checkpoint / Defense) bên dưới để khai báo 30 ô khung giờ rảnh trong tuần của bạn.
+                Bước 1: Vui lòng chọn Học kỳ và Đợt chấm tiến trình (Review Checkpoint) bên dưới để khai báo 30 ô khung giờ rảnh trong tuần của bạn.
               </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-              <button className="btn btn-secondary" onClick={fetchRounds} disabled={loading} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.2rem', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              {semesters.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#F8FAFC', padding: '0.4rem 0.8rem', borderRadius: '12px', border: '1px solid #CBD5E1' }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#334155' }}>Học kỳ:</span>
+                  <select
+                    className="form-select"
+                    value={semesterId}
+                    onChange={(e) => handleSemesterChange(e.target.value)}
+                    style={{ border: 'none', background: 'transparent', fontWeight: 750, color: '#4F46E5', fontSize: '0.92rem', cursor: 'pointer', outline: 'none' }}
+                  >
+                    {semesters.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.code}) {s.isActive ? '• [Hiện tại]' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <button className="btn btn-secondary" onClick={() => fetchRounds()} disabled={loading} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.2rem', borderRadius: '12px' }}>
                 <RefreshCw size={16} color="#4F46E5" />
                 <span>Tải lại Đợt</span>
               </button>
@@ -194,11 +249,11 @@ const AvailabilityPage = () => {
           {rounds.length === 0 ? (
             <div className="glass-card" style={{ padding: '4.5rem 2rem', textAlign: 'center', background: '#FFFFFF', border: '1px dashed #CBD5E1', borderRadius: '20px' }}>
               <BookOpen size={52} color="#CBD5E1" style={{ margin: '0 auto 1.25rem' }} />
-              <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#334155', marginBottom: '0.5rem' }}>Chưa có Đợt Review/Checkpoint nào được tạo</h3>
+              <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#334155', marginBottom: '0.5rem' }}>Chưa có Đợt Review Checkpoint nào được tạo cho học kỳ này</h3>
               <p style={{ color: '#64748B', maxWidth: '520px', margin: '0 auto 1.5rem', lineHeight: 1.6 }}>
-                Hiện tại Ban quản lý (Admin / Trưởng bộ môn) chưa mở hoặc chưa công bố đợt chấm tiến trình nào cho học kỳ này. Bạn vui lòng quay lại sau!
+                Hiện tại Ban quản lý (Admin / Trưởng bộ môn) chưa mở hoặc chưa tạo đợt chấm tiến trình nào cho học kỳ đang chọn. Bạn vui lòng kiểm tra kỳ học hoặc quay lại sau!
               </p>
-              <button className="btn btn-primary" onClick={fetchRounds} style={{ padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '12px', background: '#4F46E5' }}>
+              <button className="btn btn-primary" onClick={() => fetchRounds()} style={{ padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '12px', background: '#4F46E5' }}>
                 <RefreshCw size={18} />
                 <span>Kiểm tra lại ngay</span>
               </button>
@@ -231,7 +286,7 @@ const AvailabilityPage = () => {
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', gap: '0.5rem' }}>
                         <span className="badge" style={{ background: 'rgba(79, 70, 229, 0.12)', color: '#4F46E5', fontWeight: 800, fontSize: '0.8rem', padding: '0.4rem 0.85rem', borderRadius: '8px' }}>
-                          {r.description || r.type || 'Review Checkpoint'}
+                          {formatReviewType(r.type)}
                         </span>
                         <span className="badge" style={{
                           background: isOpen ? '#DCFCE7' : '#FEE2E2',
@@ -250,17 +305,17 @@ const AvailabilityPage = () => {
                       </div>
 
                       <h3 style={{ fontSize: '1.3rem', fontWeight: 850, color: '#0F172A', marginBottom: '0.5rem', lineHeight: 1.35 }}>
-                        {r.name}
+                        Đợt {formatReviewType(r.type)}
                       </h3>
                       <p style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                         <Sparkles size={16} color="#4F46E5" />
-                        <span>Mã đợt: <strong>{r.code || `R-${r.id}`}</strong> | Học kỳ ID: <strong>#{r.semesterId || 1}</strong></span>
+                        <span>Mã đợt: <strong>{`REV-${r.id}`}</strong> | Học kỳ ID: <strong>#{r.semesterId || semesterId}</strong></span>
                       </p>
 
                       <div style={{ background: '#F8FAFC', padding: '1.15rem', borderRadius: '14px', border: '1px solid #F1F5F9', marginBottom: '1.75rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontSize: '0.88rem', color: '#334155', fontWeight: 650 }}>
                           <Calendar size={17} color="#3B82F6" />
-                          <span>Thời gian: <strong>{r.startDate || r.weekStartDate ? new Date(r.startDate || r.weekStartDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{r.endDate || r.weekEndDate ? new Date(r.endDate || r.weekEndDate).toLocaleDateString('vi-VN') : '---'}</strong></span>
+                          <span>Thời gian: <strong>{r.weekStartDate || r.startDate ? new Date(r.weekStartDate || r.startDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{r.weekEndDate || r.endDate ? new Date(r.weekEndDate || r.endDate).toLocaleDateString('vi-VN') : '---'}</strong></span>
                         </div>
                       </div>
                     </div>
@@ -339,14 +394,14 @@ const AvailabilityPage = () => {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
                   <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 850, color: '#0F172A' }}>
-                    {currentRound?.name} ({currentRound?.code})
+                    Đợt {formatReviewType(currentRound?.type)} (REV-{currentRound?.id || selectedRoundId})
                   </h2>
                   <span className="badge" style={{ background: 'rgba(79, 70, 229, 0.15)', color: '#4F46E5', fontWeight: 800, fontSize: '0.8rem', padding: '0.35rem 0.75rem', borderRadius: '8px' }}>
-                    {currentRound?.description || currentRound?.type || 'Review Checkpoint'}
+                    {formatReviewType(currentRound?.type)}
                   </span>
                 </div>
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.88rem', color: '#64748B', fontWeight: 600 }}>
-                  Thời gian: <strong>{currentRound?.startDate || currentRound?.weekStartDate ? new Date(currentRound?.startDate || currentRound?.weekStartDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{currentRound?.endDate || currentRound?.weekEndDate ? new Date(currentRound?.endDate || currentRound?.weekEndDate).toLocaleDateString('vi-VN') : '---'}</strong>
+                  Thời gian: <strong>{currentRound?.weekStartDate || currentRound?.startDate ? new Date(currentRound?.weekStartDate || currentRound?.startDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{currentRound?.weekEndDate || currentRound?.endDate ? new Date(currentRound?.weekEndDate || currentRound?.endDate).toLocaleDateString('vi-VN') : '---'}</strong>
                 </p>
               </div>
             </div>
@@ -430,7 +485,7 @@ const AvailabilityPage = () => {
                   <span>Bảng Khai báo Lịch Rảnh</span>
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0.3rem 0 0', fontWeight: 500 }}>
-                  Giảng viên bấm chọn các ô rảnh trong tuần để hệ thống thu thập dữ liệu và tự động phân công hội đồng chấm review đồ án phù hợp.
+                  Giảng viên bấm chọn các ô rảnh trong tuần để hệ thống thu thập dữ liệu và tự động phân công hội đồng chấm review checkpoint phù hợp.
                 </p>
               </div>
             </div>

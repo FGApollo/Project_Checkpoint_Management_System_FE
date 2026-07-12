@@ -33,7 +33,7 @@ const StudentDashboard = () => {
     <div className="page-container animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title" style={{ color: '#0F172A' }}>Khu vực Làm việc Sinh viên & Nhóm Đồ án</h1>
+          <h1 className="page-title" style={{ color: '#0F172A' }}>Khu vực Làm việc Sinh viên & Nhóm Checkpoint</h1>
           <p className="page-subtitle" style={{ color: '#475569' }}>Xin chào, {user?.fullName || user?.username}. Theo dõi lịch review, đăng ký ca checkpoint và xem đánh giá chính thức từ hội đồng.</p>
         </div>
 
@@ -58,14 +58,14 @@ const StudentDashboard = () => {
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.35rem' }}>
-                <span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontSize: '0.8rem', fontWeight: 700 }}>Nhóm Đồ án Đăng ký</span>
+                <span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontSize: '0.8rem', fontWeight: 700 }}>Nhóm Checkpoint Đăng ký</span>
                 {activeSemester && (
                   <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', fontSize: '0.75rem', fontWeight: 700 }}>
                     {activeSemester.code || 'Học kỳ Hiện tại'}
                   </span>
                 )}
               </div>
-              <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0F172A' }}>Đồ án Tốt nghiệp SEP490 - Đại học FPT</h2>
+              <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0F172A' }}>Review Checkpoint SEP490 - Đại học FPT</h2>
               <p style={{ color: '#64748B', fontSize: '0.9rem', marginTop: '0.25rem', lineHeight: 1.5 }}>
                 Quy trình kiểm tra tiến độ theo chuẩn đề cương: Review 1 (Báo cáo đề cương), Review 2 (Giữa kỳ), Review 3 (Bảo vệ thử).
               </p>
