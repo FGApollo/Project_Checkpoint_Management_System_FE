@@ -1,6 +1,5 @@
 import * as signalR from '@microsoft/signalr';
-
-const HUB_URL = 'http://localhost:5122/hubs/defense';
+import { DEFENSE_HUB_URL } from '../config/environment';
 
 class SignalRService {
   constructor() {
@@ -25,7 +24,7 @@ class SignalRService {
     }
 
     this.connection = new signalR.HubConnectionBuilder()
-      .withUrl(HUB_URL, {
+      .withUrl(DEFENSE_HUB_URL, {
         accessTokenFactory: () => localStorage.getItem('cpms_access_token') || '',
         skipNegotiation: false,
         transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,

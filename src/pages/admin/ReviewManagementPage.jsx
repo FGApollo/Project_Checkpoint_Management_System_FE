@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Layers, UserPlus, Zap, CheckCircle2, AlertCircle, RefreshCw, Plus, Clock, Users, Calendar, ArrowRight, Play, CheckSquare } from 'lucide-react';
+import { getReviewSlotCapacityViolations, getRoundStatusMeta, MAX_GROUPS_PER_REVIEW_SLOT, ROUND_STATUS } from '../../features/reviews/reviewDomain';
+import { Layers, UserPlus, Zap, CheckCircle2, AlertCircle, Users, Calendar, ArrowRight, Play, CheckSquare } from 'lucide-react';
 
 const formatReviewType = (type) => {
   if (type === 'Review1' || type === 0) return 'Review 1';
@@ -73,8 +74,13 @@ const ReviewManagementPage = () => {
       const res = await api.get(`/review-scheduling/board?semesterId=${semId}&reviewType=${round.type}&weekStart=${round.weekStartDate}`);
       const data = res.data || {};
       const lecturersCount = data.lecturers?.length || 0;
-      const registeredLecturersCount = data.availabilitySubmissions?.filter(s => s.submitted).length || 0;
-      const registeredGroupsCount = round.registrationCount || round.registeredGroupCount || data.groups?.length || 0;
+      const registeredLecturersCount = data.availabilitySubmissions?.filter(
+        (submission) => submission.isSubmitted || submission.submitted
+      ).length || 0;
+      const registeredGroupsCount = round.registrationCount
+        ?? round.registeredGroupCount
+        ?? data.studentRegistrations?.length
+        ?? 0;
       const sessions = Array.isArray(data.sessions) ? data.sessions : [];
 
       setBoardData({
@@ -83,6 +89,7 @@ const ReviewManagementPage = () => {
         registeredGroupsCount,
         sessions
       });
+      return { lecturersCount, registeredLecturersCount, registeredGroupsCount, sessions };
     } catch (err) {
       console.error('Lỗi tải dữ liệu bảng review:', err);
       setBoardData({
@@ -91,6 +98,7 @@ const ReviewManagementPage = () => {
         registeredGroupsCount: 0,
         sessions: []
       });
+      return null;
     }
   };
 
@@ -149,6 +157,10 @@ const ReviewManagementPage = () => {
     }
     const start = new Date(formData.startDate);
     const end = new Date(formData.endDate);
+    if (start.getUTCDay() !== 1 || end.getUTCDay() !== 6) {
+      setError('Đợt review phải bắt đầu vào Thứ 2 và kết thúc vào Thứ 7.');
+      return;
+    }
     if (end < start) {
       setError('Đến ngày không được nhỏ hơn Từ ngày.');
       return;
@@ -177,9 +189,45 @@ const ReviewManagementPage = () => {
     }
   };
 
+  const handleRoundStatusChange = async (status) => {
+    if (!selectedRound) {
+      setError('Vui lòng chọn một đợt review trước.');
+      return;
+    }
+
+    setError('');
+    setSuccess('');
+    setLoading(true);
+    try {
+      const response = await api.patch(`/review-scheduling/rounds/${selectedRound.id}/status`, { status });
+      const updatedRound = response.data || { ...selectedRound, status };
+      setSelectedRound(updatedRound);
+      setRounds((currentRounds) => currentRounds.map((round) => (
+        round.id === updatedRound.id ? updatedRound : round
+      )));
+      await fetchBoardDetails(updatedRound, updatedRound.semesterId || formData.semesterId);
+
+      if (status === ROUND_STATUS.OPEN) {
+        setSuccess('Đã mở đăng ký. Sinh viên và giảng viên có thể khai báo các slot rảnh.');
+        setActiveStep(2);
+      } else if (status === ROUND_STATUS.CLOSED) {
+        setSuccess('Đã khóa đăng ký. Dữ liệu sẵn sàng để chạy thuật toán phân công.');
+        setActiveStep(3);
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Không thể cập nhật trạng thái đợt review.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleMatch = async () => {
     if (!selectedRound) {
       setError('Vui lòng chọn hoặc tạo đợt review trước.');
+      return;
+    }
+    if (selectedRound.status !== ROUND_STATUS.CLOSED) {
+      setError('Phải khóa đăng ký trước khi chạy thuật toán phân công.');
       return;
     }
     setError('');
@@ -191,11 +239,21 @@ const ReviewManagementPage = () => {
         reviewType: selectedRound.type,
         weekStart: selectedRound.weekStartDate
       });
-      setSuccess('Đã chạy thuật toán xếp lịch và lưu phân công vào Database thành công!');
-      await fetchBoardDetails(selectedRound, formData.semesterId);
+      const refreshedBoard = await fetchBoardDetails(selectedRound, formData.semesterId);
+      if (!refreshedBoard) {
+        throw new Error('Đã chạy Auto-Match nhưng không thể tải kết quả để kiểm tra trước khi công bố.');
+      }
+      const capacityViolations = getReviewSlotCapacityViolations(refreshedBoard.sessions);
+      if (capacityViolations.length > 0) {
+        const details = capacityViolations
+          .map((item) => `ngày ${item.dayOfWeek}, ca ${item.slot}: ${item.groupCount} nhóm`)
+          .join('; ');
+        throw new Error(`Kết quả Auto-Match vượt giới hạn ${MAX_GROUPS_PER_REVIEW_SLOT} nhóm/slot (${details}). Lịch chưa được phép công bố.`);
+      }
+      setSuccess('Đã chạy thuật toán xếp lịch, kiểm tra sức chứa và lưu phân công thành công!');
       setActiveStep(4);
     } catch (err) {
-      setError(err.response?.data?.error || 'Lỗi khi chạy thuật toán phân công. Hãy kiểm tra danh sách giảng viên đăng ký slot rảnh và nguyện vọng nhóm.');
+      setError(err.response?.data?.error || err.message || 'Lỗi khi chạy thuật toán phân công. Hãy kiểm tra danh sách giảng viên đăng ký slot rảnh và nguyện vọng nhóm.');
     } finally {
       setLoading(false);
     }
@@ -203,6 +261,19 @@ const ReviewManagementPage = () => {
 
   const handlePublish = async () => {
     if (!selectedRound) return;
+    if (selectedRound.status === ROUND_STATUS.PUBLISHED) {
+      setError('Lịch của đợt review này đã được công bố.');
+      return;
+    }
+    if (selectedRound.status !== ROUND_STATUS.CLOSED) {
+      setError('Chỉ có thể công bố lịch sau khi đã khóa đăng ký và hoàn tất Auto-Match.');
+      return;
+    }
+    const capacityViolations = getReviewSlotCapacityViolations(boardData.sessions);
+    if (capacityViolations.length > 0) {
+      setError(`Không thể công bố vì có ca vượt quá ${MAX_GROUPS_PER_REVIEW_SLOT} nhóm.`);
+      return;
+    }
     setError('');
     setSuccess('');
     setLoading(true);
@@ -212,8 +283,13 @@ const ReviewManagementPage = () => {
         reviewType: selectedRound.type,
         weekStart: selectedRound.weekStartDate,
         subject: `[CPMS] Thông báo Lịch Review Checkpoint (${formatReviewType(selectedRound.type)})`,
-        messageBody: `Kính gửi Quý Giảng viên và Sinh viên,\n\nLịch review checkpoint cho đợt ${formatReviewType(selectedRound.type)} đã được công bố chính thức trên hệ thống CPMS. Vui lòng đăng nhập để xem chi tiết ca review và phòng ban.\n\nTrân trọng,\nPhòng Đào tạo.`
+        message: `Kính gửi Quý Giảng viên và Sinh viên,\n\nLịch review checkpoint cho đợt ${formatReviewType(selectedRound.type)} đã được công bố chính thức trên hệ thống CPMS. Vui lòng đăng nhập để xem chi tiết ca review và phòng ban.\n\nTrân trọng,\nPhòng Đào tạo.`
       });
+      const publishedRound = { ...selectedRound, status: ROUND_STATUS.PUBLISHED };
+      setSelectedRound(publishedRound);
+      setRounds((currentRounds) => currentRounds.map((round) => (
+        round.id === publishedRound.id ? publishedRound : round
+      )));
       setSuccess(`Đã công bố lịch thành công! Đã chốt ${res.data?.publishedSessionCount || boardData.sessions.length} ca review vào Database và thông báo cho Giảng viên & Sinh viên.`);
     } catch (err) {
       setError(err.response?.data?.error || 'Lỗi khi publish lịch review.');
@@ -242,6 +318,11 @@ const ReviewManagementPage = () => {
         setTimeout(() => setError(''), 4000);
         return;
       }
+    }
+
+    if (targetStep === 3 && ![ROUND_STATUS.CLOSED, ROUND_STATUS.PUBLISHED].includes(selectedRound?.status)) {
+      setError('Vui lòng mở và khóa đăng ký trước khi chuyển sang bước phân công.');
+      return;
     }
 
     setActiveStep(targetStep);
@@ -277,7 +358,10 @@ const ReviewManagementPage = () => {
           { step: 4, icon: CheckSquare, label: 'Publish' }
         ].map(s => {
           const isActive = activeStep >= s.step;
-          const isAccessible = s.step === 1 || (s.step <= 3 && rounds.length > 0 && selectedRound) || (s.step === 4 && boardData.sessions.length > 0);
+          const isAccessible = s.step === 1
+            || (s.step === 2 && rounds.length > 0 && selectedRound)
+            || (s.step === 3 && [ROUND_STATUS.CLOSED, ROUND_STATUS.PUBLISHED].includes(selectedRound?.status))
+            || (s.step === 4 && boardData.sessions.length > 0);
           return (
             <div key={s.step} style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: isAccessible ? 'pointer' : 'not-allowed', opacity: isAccessible ? 1 : 0.65 }} onClick={() => handleStepClick(s.step)}>
               <div style={{ width: 44, height: 44, borderRadius: '50%', background: isActive ? '#4F46E5' : '#F1F5F9', border: `2px solid ${isActive ? '#4F46E5' : '#CBD5E1'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: isActive ? 'white' : '#64748B', transition: 'all 0.2s' }}>
@@ -349,6 +433,7 @@ const ReviewManagementPage = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     {rounds.map(r => {
                       const isSelected = selectedRound?.id === r.id;
+                      const statusMeta = getRoundStatusMeta(r.status);
                       return (
                         <div key={r.id} onClick={() => setSelectedRound(r)} style={{ padding: '0.85rem', background: isSelected ? '#EEF2FF' : '#F8FAFC', borderRadius: '8px', border: isSelected ? '2px solid #4F46E5' : '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
                           <div>
@@ -356,7 +441,7 @@ const ReviewManagementPage = () => {
                             <p style={{ fontSize: '0.75rem', color: '#64748B', margin: 0 }}>Từ {r.weekStartDate} đến {r.weekEndDate}</p>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
-                            <span className="badge" style={{ background: isSelected ? '#4F46E5' : '#E2E8F0', color: isSelected ? 'white' : '#475569' }}>{formatReviewType(r.type)}</span>
+                            <span className="badge" style={{ background: statusMeta.background, color: statusMeta.color }}>{statusMeta.label}</span>
                             <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>{r.registrationCount || 0} nhóm</span>
                           </div>
                         </div>
@@ -390,8 +475,14 @@ const ReviewManagementPage = () => {
                 <div style={{ display: 'inline-block', background: '#EEF2FF', color: '#4F46E5', padding: '0.4rem 1rem', borderRadius: '20px', fontWeight: 600, fontSize: '0.85rem', marginBottom: '1rem' }}>
                   Đang xử lý đợt: {selectedRound.type} ({selectedRound.weekStartDate} đến {selectedRound.weekEndDate})
                 </div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', color: '#0F172A' }}>Bước 2: Mở đăng ký cho Giảng viên & Sinh viên</h2>
-                <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>Hệ thống đang mở đăng ký cho đợt {selectedRound.type}. Giảng viên và sinh viên có thể đăng nhập để chọn các ô slot rảnh trong bảng 30 ô.</p>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', color: '#0F172A' }}>Bước 2: Đăng ký slot rảnh</h2>
+                <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>
+                  {selectedRound.status === ROUND_STATUS.DRAFT
+                    ? 'Đợt đang ở bản nháp. Hãy mở đăng ký để sinh viên và giảng viên khai báo slot rảnh.'
+                    : selectedRound.status === ROUND_STATUS.OPEN
+                      ? 'Đăng ký đang mở. Khi đã thu đủ dữ liệu, hãy khóa đăng ký trước khi phân công.'
+                      : 'Đăng ký đã được khóa; dữ liệu không còn chỉnh sửa và đã sẵn sàng phân công.'}
+                </p>
 
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '2.5rem' }}>
                   <div style={{ padding: '1.5rem', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', width: '220px' }}>
@@ -406,9 +497,21 @@ const ReviewManagementPage = () => {
                   </div>
                 </div>
 
-                <button className="btn btn-danger" onClick={() => handleStepClick(3)} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
-                  Khóa Đăng ký & Chuyển sang Phân công <ArrowRight size={18} />
-                </button>
+                {selectedRound.status === ROUND_STATUS.DRAFT && (
+                  <button className="btn btn-primary" onClick={() => handleRoundStatusChange(ROUND_STATUS.OPEN)} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
+                    {loading ? 'Đang mở đăng ký...' : 'Mở đăng ký'} <ArrowRight size={18} />
+                  </button>
+                )}
+                {selectedRound.status === ROUND_STATUS.OPEN && (
+                  <button className="btn btn-danger" onClick={() => handleRoundStatusChange(ROUND_STATUS.CLOSED)} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
+                    {loading ? 'Đang khóa...' : 'Khóa đăng ký & chuyển sang phân công'} <ArrowRight size={18} />
+                  </button>
+                )}
+                {[ROUND_STATUS.CLOSED, ROUND_STATUS.PUBLISHED].includes(selectedRound.status) && (
+                  <button className="btn btn-primary" onClick={() => setActiveStep(3)} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
+                    Tiếp tục sang phân công <ArrowRight size={18} />
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -430,13 +533,13 @@ const ReviewManagementPage = () => {
                   Đang xử lý đợt: {selectedRound.type} ({selectedRound.weekStartDate} đến {selectedRound.weekEndDate})
                 </div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', color: '#0F172A' }}>Bước 3: Thuật toán Phân công Lịch Review</h2>
-                <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>Thuật toán sẽ tự động khớp lịch rảnh của giảng viên và nhóm sinh viên để tạo bảng lịch trình tối ưu (tối đa 3 nhóm/slot).</p>
+                <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>Thuật toán sẽ tự động khớp lịch rảnh của giảng viên và nhóm sinh viên để tạo bảng lịch trình tối ưu (tối đa {MAX_GROUPS_PER_REVIEW_SLOT} nhóm/slot).</p>
 
                 <div style={{ background: '#F8FAFC', borderRadius: '12px', border: '1px dashed #CBD5E1', padding: '2.5rem', maxWidth: '540px', margin: '0 auto 2rem' }}>
                   <Zap size={48} color="#D97706" style={{ margin: '0 auto 1rem' }} />
                   <h3 style={{ fontSize: '1.1rem', color: '#0F172A', marginBottom: '0.5rem' }}>Sẵn sàng chạy thuật toán</h3>
                   <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem' }}>Hiện có {boardData.registeredGroupsCount} nhóm chờ phân công và {boardData.registeredLecturersCount} giảng viên đã gửi lịch rảnh cho đợt {selectedRound.type}.</p>
-                  <button className="btn btn-primary" onClick={handleMatch} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#4F46E5' }}>
+                  <button className="btn btn-primary" onClick={handleMatch} disabled={loading || selectedRound.status !== ROUND_STATUS.CLOSED} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#4F46E5' }}>
                     <Play size={18} fill="white" /> {loading ? 'Đang chạy Auto-Match...' : 'Chạy Auto-Match'}
                   </button>
                 </div>
@@ -485,8 +588,8 @@ const ReviewManagementPage = () => {
                   })()}
                 </div>
 
-                <button className="btn btn-success" onClick={handlePublish} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#10B981', color: 'white' }}>
-                  <CheckSquare size={18} /> {loading ? 'Đang công bố...' : 'Công bố Lịch Chính thức'}
+                <button className="btn btn-success" onClick={handlePublish} disabled={loading || selectedRound.status === ROUND_STATUS.PUBLISHED} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#10B981', color: 'white' }}>
+                  <CheckSquare size={18} /> {selectedRound.status === ROUND_STATUS.PUBLISHED ? 'Lịch đã được công bố' : loading ? 'Đang công bố...' : 'Công bố Lịch Chính thức'}
                 </button>
               </>
             )}

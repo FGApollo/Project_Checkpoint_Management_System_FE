@@ -9,9 +9,12 @@ const Navbar = () => {
 
   useEffect(() => {
     if (user) {
-      api.get('/semesters/resolve')
-        .then((res) => setActiveSemester(res.data))
-        .catch(() => {});
+      api.get('/semesters?pageSize=100')
+        .then((res) => {
+          const semesters = Array.isArray(res.data) ? res.data : res.data?.items || [];
+          setActiveSemester(semesters.find((semester) => semester.isActive) || semesters[0] || null);
+        })
+        .catch(() => setActiveSemester(null));
     }
   }, [user]);
 
@@ -24,6 +27,12 @@ const Navbar = () => {
       case 'Student': return 'Sinh viên';
       default: return role || 'Tài khoản';
     }
+  };
+
+  const getPanelLabel = (role) => {
+    if (role === 'Lecturer') return 'LECTURER PANEL';
+    if (role === 'Student') return 'STUDENT PANEL';
+    return 'MODERATOR PANEL';
   };
 
   const getRoleBadgeColor = (role) => {
@@ -73,7 +82,7 @@ const Navbar = () => {
               Capstone Portal
             </h1>
             <p style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 500 }}>
-              MODERATOR PANEL
+              {getPanelLabel(user?.role)}
             </p>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { LayoutDashboard, BookOpen, User, Calendar, CheckSquare, Award, ArrowRight, ShieldCheck, Layers } from 'lucide-react';
+import { BookOpen, User, Calendar, CheckSquare, Award, ArrowRight, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const StudentDashboard = () => {
@@ -14,10 +14,11 @@ const StudentDashboard = () => {
   useEffect(() => {
     const fetchStudentData = async () => {
       try {
-        const semRes = await api.get('/semesters/resolve').catch(() => ({ data: null }));
-        setActiveSemester(semRes.data);
+        const semRes = await api.get('/semesters?pageSize=100').catch(() => ({ data: [] }));
+        const semesters = Array.isArray(semRes.data) ? semRes.data : semRes.data?.items || [];
+        setActiveSemester(semesters.find((semester) => semester.isActive) || semesters[0] || null);
 
-        const schedRes = await api.get('/review-schedules/my').catch(() => ({ data: [] }));
+        const schedRes = await api.get('/student-review/schedule').catch(() => ({ data: [] }));
         setMySchedules(Array.isArray(schedRes.data) ? schedRes.data : []);
 
         const subRes = await api.get('/review-submissions/my').catch(() => ({ data: [] }));

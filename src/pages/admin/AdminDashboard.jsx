@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, Users, CalendarClock, FileSpreadsheet, ArrowRight, Layers, BookOpen, Activity } from 'lucide-react';
+import { Users, CalendarClock, FileSpreadsheet, ArrowRight, Layers, Activity } from 'lucide-react';
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -12,14 +12,17 @@ const AdminDashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [accRes, semRes, roundRes] = await Promise.allSettled([
+        const [accRes, semRes] = await Promise.allSettled([
           api.get('/accounts?page=1&pageSize=1'),
-          api.get('/semesters/resolve'),
-          api.get('/review-scheduling/rounds'),
+          api.get('/semesters?pageSize=100'),
         ]);
         const accData = accRes.status === 'fulfilled' ? accRes.value.data : {};
-        const semData = semRes.status === 'fulfilled' ? semRes.value.data : null;
-        const roundData = roundRes.status === 'fulfilled' ? roundRes.value.data : {};
+        const semesterPayload = semRes.status === 'fulfilled' ? semRes.value.data : {};
+        const semesters = Array.isArray(semesterPayload) ? semesterPayload : semesterPayload?.items || [];
+        const semData = semesters.find((semester) => semester.isActive) || semesters[0] || null;
+        const roundData = semData
+          ? await api.get(`/review-scheduling/rounds?semesterId=${semData.id}`).then((res) => res.data).catch(() => [])
+          : [];
 
         setStats({
           accounts: accData?.totalCount || 0,

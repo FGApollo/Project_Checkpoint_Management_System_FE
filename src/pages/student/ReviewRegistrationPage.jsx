@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { Calendar, Clock, CheckCircle2, AlertCircle, RefreshCw, Send, BookOpen, Layers, ArrowRight, ArrowLeft, Sparkles, ShieldCheck, Users } from 'lucide-react';
+import { getRoundStatusMeta, getStudentAvailabilityValidationError, isRegistrationOpen, REQUIRED_STUDENT_AVAILABILITY_SLOTS, ROUND_STATUS } from '../../features/reviews/reviewDomain';
+import { getOwnRegistrations, replaceStudentAvailability } from '../../features/reviews/studentAvailability';
+import { Calendar, CheckCircle2, AlertCircle, RefreshCw, Send, BookOpen, Layers, ArrowRight, ArrowLeft, Sparkles, ShieldCheck, Users } from 'lucide-react';
 
 const DAYS_OF_WEEK = [
   { id: 1, name: 'Thứ 2' },
@@ -33,7 +35,7 @@ const ReviewRegistrationPage = () => {
   const [step, setStep] = useState(1); // 1: Chọn Đợt Review Hub, 2: Bảng chọn Slot 30 ô
   const [semesters, setSemesters] = useState([]);
   const [semesterId, setSemesterId] = useState(1);
-  const [groupId, setGroupId] = useState(user?.groupId || user?.group?.id || 1);
+  const [groupId, setGroupId] = useState(user?.groupId || user?.group?.id || null);
 
   useEffect(() => {
     if (user && (user.groupId || user?.group?.id)) {
@@ -51,7 +53,7 @@ const ReviewRegistrationPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [roundStatus, setRoundStatus] = useState('Đang mở đăng ký'); // 'Đang mở đăng ký' | 'Đã kết thúc đăng ký'
+  const [roundStatus, setRoundStatus] = useState(ROUND_STATUS.DRAFT);
 
   const handleSelectRoundStep2 = (roundObj) => {
     setSelectedRoundId(roundObj.id);
@@ -89,23 +91,7 @@ const ReviewRegistrationPage = () => {
 
   const updateRoundStatus = (roundObj) => {
     if (!roundObj) return;
-    const st = roundObj.status;
-    if (st === 'Closed' || st === 1 || st === 'Completed' || st === 3 || st === 'Cancelled' || st === 4) {
-      setRoundStatus('Đã kết thúc đăng ký');
-    } else {
-      setRoundStatus('Đang mở đăng ký');
-    }
-  };
-
-  const handleRoundChange = (e) => {
-    const rId = Number(e.target.value);
-    setSelectedRoundId(rId);
-    const found = rounds.find(r => r.id === rId);
-    if (found) {
-      setSemesterId(found.semesterId || semesterId);
-      setReviewType(formatReviewType(found.type));
-      updateRoundStatus(found);
-    }
+    setRoundStatus(roundObj.status || ROUND_STATUS.DRAFT);
   };
 
   const handleSemesterChange = (newSemId) => {
@@ -126,11 +112,18 @@ const ReviewRegistrationPage = () => {
         const slotRes = await api.get(`/student-review/slots?roundId=${selectedRoundId}`);
         const gridData = slotRes.data || {};
         list = Array.isArray(gridData.registrations) ? gridData.registrations : [];
-        if (gridData.myRegistration) {
-          setSelectedSlots([{ dayOfWeek: gridData.myRegistration.dayOfWeek, slot: gridData.myRegistration.slot }]);
+        const ownRegistrations = getOwnRegistrations(gridData, groupId);
+        if (ownRegistrations.length > 0) {
+          if (ownRegistrations[0].groupId) {
+            setGroupId(ownRegistrations[0].groupId);
+          }
+          setSelectedSlots(ownRegistrations.map((registration) => ({
+            dayOfWeek: registration.dayOfWeek,
+            slot: registration.slot,
+          })));
           myRegFound = true;
         }
-      } catch (e) {
+      } catch {
         const regRes = await api.get(`/review-scheduling/student-registrations?roundId=${selectedRoundId}`).catch(() => ({ data: [] }));
         list = Array.isArray(regRes.data) ? regRes.data : [];
       }
@@ -144,7 +137,7 @@ const ReviewRegistrationPage = () => {
         api.get('/review-sessions/my').catch(() => ({ data: [] }))
       );
       setMySchedules(Array.isArray(schedRes.data) ? schedRes.data : []);
-    } catch (err) {
+    } catch {
       setError('Không thể tải dữ liệu nguyện vọng đăng ký.');
     } finally {
       setLoading(false);
@@ -178,13 +171,17 @@ const ReviewRegistrationPage = () => {
   }, [selectedRoundId, groupId]);
 
   const toggleSlot = (dayId, slotId) => {
-    if (roundStatus !== 'Đang mở đăng ký') return;
+    if (!isRegistrationOpen(roundStatus)) return;
     setError('');
     setSuccess('');
     const exists = selectedSlots.some((s) => s.dayOfWeek === dayId && s.slot === slotId);
     if (exists) {
       setSelectedSlots(selectedSlots.filter((s) => !(s.dayOfWeek === dayId && s.slot === slotId)));
     } else {
+      if (selectedSlots.length >= REQUIRED_STUDENT_AVAILABILITY_SLOTS) {
+        setError(`Mỗi nhóm chỉ được chọn đúng ${REQUIRED_STUDENT_AVAILABILITY_SLOTS} slot rảnh.`);
+        return;
+      }
       setSelectedSlots([...selectedSlots, { dayOfWeek: dayId, slot: slotId }]);
     }
   };
@@ -195,7 +192,7 @@ const ReviewRegistrationPage = () => {
 
   const handleRegisterSlots = async (e) => {
     e.preventDefault();
-    if (roundStatus !== 'Đang mở đăng ký') {
+    if (!isRegistrationOpen(roundStatus)) {
       setError('Đợt review này hiện đã kết thúc/đóng đăng ký. Bạn không thể chỉnh sửa.');
       return;
     }
@@ -203,34 +200,32 @@ const ReviewRegistrationPage = () => {
       setError('Vui lòng chọn đợt review trước khi lưu.');
       return;
     }
+    const validationError = getStudentAvailabilityValidationError(selectedSlots);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setError('');
     setSuccess('');
     setLoading(true);
     try {
-      if (selectedSlots.length === 0) {
-        await api.delete(`/student-review/register?roundId=${selectedRoundId}`);
-        setSuccess(`Trưởng nhóm #${groupId} đã xóa nguyện vọng đăng ký cho đợt ${reviewType}!`);
-        fetchData();
-        return;
-      }
-      // Save checked slot
-      for (const item of selectedSlots) {
-        await api.post('/student-review/register', {
-          roundId: Number(selectedRoundId),
-          dayOfWeek: Number(item.dayOfWeek),
-          slot: Number(item.slot)
-        });
-      }
-      setSuccess(`Trưởng nhóm #${groupId} đã lưu thành công nguyện vọng đăng ký slot rảnh cho đợt ${reviewType}!`);
-      fetchData();
+      await replaceStudentAvailability(api, {
+        roundId: selectedRoundId,
+        slots: selectedSlots,
+        knownGroupId: groupId,
+      });
+
+      setSuccess(`Đã lưu thành công ${REQUIRED_STUDENT_AVAILABILITY_SLOTS} slot rảnh của nhóm cho đợt ${reviewType}!`);
+      await fetchData();
     } catch (err) {
-      setError(err.response?.data?.error || 'Lỗi khi lưu danh sách nguyện vọng đăng ký.');
+      setError(err.response?.data?.error || err.message || 'Lỗi khi lưu danh sách nguyện vọng đăng ký.');
     } finally {
       setLoading(false);
     }
   };
 
   const currentRound = rounds.find(r => r.id === Number(selectedRoundId)) || rounds[0];
+  const roundStatusMeta = getRoundStatusMeta(roundStatus);
 
   return (
     <div className="page-container animate-fade-in">
@@ -270,7 +265,7 @@ const ReviewRegistrationPage = () => {
                 <Users size={18} color="#F26522" />
                 <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#334155' }}>Nhóm checkpoint của bạn:</span>
                 <span className="badge" style={{ background: '#F26522', color: '#FFFFFF', fontWeight: 850, fontSize: '0.92rem', padding: '0.35rem 0.85rem', borderRadius: '8px' }}>
-                  Nhóm #{groupId}
+                  {groupId ? `Nhóm #${groupId}` : 'Nhóm của bạn'}
                 </span>
               </div>
 
@@ -310,7 +305,8 @@ const ReviewRegistrationPage = () => {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.75rem', marginBottom: '3rem' }}>
               {rounds.map((r) => {
-                const isOpen = r.status === 'Open' || r.status === 0 || r.status === 'Draft' || r.status === 'Đang mở';
+                const isOpen = isRegistrationOpen(r.status);
+                const statusMeta = getRoundStatusMeta(r.status);
                 return (
                   <div
                     key={r.id}
@@ -338,8 +334,8 @@ const ReviewRegistrationPage = () => {
                           {formatReviewType(r.type)}
                         </span>
                         <span className="badge" style={{
-                          background: isOpen ? '#DCFCE7' : '#FEE2E2',
-                          color: isOpen ? '#16A34A' : '#DC2626',
+                          background: statusMeta.background,
+                          color: statusMeta.color,
                           fontWeight: 800,
                           fontSize: '0.75rem',
                           padding: '0.4rem 0.85rem',
@@ -349,7 +345,7 @@ const ReviewRegistrationPage = () => {
                           gap: '0.4rem'
                         }}>
                           <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'currentColor' }}></span>
-                          {isOpen ? 'ĐANG MỞ ĐĂNG KÝ' : 'ĐÃ ĐÓNG'}
+                          {statusMeta.label.toUpperCase()}
                         </span>
                       </div>
 
@@ -402,12 +398,12 @@ const ReviewRegistrationPage = () => {
           <div className="glass-card" style={{ padding: '1.75rem', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '20px' }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 850, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#0F172A' }}>
               <Layers size={22} color="#F26522" />
-              <span>Lịch Review Checkpoint Chính thức của Nhóm #{groupId}</span>
+              <span>Lịch Review Checkpoint Chính thức của {groupId ? `Nhóm #${groupId}` : 'nhóm bạn'}</span>
             </h3>
 
             {mySchedules.length === 0 ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B', background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0', lineHeight: 1.6, fontWeight: 500 }}>
-                Nhóm #{groupId} chưa có lịch review chính thức nào được chốt cho các đợt trên. Khi Phòng Đào tạo chạy thuật toán xếp lịch và công bố (Publish), hội đồng, địa điểm và thời gian cụ thể sẽ hiển thị ngay tại đây.
+                Nhóm của bạn chưa có lịch review chính thức nào được chốt cho các đợt trên. Khi Phòng Đào tạo chạy thuật toán xếp lịch và công bố (Publish), hội đồng, địa điểm và thời gian cụ thể sẽ hiển thị ngay tại đây.
               </div>
             ) : (
               <div className="table-container">
@@ -493,15 +489,15 @@ const ReviewRegistrationPage = () => {
                   </span>
                 </div>
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.88rem', color: '#64748B', fontWeight: 600 }}>
-                  Thời gian: <strong>{currentRound?.weekStartDate ? new Date(currentRound?.weekStartDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{currentRound?.weekEndDate ? new Date(currentRound?.weekEndDate).toLocaleDateString('vi-VN') : '---'}</strong> | Đang thao tác cho Nhóm ID: <strong style={{ color: '#F26522' }}>#{groupId}</strong>
+                  Thời gian: <strong>{currentRound?.weekStartDate ? new Date(currentRound?.weekStartDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{currentRound?.weekEndDate ? new Date(currentRound?.weekEndDate).toLocaleDateString('vi-VN') : '---'}</strong>
                 </p>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
               <span className="badge" style={{
-                background: roundStatus === 'Đang mở đăng ký' ? '#DCFCE7' : '#FEE2E2',
-                color: roundStatus === 'Đang mở đăng ký' ? '#16A34A' : '#DC2626',
+                background: roundStatusMeta.background,
+                color: roundStatusMeta.color,
                 fontWeight: 800,
                 padding: '0.55rem 1.1rem',
                 borderRadius: '20px',
@@ -511,7 +507,7 @@ const ReviewRegistrationPage = () => {
                 fontSize: '0.82rem'
               }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'currentColor' }}></span>
-                {roundStatus}
+                {roundStatusMeta.label}
               </span>
 
               <button className="btn btn-secondary" onClick={fetchData} disabled={loading} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.1rem', borderRadius: '12px' }}>
@@ -540,17 +536,17 @@ const ReviewRegistrationPage = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <ShieldCheck size={20} color="#10B981" />
               <span style={{ fontWeight: 700, color: '#334155', fontSize: '0.95rem' }}>
-                Đang chọn: <strong style={{ color: '#F26522', fontSize: '1.1rem' }}>{selectedSlots.length}</strong> / 30 ô slot rảnh trong đợt
+                Đã chọn: <strong style={{ color: '#F26522', fontSize: '1.1rem' }}>{selectedSlots.length}</strong> / {REQUIRED_STUDENT_AVAILABILITY_SLOTS} slot bắt buộc
               </span>
             </div>
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button type="button" className="btn btn-secondary" onClick={() => setSelectedSlots([])} disabled={roundStatus !== 'Đang mở đăng ký'} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontSize: '0.88rem', fontWeight: 700, padding: '0.65rem 1.25rem', borderRadius: '10px' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setSelectedSlots([])} disabled={!isRegistrationOpen(roundStatus)} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontSize: '0.88rem', fontWeight: 700, padding: '0.65rem 1.25rem', borderRadius: '10px' }}>
                 Xóa chọn tất cả
               </button>
-              <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={loading || roundStatus !== 'Đang mở đăng ký'} style={{ fontWeight: 800, padding: '0.65rem 1.5rem', borderRadius: '10px', background: 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: '0 4px 12px rgba(242, 101, 34, 0.25)' }}>
+              <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={loading || !isRegistrationOpen(roundStatus) || selectedSlots.length !== REQUIRED_STUDENT_AVAILABILITY_SLOTS} style={{ fontWeight: 800, padding: '0.65rem 1.5rem', borderRadius: '10px', background: 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: '0 4px 12px rgba(242, 101, 34, 0.25)' }}>
                 <Send size={16} />
-                <span>Save ({selectedSlots.length} ô available)</span>
+                <span>Save ({selectedSlots.length}/{REQUIRED_STUDENT_AVAILABILITY_SLOTS} slot)</span>
               </button>
             </div>
           </div>
@@ -564,11 +560,11 @@ const ReviewRegistrationPage = () => {
                   <span>Bảng Tick chọn Khung giờ rảnh</span>
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0.3rem 0 0', fontWeight: 500 }}>
-                  Trưởng nhóm tick vào tất cả những ô khung giờ mà các thành viên rảnh và sẵn sàng tham gia review, sau đó bấm <strong>Save</strong>.
+                  Trưởng nhóm chọn đúng <strong>{REQUIRED_STUDENT_AVAILABILITY_SLOTS} slot</strong> mà nhóm có thể tham gia, sau đó bấm <strong>Save</strong>.
                 </p>
               </div>
               <span className="badge" style={{ background: 'rgba(242, 101, 34, 0.15)', color: '#F26522', fontWeight: 800, fontSize: '0.9rem', padding: '0.45rem 1rem', borderRadius: '12px' }}>
-                Đã tick: {selectedSlots.length} ô
+                Đã chọn: {selectedSlots.length}/{REQUIRED_STUDENT_AVAILABILITY_SLOTS} slot
               </span>
             </div>
 
@@ -596,7 +592,7 @@ const ReviewRegistrationPage = () => {
                             key={`${day.id}-${s.id}`}
                             onClick={() => toggleSlot(day.id, s.id)}
                             style={{
-                              cursor: roundStatus === 'Đang mở đăng ký' ? 'pointer' : 'not-allowed',
+                              cursor: isRegistrationOpen(roundStatus) ? 'pointer' : 'not-allowed',
                               background: checked ? 'rgba(242, 101, 34, 0.14)' : 'transparent',
                               transition: 'all 0.15s ease',
                               padding: '0.85rem'
@@ -607,7 +603,7 @@ const ReviewRegistrationPage = () => {
                                 type="checkbox"
                                 checked={checked}
                                 onChange={() => {}}
-                                disabled={roundStatus !== 'Đang mở đăng ký'}
+                                disabled={!isRegistrationOpen(roundStatus)}
                                 style={{ width: '19px', height: '19px', accentColor: '#F26522', cursor: 'pointer' }}
                               />
                               <span style={{ fontSize: '0.85rem', fontWeight: checked ? 800 : 600, color: checked ? '#F26522' : '#64748B' }}>
@@ -624,7 +620,7 @@ const ReviewRegistrationPage = () => {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-              <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={loading || roundStatus !== 'Đang mở đăng ký'} style={{ padding: '0.85rem 2rem', fontSize: '1.02rem', fontWeight: 800, borderRadius: '12px', background: 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: '0 4px 14px rgba(242, 101, 34, 0.28)' }}>
+              <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={loading || !isRegistrationOpen(roundStatus) || selectedSlots.length !== REQUIRED_STUDENT_AVAILABILITY_SLOTS} style={{ padding: '0.85rem 2rem', fontSize: '1.02rem', fontWeight: 800, borderRadius: '12px', background: 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: '0 4px 14px rgba(242, 101, 34, 0.28)' }}>
                 <Send size={18} />
                 <span>Lưu Nguyện vọng Đăng ký</span>
               </button>

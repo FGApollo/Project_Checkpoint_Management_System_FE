@@ -1,46 +1,59 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
-import { CheckSquare, MessageSquare, FileText, Download, Award, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { downloadReviewReport } from '../../services/reviewReports';
+import { MessageSquare, FileText, Download, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
 
 const ReviewResultsPage = () => {
   const [submissions, setSubmissions] = useState([]);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [comments, setComments] = useState([]);
   const [attendance, setAttendance] = useState([]);
+  const [scheduleBySession, setScheduleBySession] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchMySubmissions = async () => {
+  const fetchMySubmissions = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const response = await api.get('/review-submissions/my');
+      const [response, scheduleResponse] = await Promise.all([
+        api.get('/review-submissions/my'),
+        api.get('/student-review/schedule').catch(() => ({ data: [] })),
+      ]);
       const list = Array.isArray(response.data) ? response.data : [];
+      const schedules = Array.isArray(scheduleResponse.data) ? scheduleResponse.data : [];
+      setScheduleBySession(Object.fromEntries(
+        schedules.map((schedule) => [String(schedule.sessionId), schedule])
+      ));
       setSubmissions(list);
-      if (list.length > 0 && !selectedSubmission) {
-        setSelectedSubmission(list[0]);
-      }
-    } catch (err) {
+      setSelectedSubmission((currentSubmission) => (
+        currentSubmission && list.some((submission) => submission.id === currentSubmission.id)
+          ? currentSubmission
+          : list[0] || null
+      ));
+    } catch {
       setError('Failed to fetch evaluation results.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchMySubmissions();
-  }, []);
+  }, [fetchMySubmissions]);
 
   useEffect(() => {
     if (!selectedSubmission) return;
     const fetchDetails = async () => {
       try {
         const sessionId = selectedSubmission.sessionId || selectedSubmission.id;
-        const commRes = await api.get(`/review-attendance/${sessionId}/comments`).catch(() => ({ data: [] }));
+        const groupQuery = selectedSubmission.groupId ? `?groupId=${selectedSubmission.groupId}` : '';
+        const commRes = await api.get(`/review-attendance/${sessionId}/comments${groupQuery}`).catch(() => ({ data: [] }));
         setComments(Array.isArray(commRes.data) ? commRes.data : []);
 
-        const attRes = await api.get(`/review-attendance/${sessionId}`).catch(() => ({ data: [] }));
-        setAttendance(Array.isArray(attRes.data) ? attRes.data : []);
+        const attRes = await api.get(`/review-attendance/${sessionId}${groupQuery}`).catch(() => ({ data: [] }));
+        const students = Array.isArray(attRes.data) ? attRes.data : attRes.data?.students;
+        setAttendance(Array.isArray(students) ? students : []);
       } catch (e) {
         console.error('Error fetching submission details:', e);
       }
@@ -48,8 +61,13 @@ const ReviewResultsPage = () => {
     fetchDetails();
   }, [selectedSubmission]);
 
-  const handleDownloadReport = (subId, ext) => {
-    window.open(`http://localhost:5122/api/review-submissions/${subId}/export.${ext}`, '_blank');
+  const handleDownloadReport = async (subId) => {
+    setError('');
+    try {
+      await downloadReviewReport(subId);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Không thể tải phiếu đánh giá.');
+    }
   };
 
   const getResultBadge = (res) => {
@@ -87,7 +105,11 @@ const ReviewResultsPage = () => {
         </div>
       )}
 
-      {submissions.length === 0 ? (
+      {loading ? (
+        <div className="glass-card" style={{ padding: '4rem', textAlign: 'center', background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#64748B' }}>
+          Đang tải kết quả review...
+        </div>
+      ) : submissions.length === 0 ? (
         <div className="glass-card" style={{ padding: '4rem', textAlign: 'center', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
           <FileText size={48} color="#F26522" style={{ margin: '0 auto 1rem', opacity: 0.8 }} />
           <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0F172A' }}>Chưa có Báo cáo Đánh giá Review nào</h3>
@@ -118,13 +140,13 @@ const ReviewResultsPage = () => {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                      <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>{sub.reviewType || `Vòng Review #${sub.id}`}</span>
-                      <span className={`badge ${isSelected ? '' : getResultBadge(sub.result)}`} style={{ background: isSelected ? 'rgba(255,255,255,0.2)' : undefined, color: isSelected ? 'white' : undefined, fontWeight: 700 }}>
-                        {sub.result || 'Đã chấm'}
+                      <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>{sub.type || `Vòng Review #${sub.id}`}</span>
+                      <span className={`badge ${isSelected ? '' : getResultBadge(sub.resultText)}`} style={{ background: isSelected ? 'rgba(255,255,255,0.2)' : undefined, color: isSelected ? 'white' : undefined, fontWeight: 700 }}>
+                        {sub.resultText || sub.status}
                       </span>
                     </div>
                     <p style={{ fontSize: '0.75rem', opacity: isSelected ? 0.95 : 0.75, margin: 0 }}>
-                      Điểm: <strong>{sub.score || 'N/A'}</strong> — Ngày: {sub.submittedAt ? new Date(sub.submittedAt).toLocaleDateString('vi-VN') : 'Gần đây'}
+                      Trạng thái: <strong>{scheduleBySession[String(sub.sessionId)]?.groupStatus || sub.status}</strong> — Ngày: {sub.submittedAt ? new Date(sub.submittedAt).toLocaleDateString('vi-VN') : 'Gần đây'}
                     </p>
                   </div>
                 );
@@ -140,39 +162,35 @@ const ReviewResultsPage = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                     <span className="badge" style={{ background: 'rgba(14, 165, 233, 0.15)', color: '#0EA5E9', fontSize: '0.8rem', fontWeight: 700 }}>Biên bản Đánh giá Chính thức</span>
                     <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', fontSize: '0.85rem', padding: '0.25rem 0.65rem', fontWeight: 700 }}>
-                      ✓ Trạng thái: Đã hoàn tất review (Completed)
+                      Trạng thái: {scheduleBySession[String(selectedSubmission.sessionId)]?.groupStatus || selectedSubmission.status}
                     </span>
-                    <span className={`badge ${getResultBadge(selectedSubmission.result)}`} style={{ fontSize: '0.85rem', padding: '0.25rem 0.65rem', fontWeight: 700 }}>
-                      Kết quả: {selectedSubmission.result || 'Đạt (Pass)'}
+                    <span className={`badge ${getResultBadge(selectedSubmission.resultText)}`} style={{ fontSize: '0.85rem', padding: '0.25rem 0.65rem', fontWeight: 700 }}>
+                      Kết quả: {selectedSubmission.resultText || 'Chưa có kết luận'}
                     </span>
                   </div>
-                  <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A' }}>{selectedSubmission.reviewType || 'Kết quả Review Checkpoint'}</h2>
+                  <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A' }}>{selectedSubmission.type || 'Kết quả Review Checkpoint'}</h2>
                   <p style={{ color: '#64748B', fontSize: '0.85rem' }}>
                     Được đánh giá bởi Giảng viên — ID Phiên: #{selectedSubmission.sessionId || selectedSubmission.id}
                   </p>
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-                  <button type="button" className="btn btn-primary" onClick={() => handleDownloadReport(selectedSubmission.id, 'xlsx')} style={{ fontWeight: 600 }}>
+                  <button type="button" className="btn btn-primary" onClick={() => handleDownloadReport(selectedSubmission.id)} style={{ fontWeight: 600 }}>
                     <Download size={16} />
                     <span>Tải Phiếu Đánh giá (.xlsx)</span>
-                  </button>
-                  <button type="button" className="btn btn-secondary" onClick={() => handleDownloadReport(selectedSubmission.id, 'zip')} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 600 }}>
-                    <Download size={16} color="#F26522" />
-                    <span>Tải Hồ sơ (.zip)</span>
                   </button>
                 </div>
               </div>
 
               {/* Verdict & Notes Banner */}
               <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-                <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: (selectedSubmission.result === 'Fail' || selectedSubmission.result === 'Drop') ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)', border: (selectedSubmission.result === 'Fail' || selectedSubmission.result === 'Drop') ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)' }}>
+                <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: selectedSubmission.resultText === 'Fail' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)', border: selectedSubmission.resultText === 'Fail' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748B', textTransform: 'uppercase' }}>KẾT QUẢ REVIEW</span>
-                  <h3 style={{ fontSize: '1.65rem', fontWeight: 800, color: (selectedSubmission.result === 'Fail' || selectedSubmission.result === 'Drop') ? '#EF4444' : '#10B981', margin: '0.4rem 0' }}>
-                    {(selectedSubmission.result === 'Fail' || selectedSubmission.result === 'Drop') ? 'KHÔNG ĐẠT' : 'ĐẠT YÊU CẦU'}
+                  <h3 style={{ fontSize: '1.65rem', fontWeight: 800, color: selectedSubmission.resultText === 'Fail' ? '#EF4444' : '#10B981', margin: '0.4rem 0' }}>
+                    {selectedSubmission.resultText === 'Fail' ? 'KHÔNG ĐẠT' : selectedSubmission.resultText || 'CHƯA CÓ KẾT LUẬN'}
                   </h3>
                   <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>
-                    {(selectedSubmission.result === 'Fail' || selectedSubmission.result === 'Drop') ? 'Yêu cầu sửa chữa & bảo vệ lại' : '✓ Đủ điều kiện bước tiếp'}
+                    {selectedSubmission.resultText === 'Fail' ? 'Yêu cầu sửa chữa & review lại' : '✓ Đủ điều kiện bước tiếp'}
                   </span>
                 </div>
 
@@ -182,7 +200,7 @@ const ReviewResultsPage = () => {
                     <span>Nhận xét Tổng hợp của Giảng viên</span>
                   </h4>
                   <p style={{ fontSize: '0.9rem', color: '#334155', lineHeight: 1.6, margin: 0 }}>
-                    {selectedSubmission.notes || 'Nhóm trình bày đáp ứng yêu cầu tiến độ và nội dung checkpoint. Các mục tiêu học tập đã được bao phủ tốt.'}
+                    {selectedSubmission.reviewerComment || 'Giảng viên chưa nhập nhận xét tổng hợp.'}
                   </p>
                 </div>
               </div>
@@ -203,12 +221,12 @@ const ReviewResultsPage = () => {
                   </thead>
                   <tbody>
                     {attendance.length === 0 ? (
-                      <tr><td colSpan="3" style={{ textAlign: 'center', padding: '1.5rem', color: '#64748B' }}>Hồ sơ điểm danh đã xác nhận (`100% Có mặt`).</td></tr>
+                      <tr><td colSpan="3" style={{ textAlign: 'center', padding: '1.5rem', color: '#64748B' }}>Chưa có dữ liệu điểm danh cho ca review này.</td></tr>
                     ) : (
                       attendance.map((att, i) => (
                         <tr key={i}>
                           <td style={{ fontWeight: 700, color: '#0F172A' }}>{att.studentCode || `Thành viên #${att.studentId}`}</td>
-                          <td style={{ color: '#334155' }}>{att.studentName || 'Thành viên Nhóm'}</td>
+                          <td style={{ color: '#334155' }}>{att.fullName || att.studentName || 'Thành viên Nhóm'}</td>
                           <td>
                             <span className={`badge ${att.isPresent !== false ? 'badge-success' : 'badge-danger'}`} style={{ fontWeight: 700 }}>
                               {att.isPresent !== false ? 'Đã điểm danh (Có mặt)' : 'Vắng mặt'}
@@ -224,7 +242,7 @@ const ReviewResultsPage = () => {
               {/* Feedback Comments Log */}
               <h4 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0F172A' }}>
                 <MessageSquare size={18} color="#0EA5E9" />
-                <span>Nhật ký Nhận xét Chi tiết ('GET /comments')</span>
+                <span>Nhật ký Nhận xét Chi tiết</span>
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {comments.length === 0 ? (

@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
-import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Clock, ArrowRight } from 'lucide-react';
+import { downloadReviewReport } from '../../services/reviewReports';
+import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+
+const getSessionKey = (session) => `${session?.sessionId || session?.id}:${session?.submissionId || ''}`;
 
 const ReviewScoringPage = () => {
   const [sessions, setSessions] = useState([]);
@@ -16,82 +19,96 @@ const ReviewScoringPage = () => {
   const [newComment, setNewComment] = useState('');
 
   // Submission / Evaluation State
-  const [submissionData, setSubmissionData] = useState(null);
   const [evalResult, setEvalResult] = useState('Pass'); // Pass | Fail | Defense2 | Drop
-  const [evalScore, setEvalScore] = useState('8.5');
   const [evalNotes, setEvalNotes] = useState('');
+  const [submissionDetails, setSubmissionDetails] = useState(null);
 
-  const fetchMySessions = async () => {
+  const fetchMySessions = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const response = await api.get('/review-sessions/my');
       const list = Array.isArray(response.data) ? response.data : (response.data.items || []);
       setSessions(list);
-      if (list.length > 0 && !selectedSession) {
-        setSelectedSession(list[0]);
-      }
-    } catch (err) {
+      setSelectedSession((currentSession) => (
+        currentSession && list.some((session) => getSessionKey(session) === getSessionKey(currentSession))
+          ? currentSession
+          : list[0] || null
+      ));
+    } catch {
       setError('Failed to fetch assigned review sessions.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchMySessions();
-  }, []);
+  }, [fetchMySessions]);
 
-  const fetchSessionDetails = async (sess) => {
+  const fetchSessionDetails = useCallback(async (sess) => {
     if (!sess) return;
     setLoading(true);
     setError('');
     try {
+      const sessionId = sess.sessionId || sess.id;
+      const submissionResponse = sess.submissionId
+        ? await api.get(`/review-submissions/${sess.submissionId}`)
+        : { data: null };
+      const details = submissionResponse.data || null;
+      const groupQuery = details?.groupId ? `?groupId=${details.groupId}` : '';
+      setSubmissionDetails(details);
+
       if (activeTab === 'attendance') {
-        const res = await api.get(`/review-attendance/${sess.id}`).catch(() => ({ data: [] }));
-        setAttendanceList(Array.isArray(res.data) ? res.data : []);
+        const res = await api.get(`/review-attendance/${sessionId}${groupQuery}`).catch(() => ({ data: [] }));
+        const students = Array.isArray(res.data) ? res.data : res.data?.students;
+        setAttendanceList(Array.isArray(students) ? students : []);
       } else if (activeTab === 'comments') {
-        const res = await api.get(`/review-attendance/${sess.id}/comments`).catch(() => ({ data: [] }));
+        const res = await api.get(`/review-attendance/${sessionId}/comments${groupQuery}`).catch(() => ({ data: [] }));
         setCommentsList(Array.isArray(res.data) ? res.data : []);
       } else if (activeTab === 'evaluation') {
-        const subId = sess.submissionId || sess.id;
-        const res = await api.get(`/review-submissions/${subId}`).catch(() => ({ data: null }));
-        if (res.data) {
-          setSubmissionData(res.data);
-          setEvalResult(res.data.result || 'Pass');
-          setEvalScore(res.data.score || '8.5');
-          setEvalNotes(res.data.notes || '');
+        if (details) {
+          setEvalResult(details.resultText || 'Pass');
+          setEvalNotes(details.reviewerComment || '');
         }
       }
-    } catch (err) {
+    } catch {
       setError('Failed to load details for selected tab.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
 
   useEffect(() => {
     if (selectedSession) {
       fetchSessionDetails(selectedSession);
     }
-  }, [selectedSession, activeTab]);
+  }, [selectedSession, fetchSessionDetails]);
 
   const handleSaveAttendance = async () => {
     if (!selectedSession) return;
     setError('');
     setSuccess('');
     try {
-      await api.post(`/review-attendance/${selectedSession.id}`, attendanceList);
-      setSuccess('Student attendance records saved successfully.');
+      if (!submissionDetails?.groupId) throw new Error('Không xác định được nhóm cần điểm danh.');
+      await api.post(`/review-attendance/${selectedSession.sessionId || selectedSession.id}`, {
+        groupId: submissionDetails.groupId,
+        entries: attendanceList.map(({ studentId, isPresent, note }) => ({
+          studentId,
+          isPresent: isPresent !== false,
+          note: note || null,
+        })),
+      });
+      setSuccess('Đã lưu kết quả điểm danh.');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save attendance.');
+      setError(err.response?.data?.error || err.message || 'Failed to save attendance.');
     }
   };
 
   const handleToggleAttendance = (index) => {
-    const updated = [...attendanceList];
-    updated[index].isPresent = !updated[index].isPresent;
-    setAttendanceList(updated);
+    setAttendanceList((currentList) => currentList.map((entry, entryIndex) => (
+      entryIndex === index ? { ...entry, isPresent: entry.isPresent === false } : entry
+    )));
   };
 
   const handleAddComment = async (e) => {
@@ -100,28 +117,28 @@ const ReviewScoringPage = () => {
     setError('');
     setSuccess('');
     try {
-      await api.post(`/review-attendance/${selectedSession.id}/comments`, {
-        commentText: newComment,
-        category: 'General Checkpoint Feedback'
+      if (!submissionDetails?.groupId) throw new Error('Không xác định được nhóm cần nhận xét.');
+      await api.post(`/review-attendance/${selectedSession.sessionId || selectedSession.id}/comments`, {
+        groupId: submissionDetails.groupId,
+        content: newComment.trim(),
       });
       setNewComment('');
-      setSuccess('Checkpoint comment posted to group.');
+      setSuccess('Đã gửi nhận xét cho nhóm sinh viên.');
       fetchSessionDetails(selectedSession);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to submit comment.');
+      setError(err.response?.data?.error || err.message || 'Failed to submit comment.');
     }
   };
 
   const handleSaveEvaluationDraft = async () => {
     if (!selectedSession) return;
-    const subId = selectedSession.submissionId || selectedSession.id;
+    const subId = selectedSession.submissionId;
     setError('');
     setSuccess('');
     try {
       await api.put(`/review-submissions/${subId}/draft`, {
-        result: evalResult,
-        score: evalResult === 'Pass' ? 10 : (evalResult === 'Fail' ? 0 : 5),
-        notes: evalNotes
+        resultText: evalResult,
+        reviewerComment: evalNotes.trim(),
       });
       setSuccess('Đã lưu bản nháp nhận xét & đánh giá thành công!');
     } catch (err) {
@@ -131,26 +148,39 @@ const ReviewScoringPage = () => {
 
   const handleSubmitEvaluationFinal = async () => {
     if (!selectedSession) return;
-    const subId = selectedSession.submissionId || selectedSession.id;
+    if (!evalNotes.trim()) {
+      setError('Vui lòng nhập nhận xét chuyên môn trước khi kết thúc buổi review.');
+      return;
+    }
+    const subId = selectedSession.submissionId;
     setError('');
     setSuccess('');
     try {
-      await api.post(`/review-submissions/${subId}/submit`, {
-        result: evalResult,
-        score: evalResult === 'Pass' ? 10 : (evalResult === 'Fail' ? 0 : 5),
-        notes: evalNotes
+      if (!subId || !submissionDetails?.groupId) {
+        throw new Error('Không xác định được phiếu đánh giá hoặc nhóm cần hoàn tất.');
+      }
+      await api.put(`/review-submissions/${subId}/draft`, {
+        resultText: evalResult,
+        reviewerComment: evalNotes.trim(),
       });
+      await api.post(`/review-submissions/${subId}/submit`);
+      await api.post(`/review-attendance/${selectedSession.sessionId || selectedSession.id}/groups/${submissionDetails.groupId}/complete`);
       setSuccess('Đã gửi KẾT QUẢ ĐÁNH GIÁ REVIEW! Nhận xét, kết quả đạt yêu cầu và điểm danh đã được nộp chính thức cho sinh viên.');
       fetchSessionDetails(selectedSession);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to submit final checkpoint review.');
+      setError(err.response?.data?.error || err.message || 'Failed to submit final checkpoint review.');
     }
   };
 
-  const handleDownloadReport = (ext) => {
+  const handleDownloadReport = async () => {
     if (!selectedSession) return;
-    const subId = selectedSession.submissionId || selectedSession.id;
-    window.open(`http://localhost:5122/api/review-submissions/${subId}/export.${ext}`, '_blank');
+    const subId = selectedSession.submissionId;
+    setError('');
+    try {
+      await downloadReviewReport(subId);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Không thể tải phiếu đánh giá.');
+    }
   };
 
   return (
@@ -198,10 +228,10 @@ const ReviewScoringPage = () => {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {sessions.map((sess) => {
-                const isSelected = selectedSession?.id === sess.id;
+                const isSelected = getSessionKey(selectedSession) === getSessionKey(sess);
                 return (
                   <div
-                    key={sess.id}
+                    key={getSessionKey(sess)}
                     onClick={() => setSelectedSession(sess)}
                     style={{
                       padding: '1rem',
@@ -243,18 +273,14 @@ const ReviewScoringPage = () => {
                     Chấm điểm Checkpoint Nhóm {selectedSession.groupCode || `#${selectedSession.groupId}`}
                   </h2>
                   <p style={{ fontSize: '0.85rem', color: '#64748B' }}>
-                    ID Ca: #{selectedSession.id} — Ngày: {selectedSession.sessionDate} — Phòng: {selectedSession.room || 'N/A'}
+                    ID Ca: #{selectedSession.sessionId || selectedSession.id} — Ngày: {selectedSession.sessionDate} — Phòng: {selectedSession.room || 'N/A'}
                   </p>
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => handleDownloadReport('xlsx')} title="Xuất Báo cáo (.xlsx)" style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A' }}>
+                  <button type="button" className="btn btn-secondary" onClick={handleDownloadReport} title="Xuất Báo cáo (.xlsx)" style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A' }}>
                     <Download size={16} color="#10B981" />
                     <span style={{ fontWeight: 600 }}>Báo cáo Excel (.xlsx)</span>
-                  </button>
-                  <button type="button" className="btn btn-secondary" onClick={() => handleDownloadReport('zip')} title="Xuất Hồ sơ (.zip)" style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A' }}>
-                    <Download size={16} color="#0EA5E9" />
-                    <span style={{ fontWeight: 600 }}>Tải Hồ sơ (.zip)</span>
                   </button>
                 </div>
               </div>
@@ -303,12 +329,12 @@ const ReviewScoringPage = () => {
                       </thead>
                       <tbody>
                         {attendanceList.length === 0 ? (
-                          <tr><td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: '#64748B' }}>Chưa có danh sách sinh viên. Bấm Lưu để khởi tạo dữ liệu mặc định.</td></tr>
+                          <tr><td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: '#64748B' }}>Chưa có danh sách sinh viên cho ca review này.</td></tr>
                         ) : (
                           attendanceList.map((att, idx) => (
                             <tr key={att.studentId || idx}>
                               <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontWeight: 700 }}>{att.studentCode || `SE#${att.studentId}`}</span></td>
-                              <td style={{ fontWeight: 600, color: '#0F172A' }}>{att.studentName || 'Sinh viên Nhóm'}</td>
+                              <td style={{ fontWeight: 600, color: '#0F172A' }}>{att.fullName || att.studentName || 'Sinh viên Nhóm'}</td>
                               <td>
                                 <span className="badge" style={{
                                   background: att.isPresent !== false ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
@@ -329,7 +355,7 @@ const ReviewScoringPage = () => {
                       </tbody>
                     </table>
                   </div>
-                  <button type="button" className="btn btn-success" onClick={handleSaveAttendance} style={{ background: '#10B981', color: 'white' }}>
+                  <button type="button" className="btn btn-success" onClick={handleSaveAttendance} disabled={attendanceList.length === 0} style={{ background: '#10B981', color: 'white' }}>
                     <Save size={16} />
                     <span style={{ fontWeight: 700 }}>Lưu Kết quả Điểm danh</span>
                   </button>
