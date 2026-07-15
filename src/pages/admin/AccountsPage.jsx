@@ -9,6 +9,10 @@ const AccountsPage = () => {
   const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   // Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -27,12 +31,25 @@ const AccountsPage = () => {
     major: 'Software Engineering'
   });
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = async (pageNumber = page, size = pageSize) => {
     setLoading(true);
     setError('');
     try {
-      const response = await api.get('/accounts');
+      let url = `/accounts?page=${pageNumber}&pageSize=${size}`;
+      if (searchTerm.trim()) {
+        url += `&search=${encodeURIComponent(searchTerm.trim())}`;
+      }
+      if (roleFilter === 'Student' || roleFilter === 'Lecturer') {
+        url += `&filterBy=role&filterValue=${encodeURIComponent(roleFilter)}`;
+      }
+      const response = await api.get(url);
       setAccounts(Array.isArray(response.data) ? response.data : (response.data.items || []));
+      if (response.data?.totalPages !== undefined) {
+        setTotalPages(response.data.totalPages || 1);
+      }
+      if (response.data?.totalCount !== undefined) {
+        setTotalCount(response.data.totalCount || 0);
+      }
     } catch (err) {
       setError('Failed to fetch user accounts.');
     } finally {
@@ -41,8 +58,35 @@ const AccountsPage = () => {
   };
 
   useEffect(() => {
-    fetchAccounts();
-  }, []);
+    const timer = setTimeout(() => {
+      fetchAccounts(page, pageSize);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [page, pageSize, searchTerm, roleFilter]);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (page <= 3) {
+        for (let i = 1; i <= 4; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (page >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push('...');
+        for (let i = page - 1; i <= page + 1; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    return pages;
+  };
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
@@ -105,6 +149,7 @@ const AccountsPage = () => {
   };
 
   const filteredAccounts = accounts.filter((acc) => {
+    if (roleFilter === 'Student' || roleFilter === 'Lecturer') return true;
     const matchesSearch = (acc.username || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (acc.email || '').toLowerCase().includes(searchTerm.toLowerCase());
     const effectiveRole = (acc.role === 'SystemAdministrator' || acc.role === 'TrainingDepartment' || acc.role === 'Moderator') ? 'Moderator' : acc.role;
@@ -121,7 +166,7 @@ const AccountsPage = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="btn btn-secondary" onClick={fetchAccounts} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
+          <button className="btn btn-secondary" onClick={() => fetchAccounts(page, pageSize)} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
             <RefreshCw size={16} />
             <span>Làm mới</span>
           </button>
@@ -154,7 +199,7 @@ const AccountsPage = () => {
               type="text"
               className="form-input"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
               placeholder="Tìm kiếm theo mã số, tên đăng nhập hoặc email..."
               style={{ width: '100%', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
             />
@@ -165,7 +210,7 @@ const AccountsPage = () => {
             <select
               className="form-select"
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
+              onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
               style={{ minWidth: '180px', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
             >
               <option value="ALL">Tất cả vai trò</option>
@@ -259,6 +304,79 @@ const AccountsPage = () => {
             </tbody>
           </table>
         </div>
+
+        {accounts.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #E2E8F0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <span style={{ fontSize: '0.875rem', color: '#64748B', fontWeight: 600 }}>
+                Trang <strong style={{ color: '#0F172A' }}>{page}</strong> / <strong style={{ color: '#0F172A' }}>{totalPages}</strong> ({totalCount || accounts.length} tài khoản)
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.8rem', color: '#64748B' }}>Hiển thị:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)', border: '1px solid #CBD5E1', background: '#F8FAFC', color: '#0F172A', fontWeight: 600 }}
+                >
+                  <option value={10}>10 dòng</option>
+                  <option value={15}>15 dòng</option>
+                  <option value={20}>20 dòng</option>
+                  <option value={50}>50 dòng</option>
+                </select>
+              </div>
+            </div>
+
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                <button
+                  className="btn btn-secondary"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                  style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}
+                >
+                  Trang trước
+                </button>
+
+                {getPageNumbers().map((p, idx) =>
+                  p === '...' ? (
+                    <span key={`ellipsis-${idx}`} style={{ padding: '0.4rem 0.5rem', color: '#94A3B8', fontWeight: 700 }}>
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      style={{
+                        padding: '0.4rem 0.75rem',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        borderRadius: 'var(--radius-sm)',
+                        border: p === page ? 'none' : '1px solid #CBD5E1',
+                        background: p === page ? '#3B82F6' : '#FFFFFF',
+                        color: p === page ? '#FFFFFF' : '#0F172A',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+
+                <button
+                  className="btn btn-secondary"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(page + 1)}
+                  style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}
+                >
+                  Trang sau
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Create Modal */}

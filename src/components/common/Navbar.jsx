@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { LogOut, User, Calendar, ShieldCheck, Bell } from 'lucide-react';
 import api from '../../services/api';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
+  const location = useLocation();
   const [activeSemester, setActiveSemester] = useState(null);
 
   useEffect(() => {
@@ -15,6 +17,10 @@ const Navbar = () => {
     }
   }, [user]);
 
+  if (!user || location.pathname === '/login') {
+    return null;
+  }
+
   const getRoleBadgeText = (role) => {
     switch (role) {
       case 'SystemAdministrator': return 'Quản trị Hệ thống';
@@ -23,6 +29,17 @@ const Navbar = () => {
       case 'Lecturer': return 'Giảng viên';
       case 'Student': return 'Sinh viên';
       default: return role || 'Tài khoản';
+    }
+  };
+
+  const getPortalSubTitle = (role) => {
+    switch (role) {
+      case 'SystemAdministrator': return 'SYSTEM ADMIN PANEL';
+      case 'TrainingDepartment':
+      case 'Moderator': return 'MODERATOR PANEL';
+      case 'Lecturer': return 'LECTURER PORTAL';
+      case 'Student': return 'STUDENT PORTAL';
+      default: return 'MANAGEMENT PORTAL';
     }
   };
 
@@ -73,7 +90,7 @@ const Navbar = () => {
               Capstone Portal
             </h1>
             <p style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 500 }}>
-              MODERATOR PANEL
+              {getPortalSubTitle(user.role)}
             </p>
           </div>
         </div>

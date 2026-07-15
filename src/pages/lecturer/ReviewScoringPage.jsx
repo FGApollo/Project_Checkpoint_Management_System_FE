@@ -49,7 +49,7 @@ const ReviewScoringPage = () => {
     try {
       if (activeTab === 'attendance') {
         const res = await api.get(`/review-attendance/${sess.id}`).catch(() => ({ data: [] }));
-        setAttendanceList(Array.isArray(res.data) ? res.data : []);
+        setAttendanceList(Array.isArray(res.data) ? res.data : (res.data?.students || []));
       } else if (activeTab === 'comments') {
         const res = await api.get(`/review-attendance/${sess.id}/comments`).catch(() => ({ data: [] }));
         setCommentsList(Array.isArray(res.data) ? res.data : []);
@@ -81,7 +81,14 @@ const ReviewScoringPage = () => {
     setError('');
     setSuccess('');
     try {
-      await api.post(`/review-attendance/${selectedSession.id}`, attendanceList);
+      await api.post(`/review-attendance/${selectedSession.id}`, {
+        groupId: Number(selectedSession.groupId),
+        entries: attendanceList.map(item => ({
+          studentId: Number(item.studentId || item.id),
+          isPresent: Boolean(item.isPresent),
+          note: item.note || ''
+        }))
+      });
       setSuccess('Student attendance records saved successfully.');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save attendance.');
@@ -101,8 +108,8 @@ const ReviewScoringPage = () => {
     setSuccess('');
     try {
       await api.post(`/review-attendance/${selectedSession.id}/comments`, {
-        commentText: newComment,
-        category: 'General Checkpoint Feedback'
+        groupId: Number(selectedSession.groupId),
+        content: newComment
       });
       setNewComment('');
       setSuccess('Checkpoint comment posted to group.');
@@ -119,9 +126,13 @@ const ReviewScoringPage = () => {
     setSuccess('');
     try {
       await api.put(`/review-submissions/${subId}/draft`, {
-        result: evalResult,
-        score: evalResult === 'Pass' ? 10 : (evalResult === 'Fail' ? 0 : 5),
-        notes: evalNotes
+        workProductVersion: '1.0',
+        workProductSize: 'Standard',
+        effortHours: 10,
+        reviewerComment: evalNotes,
+        suggestion: evalNotes,
+        resultText: evalResult || 'Pass',
+        items: []
       });
       setSuccess('Đã lưu bản nháp nhận xét & đánh giá thành công!');
     } catch (err) {
@@ -135,11 +146,16 @@ const ReviewScoringPage = () => {
     setError('');
     setSuccess('');
     try {
-      await api.post(`/review-submissions/${subId}/submit`, {
-        result: evalResult,
-        score: evalResult === 'Pass' ? 10 : (evalResult === 'Fail' ? 0 : 5),
-        notes: evalNotes
+      await api.put(`/review-submissions/${subId}/draft`, {
+        workProductVersion: '1.0',
+        workProductSize: 'Standard',
+        effortHours: 10,
+        reviewerComment: evalNotes,
+        suggestion: evalNotes,
+        resultText: evalResult || 'Pass',
+        items: []
       });
+      await api.post(`/review-submissions/${subId}/submit`);
       setSuccess('Đã gửi KẾT QUẢ ĐÁNH GIÁ REVIEW! Nhận xét, kết quả đạt yêu cầu và điểm danh đã được nộp chính thức cho sinh viên.');
       fetchSessionDetails(selectedSession);
     } catch (err) {

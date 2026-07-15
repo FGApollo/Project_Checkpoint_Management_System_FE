@@ -146,9 +146,11 @@ const DefenseManagementPage = () => {
     setLoading(true);
     try {
       await api.post('/defense-management/sessions', {
+        code: `DEF_${sessGroupId}_${sessSlot}_${Date.now()}`,
+        defenseRoundId: Number(rounds[0]?.id || 1),
         councilId: Number(sessCouncilId),
         groupId: Number(sessGroupId),
-        date: sessDate,
+        sessionDate: sessDate,
         slot: Number(sessSlot),
         room: sessRoom
       });

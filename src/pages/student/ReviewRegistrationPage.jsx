@@ -208,19 +208,15 @@ const ReviewRegistrationPage = () => {
     setLoading(true);
     try {
       if (selectedSlots.length === 0) {
-        await api.delete(`/student-review/register?roundId=${selectedRoundId}`);
+        await api.delete(`/student-review/slots?roundId=${selectedRoundId}`);
         setSuccess(`Trưởng nhóm #${groupId} đã xóa nguyện vọng đăng ký cho đợt ${reviewType}!`);
         fetchData();
         return;
       }
-      // Save checked slot
-      for (const item of selectedSlots) {
-        await api.post('/student-review/register', {
-          roundId: Number(selectedRoundId),
-          dayOfWeek: Number(item.dayOfWeek),
-          slot: Number(item.slot)
-        });
-      }
+      await api.put('/student-review/slots', {
+        roundId: Number(selectedRoundId),
+        slots: selectedSlots.map(s => ({ dayOfWeek: Number(s.dayOfWeek), slot: Number(s.slot) }))
+      });
       setSuccess(`Trưởng nhóm #${groupId} đã lưu thành công nguyện vọng đăng ký slot rảnh cho đợt ${reviewType}!`);
       fetchData();
     } catch (err) {
@@ -310,7 +306,7 @@ const ReviewRegistrationPage = () => {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.75rem', marginBottom: '3rem' }}>
               {rounds.map((r) => {
-                const isOpen = r.status === 'Open' || r.status === 0 || r.status === 'Draft' || r.status === 'Đang mở';
+                const isOpen = r.status === 'Open' || r.status === 1 || r.status === 0 || r.status === 'Draft' || r.status === 'Đang mở';
                 return (
                   <div
                     key={r.id}

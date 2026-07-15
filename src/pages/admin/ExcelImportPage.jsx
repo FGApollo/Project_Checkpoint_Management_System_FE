@@ -67,7 +67,11 @@ const ExcelImportPage = () => {
       });
       setResult(response.data);
     } catch (err) {
-      setError(err.response?.data?.error || 'Import failed due to strict Excel validation rules (malformed rows, formula errors, or duplicate identity codes).');
+      if (err.response?.status === 401) {
+        setError('Phiên đăng nhập đã hết hạn hoặc không hợp lệ (Lỗi 401 Unauthorized). Vui lòng nhấn nút "Đăng xuất" ở góc trên bên phải và đăng nhập lại tài khoản Admin (Admin@gmail.com / Abcd@1234) để tiếp tục.');
+      } else {
+        setError(err.response?.data?.error || 'Import failed due to strict Excel validation rules (malformed rows, formula errors, or duplicate identity codes).');
+      }
     } finally {
       setLoading(false);
     }
@@ -100,7 +104,11 @@ const ExcelImportPage = () => {
             </div>
             <div>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0F172A' }}>Nhập liệu Excel Thành công!</h2>
-              <p style={{ color: '#475569', fontSize: '0.875rem' }}>Tất cả dữ liệu đã vượt qua kiểm tra toàn vẹn và được lưu vào hệ thống cơ sở dữ liệu.</p>
+              <p style={{ color: '#475569', fontSize: '0.875rem' }}>
+                {result.groupsCreated === 0 && result.topicsCreated === 0 && result.studentsCreated === 0
+                  ? 'Tất cả các nhóm và sinh viên trong file Excel này đã tồn tại trong hệ thống từ trước. Hệ thống đã đồng bộ/cập nhật thông tin mà không tạo trùng lặp mới.'
+                  : 'Tất cả dữ liệu đã vượt qua kiểm tra toàn vẹn và được lưu vào hệ thống cơ sở dữ liệu.'}
+              </p>
             </div>
           </div>
 

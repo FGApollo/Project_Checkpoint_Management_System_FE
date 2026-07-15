@@ -201,8 +201,13 @@ const DefenseRoomPage = () => {
     try {
       await api.post(`/defense-sessions/${sessionState.id}/scores`, {
         studentId: Number(studentId),
-        chamBaoVe: Number(stScore.chamBaoVe),
-        chamNguoi: Number(stScore.chamNguoi)
+        scoreType: 'BaoVe',
+        scoreValue: Number(stScore.chamBaoVe)
+      });
+      await api.post(`/defense-sessions/${sessionState.id}/scores`, {
+        studentId: Number(studentId),
+        scoreType: 'Nguoi',
+        scoreValue: Number(stScore.chamNguoi)
       });
       setSuccess(`Scores submitted for Student #${studentId}! Immutable audit log & score history appended.`);
     } catch (err) {

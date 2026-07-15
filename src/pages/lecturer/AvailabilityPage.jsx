@@ -87,11 +87,12 @@ const AvailabilityPage = () => {
   };
 
   const fetchAvailability = async () => {
+    if (!selectedRoundId) return;
     setLoading(true);
     setError('');
     setSuccess('');
     try {
-      const response = await api.get(`/review-availability/week?semesterId=${semesterId}&weekStart=${weekStart}`);
+      const response = await api.get(`/review-availability/week?roundId=${selectedRoundId}`);
       const data = response.data || {};
       setSelectedSlots(Array.isArray(data.slots) ? data.slots : []);
       setIsSubmitted(Boolean(data.isSubmitted || data.status === 'Submitted'));
@@ -124,10 +125,10 @@ const AvailabilityPage = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedRoundId || weekStart) {
+    if (selectedRoundId) {
       fetchAvailability();
     }
-  }, [semesterId, weekStart, selectedRoundId]);
+  }, [selectedRoundId]);
 
   const toggleSlot = (dayId, slotId) => {
     if (isSubmitted) return;
@@ -146,11 +147,12 @@ const AvailabilityPage = () => {
   };
 
   const handleSaveDraft = async () => {
+    if (!selectedRoundId) return;
     setLoading(true);
     setError('');
     setSuccess('');
     try {
-      await api.put(`/review-availability/week?semesterId=${semesterId}&weekStart=${weekStart}`, {
+      await api.put(`/review-availability/week?roundId=${selectedRoundId}`, {
         slots: selectedSlots
       });
       setSuccess('Đã lưu bản nháp. Bạn có thể chỉnh sửa trước khi nộp chính thức.');
@@ -163,14 +165,15 @@ const AvailabilityPage = () => {
   };
 
   const handleSubmitFinal = async () => {
+    if (!selectedRoundId) return;
     setLoading(true);
     setError('');
     setSuccess('');
     try {
-      await api.put(`/review-availability/week?semesterId=${semesterId}&weekStart=${weekStart}`, {
+      await api.put(`/review-availability/week?roundId=${selectedRoundId}`, {
         slots: selectedSlots
       });
-      await api.post(`/review-availability/week/submit?semesterId=${semesterId}&weekStart=${weekStart}`);
+      await api.post(`/review-availability/week/submit?roundId=${selectedRoundId}`);
       setSuccess('Đã nộp chính thức! Lịch tuần này hiện đã khóa chỉnh sửa.');
       setIsSubmitted(true);
     } catch (err) {
@@ -261,7 +264,7 @@ const AvailabilityPage = () => {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.75rem', marginBottom: '3rem' }}>
               {rounds.map((r) => {
-                const isOpen = r.status === 'Open' || r.status === 0 || r.status === 'Draft' || r.status === 'Đang mở';
+                const isOpen = r.status === 'Open' || r.status === 1 || r.status === 0 || r.status === 'Draft' || r.status === 'Đang mở';
                 return (
                   <div
                     key={r.id}

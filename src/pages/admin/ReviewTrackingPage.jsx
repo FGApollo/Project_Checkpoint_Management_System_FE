@@ -130,7 +130,7 @@ const ReviewTrackingPage = () => {
         }
 
         const boardPromises = reviewRoundsToFetch.map(r => 
-          api.get(`/review-scheduling/board?semesterId=${selectedSemesterId}&reviewType=${r.type}&weekStart=${r.weekStart || '2026-06-15'}`).catch(() => ({ data: { sessions: [] } }))
+          api.get(`/review-scheduling/board?semesterId=${selectedSemesterId}&reviewType=${r.type}&weekStart=${r.weekStartDate || r.weekStart || '2026-06-15'}`).catch(() => ({ data: { sessions: [] } }))
         );
 
         const results = await Promise.all(boardPromises);
@@ -141,7 +141,7 @@ const ReviewTrackingPage = () => {
           mappedSessions.push(...boardSessions.map(item => mapBoardItem(item, roundName)));
         }
       } else {
-        const boardRes = await api.get(`/review-scheduling/board?semesterId=${selectedSemesterId}&reviewType=${selectedRound.type}&weekStart=${selectedRound.weekStart || '2026-06-15'}`).catch(() => ({ data: { sessions: [] } }));
+        const boardRes = await api.get(`/review-scheduling/board?semesterId=${selectedSemesterId}&reviewType=${selectedRound.type}&weekStart=${selectedRound.weekStartDate || selectedRound.weekStart || '2026-06-15'}`).catch(() => ({ data: { sessions: [] } }));
         const boardSessions = Array.isArray(boardRes.data?.sessions) ? boardRes.data.sessions : [];
         mappedSessions = boardSessions.map(item => mapBoardItem(item, selectedRound.name));
       }

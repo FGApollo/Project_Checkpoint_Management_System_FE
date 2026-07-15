@@ -73,8 +73,15 @@ const ReviewManagementPage = () => {
       const res = await api.get(`/review-scheduling/board?semesterId=${semId}&reviewType=${round.type}&weekStart=${round.weekStartDate}`);
       const data = res.data || {};
       const lecturersCount = data.lecturers?.length || 0;
-      const registeredLecturersCount = data.availabilitySubmissions?.filter(s => s.submitted).length || 0;
-      const registeredGroupsCount = round.registrationCount || round.registeredGroupCount || data.groups?.length || 0;
+      const registeredLecturersCount = data.lecturers?.filter(l =>
+        data.availabilitySubmissions?.some(s => s.lecturerId === l.id && (s.isSubmitted || s.submitted || s.slotCount > 0)) ||
+        data.availability?.some(a => a.lecturerId === l.id)
+      ).length || data.availabilitySubmissions?.filter(s => s.isSubmitted || s.submitted || s.slotCount > 0).length || 0;
+      const registeredGroupsCount = (round.registrationCount !== undefined && round.registrationCount !== null)
+        ? round.registrationCount
+        : ((round.registeredGroupCount !== undefined && round.registeredGroupCount !== null)
+          ? round.registeredGroupCount
+          : 0);
       const sessions = Array.isArray(data.sessions) ? data.sessions : [];
 
       setBoardData({
@@ -177,6 +184,27 @@ const ReviewManagementPage = () => {
     }
   };
 
+  const handleLockRegistrationAndProceed = async () => {
+    if (!selectedRound) return;
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      if (selectedRound.status !== 'Closed' && selectedRound.status !== 2 && selectedRound.status !== 'Published' && selectedRound.status !== 3) {
+        await api.patch(`/review-scheduling/rounds/${selectedRound.id}/status`, { status: 2 }); // Closed
+      }
+      const updatedRound = { ...selectedRound, status: 'Closed' };
+      setSelectedRound(updatedRound);
+      await fetchRounds(formData.semesterId);
+      setActiveStep(3);
+      setSuccess('Đã khóa đăng ký và chuyển sang bước Chạy thuật toán phân công!');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Lỗi khi khóa đăng ký đợt review');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleMatch = async () => {
     if (!selectedRound) {
       setError('Vui lòng chọn hoặc tạo đợt review trước.');
@@ -186,13 +214,28 @@ const ReviewManagementPage = () => {
     setSuccess('');
     setLoading(true);
     try {
-      await api.post('/review-scheduling/random-assign', {
+      if (selectedRound.status !== 'Closed' && selectedRound.status !== 2 && selectedRound.status !== 'Published' && selectedRound.status !== 3) {
+        await api.patch(`/review-scheduling/rounds/${selectedRound.id}/status`, { status: 2 }); // Closed
+        setSelectedRound(prev => prev ? { ...prev, status: 'Closed' } : prev);
+      }
+      const res = await api.post('/review-scheduling/random-assign', {
         semesterId: Number(formData.semesterId),
         reviewType: selectedRound.type,
-        weekStart: selectedRound.weekStartDate
+        weekStart: selectedRound.weekStartDate,
+        reviewersPerSession: 2,
+        roomPrefix: 'REV-'
       });
-      setSuccess('Đã chạy thuật toán xếp lịch và lưu phân công vào Database thành công!');
+      const data = res.data || {};
+      const assignedCount = data.assignedCount !== undefined ? data.assignedCount : (data.sessions?.length || 0);
       await fetchBoardDetails(selectedRound, formData.semesterId);
+
+      if (assignedCount === 0) {
+        const unassignedReasons = data.unassignedGroups?.map(u => `${u.groupCode}: ${u.reason}`).join(' | ') || 'Chưa đủ giảng viên khai báo rảnh trong cùng 1 slot (cần tối thiểu 2 giảng viên rảnh trong cùng slot và không trùng với GVHD).';
+        setError(`Thuật toán chưa thể xếp lịch được ca nào (0/${data.totalCandidateGroups || boardData.registeredGroupsCount || 3} nhóm). Lý do chi tiết:\n${unassignedReasons}`);
+        return;
+      }
+
+      setSuccess(`Đã chạy thuật toán xếp lịch và lưu phân công vào Database thành công cho ${assignedCount}/${data.totalCandidateGroups || assignedCount} nhóm!`);
       setActiveStep(4);
     } catch (err) {
       setError(err.response?.data?.error || 'Lỗi khi chạy thuật toán phân công. Hãy kiểm tra danh sách giảng viên đăng ký slot rảnh và nguyện vọng nhóm.');
@@ -212,6 +255,7 @@ const ReviewManagementPage = () => {
         reviewType: selectedRound.type,
         weekStart: selectedRound.weekStartDate,
         subject: `[CPMS] Thông báo Lịch Review Checkpoint (${formatReviewType(selectedRound.type)})`,
+        message: `Kính gửi Quý Giảng viên và Sinh viên,\n\nLịch review checkpoint cho đợt ${formatReviewType(selectedRound.type)} đã được công bố chính thức trên hệ thống CPMS. Vui lòng đăng nhập để xem chi tiết ca review và phòng ban.\n\nTrân trọng,\nPhòng Đào tạo.`,
         messageBody: `Kính gửi Quý Giảng viên và Sinh viên,\n\nLịch review checkpoint cho đợt ${formatReviewType(selectedRound.type)} đã được công bố chính thức trên hệ thống CPMS. Vui lòng đăng nhập để xem chi tiết ca review và phòng ban.\n\nTrân trọng,\nPhòng Đào tạo.`
       });
       setSuccess(`Đã công bố lịch thành công! Đã chốt ${res.data?.publishedSessionCount || boardData.sessions.length} ca review vào Database và thông báo cho Giảng viên & Sinh viên.`);
@@ -406,7 +450,7 @@ const ReviewManagementPage = () => {
                   </div>
                 </div>
 
-                <button className="btn btn-danger" onClick={() => handleStepClick(3)} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
+                <button className="btn btn-danger" onClick={handleLockRegistrationAndProceed} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
                   Khóa Đăng ký & Chuyển sang Phân công <ArrowRight size={18} />
                 </button>
               </>

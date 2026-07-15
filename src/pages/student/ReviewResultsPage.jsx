@@ -40,7 +40,7 @@ const ReviewResultsPage = () => {
         setComments(Array.isArray(commRes.data) ? commRes.data : []);
 
         const attRes = await api.get(`/review-attendance/${sessionId}`).catch(() => ({ data: [] }));
-        setAttendance(Array.isArray(attRes.data) ? attRes.data : []);
+        setAttendance(Array.isArray(attRes.data) ? attRes.data : (attRes.data?.students || []));
       } catch (e) {
         console.error('Error fetching submission details:', e);
       }
