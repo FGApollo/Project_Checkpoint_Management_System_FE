@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Layers, UserPlus, Zap, CheckCircle2, AlertCircle, RefreshCw, Plus, Clock, Users, Calendar, ArrowRight, Play, CheckSquare } from 'lucide-react';
+import { Layers, UserPlus, Zap, CheckCircle2, AlertCircle, RefreshCw, Plus, Clock, Users, Calendar, ArrowRight, Play, CheckSquare, Lock, Unlock, ShieldAlert } from 'lucide-react';
 
 const formatReviewType = (type) => {
   if (type === 'Review1' || type === 0) return 'Review 1';
@@ -205,6 +205,27 @@ const ReviewManagementPage = () => {
     }
   };
 
+  const handleToggleRoundStatus = async (roundToUpdate, newStatus, e) => {
+    if (e) e.stopPropagation();
+    if (!roundToUpdate) return;
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await api.patch(`/review-scheduling/rounds/${roundToUpdate.id}/status`, { status: newStatus });
+      const updatedRound = res.data || { ...roundToUpdate, status: newStatus === 1 || newStatus === 'Open' ? 'Open' : (newStatus === 2 || newStatus === 'Closed' ? 'Closed' : newStatus) };
+      if (selectedRound && selectedRound.id === roundToUpdate.id) {
+        setSelectedRound(updatedRound);
+      }
+      await fetchRounds(formData.semesterId);
+      setSuccess(newStatus === 1 || newStatus === 'Open' ? `Đã MỞ KHÓA đăng ký cho đợt ${formatReviewType(roundToUpdate.type)}! Giảng viên & Sinh viên hiện có thể truy cập chọn khung giờ rảnh.` : `Đã KHÓA đăng ký cho đợt ${formatReviewType(roundToUpdate.type)}! Giảng viên & Sinh viên không thể thay đổi nguyện vọng.`);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Lỗi khi cập nhật trạng thái đợt review');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleMatch = async () => {
     if (!selectedRound) {
       setError('Vui lòng chọn hoặc tạo đợt review trước.');
@@ -393,15 +414,56 @@ const ReviewManagementPage = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     {rounds.map(r => {
                       const isSelected = selectedRound?.id === r.id;
+                      const isOpen = r.status === 'Open' || r.status === 1;
+                      const isClosed = r.status === 'Closed' || r.status === 2;
+                      const isDraft = r.status === 'Draft' || r.status === 0;
                       return (
-                        <div key={r.id} onClick={() => setSelectedRound(r)} style={{ padding: '0.85rem', background: isSelected ? '#EEF2FF' : '#F8FAFC', borderRadius: '8px', border: isSelected ? '2px solid #4F46E5' : '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
-                          <div>
-                            <p style={{ fontWeight: 700, fontSize: '0.95rem', color: isSelected ? '#4F46E5' : '#0F172A', margin: 0 }}>Đợt {formatReviewType(r.type)}</p>
-                            <p style={{ fontSize: '0.75rem', color: '#64748B', margin: 0 }}>Từ {r.weekStartDate} đến {r.weekEndDate}</p>
+                        <div key={r.id} onClick={() => setSelectedRound(r)} style={{ padding: '1rem', background: isSelected ? '#EEF2FF' : '#F8FAFC', borderRadius: '12px', border: isSelected ? '2px solid #4F46E5' : '1px solid #E2E8F0', cursor: 'pointer', transition: 'all 0.2s' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.6rem' }}>
+                            <div>
+                              <p style={{ fontWeight: 750, fontSize: '1rem', color: isSelected ? '#4F46E5' : '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                Đợt {formatReviewType(r.type)}
+                              </p>
+                              <p style={{ fontSize: '0.8rem', color: '#64748B', margin: '0.2rem 0 0' }}>Từ {r.weekStartDate} đến {r.weekEndDate}</p>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
+                              <span className="badge" style={{
+                                background: isOpen ? '#DCFCE7' : (isClosed ? '#FEE2E2' : (isDraft ? '#FEF3C7' : '#E0F2FE')),
+                                color: isOpen ? '#16A34A' : (isClosed ? '#DC2626' : (isDraft ? '#D97706' : '#0284C7')),
+                                fontWeight: 800,
+                                fontSize: '0.75rem',
+                                padding: '0.3rem 0.65rem',
+                                borderRadius: '12px'
+                              }}>
+                                {isOpen ? '● Đang Mở Đăng Ký' : (isClosed ? '🔒 Đã Khóa Đăng Ký' : (isDraft ? '📝 Nháp (Chưa Mở)' : 'Đã Công Bố'))}
+                              </span>
+                              <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 700 }}>{r.registrationCount || 0} nhóm</span>
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
-                            <span className="badge" style={{ background: isSelected ? '#4F46E5' : '#E2E8F0', color: isSelected ? 'white' : '#475569' }}>{formatReviewType(r.type)}</span>
-                            <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>{r.registrationCount || 0} nhóm</span>
+
+                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dashed #CBD5E1', justifyContent: 'flex-end' }}>
+                            {!isOpen && (
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={(e) => handleToggleRoundStatus(r, 1, e)}
+                                disabled={loading}
+                                style={{ background: '#10B981', color: 'white', padding: '0.45rem 0.85rem', fontSize: '0.8rem', fontWeight: 750, borderRadius: '8px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }}
+                              >
+                                <Unlock size={14} /> Mở Khóa Đăng Ký
+                              </button>
+                            )}
+                            {isOpen && (
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={(e) => handleToggleRoundStatus(r, 2, e)}
+                                disabled={loading}
+                                style={{ background: '#EF4444', color: 'white', padding: '0.45rem 0.85rem', fontSize: '0.8rem', fontWeight: 750, borderRadius: '8px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }}
+                              >
+                                <Lock size={14} /> Khóa Đăng Ký
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
@@ -434,25 +496,98 @@ const ReviewManagementPage = () => {
                 <div style={{ display: 'inline-block', background: '#EEF2FF', color: '#4F46E5', padding: '0.4rem 1rem', borderRadius: '20px', fontWeight: 600, fontSize: '0.85rem', marginBottom: '1rem' }}>
                   Đang xử lý đợt: {selectedRound.type} ({selectedRound.weekStartDate} đến {selectedRound.weekEndDate})
                 </div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', color: '#0F172A' }}>Bước 2: Mở đăng ký cho Giảng viên & Sinh viên</h2>
-                <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>Hệ thống đang mở đăng ký cho đợt {selectedRound.type}. Giảng viên và sinh viên có thể đăng nhập để chọn các ô slot rảnh trong bảng 30 ô.</p>
+                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1rem', color: '#0F172A' }}>Bước 2: Mở / Khóa Đăng ký cho Giảng viên & Sinh viên</h2>
+                
+                {/* Status Alert Box */}
+                {(() => {
+                  const isOpen = selectedRound.status === 'Open' || selectedRound.status === 1;
+                  const isClosed = selectedRound.status === 'Closed' || selectedRound.status === 2;
+                  const isDraft = selectedRound.status === 'Draft' || selectedRound.status === 0;
+                  return (
+                    <div style={{
+                      background: isOpen ? '#ECFDF5' : (isClosed ? '#FEF2F2' : '#FFFBEB'),
+                      border: `1px solid ${isOpen ? '#6EE7B7' : (isClosed ? '#FCA5A5' : '#FDE68A')}`,
+                      borderRadius: '14px',
+                      padding: '1.25rem',
+                      maxWidth: '680px',
+                      margin: '0 auto 2rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '1rem',
+                      textAlign: 'left',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
+                    }}>
+                      <div style={{ padding: '0.75rem', borderRadius: '12px', background: isOpen ? '#D1FAE5' : (isClosed ? '#FEE2E2' : '#FEF3C7'), color: isOpen ? '#10B981' : (isClosed ? '#EF4444' : '#D97706') }}>
+                        {isOpen ? <Unlock size={26} /> : (isClosed ? <Lock size={26} /> : <ShieldAlert size={26} />)}
+                      </div>
+                      <div>
+                        <h4 style={{ margin: '0 0 0.25rem', fontSize: '1.05rem', fontWeight: 800, color: isOpen ? '#065F46' : (isClosed ? '#991B1B' : '#92400E') }}>
+                          Trạng thái: {isOpen ? 'ĐANG MỞ ĐĂNG KÝ (OPEN)' : (isClosed ? 'ĐÃ KHÓA ĐĂNG KÝ (CLOSED)' : 'NHÁP (CHƯA MỞ ĐĂNG KÝ)')}
+                        </h4>
+                        <p style={{ margin: 0, fontSize: '0.88rem', color: isOpen ? '#047857' : (isClosed ? '#B91C1C' : '#B45309'), lineHeight: 1.5, fontWeight: 550 }}>
+                          {isOpen
+                            ? '● Giảng viên và Sinh viên có quyền truy cập vào bảng 30 ô để tick chọn hoặc chỉnh sửa lịch rảnh.'
+                            : (isClosed
+                              ? '🔒 Đã khóa không cho phép tick chọn thêm hoặc sửa lịch. Bạn có thể bấm "Mở Khóa Đăng Ký" dưới đây nếu cần cho phép họ đăng ký lại.'
+                              : '📝 Đợt vừa tạo ở dạng Nháp. Vui lòng bấm "Mở Khóa Đăng Ký" để bắt đầu nhận nguyện vọng từ Giảng viên & Sinh viên.')}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '2.5rem' }}>
-                  <div style={{ padding: '1.5rem', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', width: '220px' }}>
+                  <div style={{ padding: '1.5rem', background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0', width: '220px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
                     <Users size={32} color="#4F46E5" style={{ margin: '0 auto 1rem' }} />
                     <p style={{ fontSize: '2rem', fontWeight: 800, margin: 0, color: '#0F172A' }}>{boardData.registeredLecturersCount} / {boardData.lecturersCount}</p>
-                    <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0 }}>Giảng viên đã đăng ký</p>
+                    <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0, fontWeight: 650 }}>Giảng viên đã đăng ký</p>
                   </div>
-                  <div style={{ padding: '1.5rem', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', width: '220px' }}>
+                  <div style={{ padding: '1.5rem', background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0', width: '220px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
                     <Users size={32} color="#F26522" style={{ margin: '0 auto 1rem' }} />
                     <p style={{ fontSize: '2rem', fontWeight: 800, margin: 0, color: '#0F172A' }}>{boardData.registeredGroupsCount}</p>
-                    <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0 }}>Nhóm đã đăng ký</p>
+                    <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0, fontWeight: 650 }}>Nhóm đã đăng ký</p>
                   </div>
                 </div>
 
-                <button className="btn btn-danger" onClick={handleLockRegistrationAndProceed} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
-                  Khóa Đăng ký & Chuyển sang Phân công <ArrowRight size={18} />
-                </button>
+                {/* Control Action Buttons */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                  {(selectedRound.status !== 'Open' && selectedRound.status !== 1) && (
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={(e) => handleToggleRoundStatus(selectedRound, 1, e)}
+                      disabled={loading}
+                      style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', fontWeight: 800, borderRadius: '12px', background: '#10B981', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)', cursor: 'pointer' }}
+                    >
+                      <Unlock size={18} />
+                      <span>Mở Khóa Đăng Ký (Open)</span>
+                    </button>
+                  )}
+
+                  {(selectedRound.status === 'Open' || selectedRound.status === 1) && (
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={(e) => handleToggleRoundStatus(selectedRound, 2, e)}
+                      disabled={loading}
+                      style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', fontWeight: 800, borderRadius: '12px', background: '#EF4444', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)', cursor: 'pointer' }}
+                    >
+                      <Lock size={18} />
+                      <span>Khóa Đăng Ký (Closed)</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleLockRegistrationAndProceed}
+                    disabled={loading}
+                    style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', fontWeight: 800, borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+                  >
+                    <span>Khóa & Chuyển sang Phân công</span>
+                    <ArrowRight size={18} />
+                  </button>
+                </div>
               </>
             )}
           </div>

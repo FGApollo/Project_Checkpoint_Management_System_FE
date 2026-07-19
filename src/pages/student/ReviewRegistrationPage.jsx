@@ -33,11 +33,15 @@ const ReviewRegistrationPage = () => {
   const [step, setStep] = useState(1); // 1: Chọn Đợt Review Hub, 2: Bảng chọn Slot 30 ô
   const [semesters, setSemesters] = useState([]);
   const [semesterId, setSemesterId] = useState(1);
-  const [groupId, setGroupId] = useState(user?.groupId || user?.group?.id || 1);
+  const [groupId, setGroupId] = useState(user?.groupId || user?.group?.id || null);
+  const [groupCode, setGroupCode] = useState(user?.groupCode || user?.group?.code || null);
+  const [isLeader, setIsLeader] = useState(user?.isLeader ?? true);
 
   useEffect(() => {
-    if (user && (user.groupId || user?.group?.id)) {
-      setGroupId(user.groupId || user?.group?.id);
+    if (user) {
+      if (user.groupId || user?.group?.id) setGroupId(user.groupId || user?.group?.id);
+      if (user.groupCode || user?.group?.code) setGroupCode(user.groupCode || user?.group?.code);
+      if (user.isLeader !== undefined) setIsLeader(user.isLeader);
     }
   }, [user]);
   const [reviewType, setReviewType] = useState('Review 1');
@@ -58,6 +62,9 @@ const ReviewRegistrationPage = () => {
     setSemesterId(roundObj.semesterId || semesterId);
     setReviewType(formatReviewType(roundObj.type));
     updateRoundStatus(roundObj);
+    if (roundObj.isLeader !== undefined) setIsLeader(roundObj.isLeader);
+    if (roundObj.groupId) setGroupId(roundObj.groupId);
+    if (roundObj.groupCode) setGroupCode(roundObj.groupCode);
     setStep(2);
   };
 
@@ -72,6 +79,11 @@ const ReviewRegistrationPage = () => {
         list = Array.isArray(fallbackRes.data) ? fallbackRes.data : [];
       }
       setRounds(list);
+      if (list.length > 0) {
+        if (list[0].isLeader !== undefined) setIsLeader(list[0].isLeader);
+        if (list[0].groupId) setGroupId(list[0].groupId);
+        if (list[0].groupCode) setGroupCode(list[0].groupCode);
+      }
       if (list.length > 0 && (!selectedRoundId || !list.some(r => r.id === selectedRoundId))) {
         const first = list[0];
         setSelectedRoundId(first.id);
@@ -125,9 +137,15 @@ const ReviewRegistrationPage = () => {
       try {
         const slotRes = await api.get(`/student-review/slots?roundId=${selectedRoundId}`);
         const gridData = slotRes.data || {};
-        list = Array.isArray(gridData.registrations) ? gridData.registrations : [];
+        if (gridData.isLeader !== undefined) setIsLeader(gridData.isLeader);
+        if (gridData.groupId) setGroupId(gridData.groupId);
+        if (gridData.groupCode) setGroupCode(gridData.groupCode);
+        list = Array.isArray(gridData.myAvailability) ? gridData.myAvailability : (Array.isArray(gridData.registrations) ? gridData.registrations : []);
         if (gridData.myRegistration) {
           setSelectedSlots([{ dayOfWeek: gridData.myRegistration.dayOfWeek, slot: gridData.myRegistration.slot }]);
+          myRegFound = true;
+        } else if (list.length > 0) {
+          setSelectedSlots(list.map((r) => ({ dayOfWeek: r.dayOfWeek, slot: r.slot })));
           myRegFound = true;
         }
       } catch (e) {
@@ -135,7 +153,7 @@ const ReviewRegistrationPage = () => {
         list = Array.isArray(regRes.data) ? regRes.data : [];
       }
       setRegistrations(list);
-      if (!myRegFound) {
+      if (!myRegFound && groupId) {
         const myRegs = list.filter((r) => Number(r.groupId) === Number(groupId));
         setSelectedSlots(myRegs.map((r) => ({ dayOfWeek: r.dayOfWeek, slot: r.slot })));
       }
@@ -178,6 +196,10 @@ const ReviewRegistrationPage = () => {
   }, [selectedRoundId, groupId]);
 
   const toggleSlot = (dayId, slotId) => {
+    if (!isLeader) {
+      setError('Chỉ có Trưởng nhóm mới có quyền thao tác chọn hoặc hủy slot review.');
+      return;
+    }
     if (roundStatus !== 'Đang mở đăng ký') return;
     setError('');
     setSuccess('');
@@ -195,6 +217,10 @@ const ReviewRegistrationPage = () => {
 
   const handleRegisterSlots = async (e) => {
     e.preventDefault();
+    if (!isLeader) {
+      setError('Chỉ có Trưởng nhóm mới có quyền đăng ký và chỉnh sửa slot review của nhóm.');
+      return;
+    }
     if (roundStatus !== 'Đang mở đăng ký') {
       setError('Đợt review này hiện đã kết thúc/đóng đăng ký. Bạn không thể chỉnh sửa.');
       return;
@@ -266,7 +292,7 @@ const ReviewRegistrationPage = () => {
                 <Users size={18} color="#F26522" />
                 <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#334155' }}>Nhóm checkpoint của bạn:</span>
                 <span className="badge" style={{ background: '#F26522', color: '#FFFFFF', fontWeight: 850, fontSize: '0.92rem', padding: '0.35rem 0.85rem', borderRadius: '8px' }}>
-                  Nhóm #{groupId}
+                  {groupCode || (groupId ? `Nhóm #${groupId}` : 'Chưa có nhóm')}
                 </span>
               </div>
 
@@ -531,6 +557,33 @@ const ReviewRegistrationPage = () => {
             </div>
           )}
 
+          {!isLeader && (
+            <div style={{
+              background: 'linear-gradient(135deg, #FFFBEB, #FEF3C7)',
+              color: '#92400E',
+              border: '1px solid #FCD34D',
+              padding: '1.35rem 1.75rem',
+              borderRadius: '18px',
+              marginBottom: '1.75rem',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '1.1rem',
+              boxShadow: '0 4px 14px rgba(245, 158, 11, 0.14)'
+            }}>
+              <div style={{ background: '#F59E0B', color: '#FFFFFF', padding: '0.65rem', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Users size={24} />
+              </div>
+              <div>
+                <h4 style={{ margin: '0 0 0.35rem', fontSize: '1.08rem', fontWeight: 850, color: '#78350F' }}>
+                  Quyền thao tác bị giới hạn: Bạn hiện là Thành viên của {groupCode || (groupId ? `Nhóm #${groupId}` : 'nhóm')} (Không phải Trưởng nhóm)
+                </h4>
+                <p style={{ margin: 0, fontSize: '0.92rem', color: '#92400E', lineHeight: 1.6, fontWeight: 600 }}>
+                  Theo quy định của Hệ thống Checkpoint, <strong style={{ color: '#B45309' }}>chỉ có Trưởng nhóm (Leader)</strong> mới có quyền thao tác tick chọn khung giờ rảnh và gửi/lưu nguyện vọng đăng ký cho toàn nhóm. Bạn có thể theo dõi kết quả tick chọn bên dưới nhưng bảng thao tác và nút lưu đã được ẩn mờ.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Action Tools Card right above 30-slot grid */}
           <div className="glass-card" style={{ padding: '1.25rem 1.75rem', marginBottom: '1.75rem', display: 'flex', flexWrap: 'wrap', gap: '1.25rem', alignItems: 'center', justifyContent: 'space-between', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -541,10 +594,10 @@ const ReviewRegistrationPage = () => {
             </div>
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button type="button" className="btn btn-secondary" onClick={() => setSelectedSlots([])} disabled={roundStatus !== 'Đang mở đăng ký'} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontSize: '0.88rem', fontWeight: 700, padding: '0.65rem 1.25rem', borderRadius: '10px' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setSelectedSlots([])} disabled={!isLeader || roundStatus !== 'Đang mở đăng ký'} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontSize: '0.88rem', fontWeight: 700, padding: '0.65rem 1.25rem', borderRadius: '10px', opacity: !isLeader ? 0.45 : 1, cursor: !isLeader ? 'not-allowed' : 'pointer' }}>
                 Xóa chọn tất cả
               </button>
-              <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={loading || roundStatus !== 'Đang mở đăng ký'} style={{ fontWeight: 800, padding: '0.65rem 1.5rem', borderRadius: '10px', background: 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: '0 4px 12px rgba(242, 101, 34, 0.25)' }}>
+              <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={!isLeader || loading || roundStatus !== 'Đang mở đăng ký'} style={{ fontWeight: 800, padding: '0.65rem 1.5rem', borderRadius: '10px', background: !isLeader ? '#94A3B8' : 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: !isLeader ? 'none' : '0 4px 12px rgba(242, 101, 34, 0.25)', cursor: !isLeader ? 'not-allowed' : 'pointer' }}>
                 <Send size={16} />
                 <span>Save ({selectedSlots.length} ô available)</span>
               </button>
@@ -552,7 +605,18 @@ const ReviewRegistrationPage = () => {
           </div>
 
           {/* 30-Slot Interactive Checklist Grid */}
-          <div className="glass-card" style={{ padding: '1.85rem', marginBottom: '2rem', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '20px', boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.04)' }}>
+          <div className="glass-card" style={{
+            padding: '1.85rem',
+            marginBottom: '2rem',
+            background: '#FFFFFF',
+            border: '1px solid #E2E8F0',
+            borderRadius: '20px',
+            boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.04)',
+            opacity: !isLeader ? 0.5 : 1,
+            filter: !isLeader ? 'blur(0.7px)' : 'none',
+            pointerEvents: !isLeader ? 'none' : 'auto',
+            transition: 'all 0.3s ease'
+          }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
               <div>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 850, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '0.6rem', margin: 0 }}>
@@ -620,7 +684,7 @@ const ReviewRegistrationPage = () => {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-              <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={loading || roundStatus !== 'Đang mở đăng ký'} style={{ padding: '0.85rem 2rem', fontSize: '1.02rem', fontWeight: 800, borderRadius: '12px', background: 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: '0 4px 14px rgba(242, 101, 34, 0.28)' }}>
+              <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={!isLeader || loading || roundStatus !== 'Đang mở đăng ký'} style={{ padding: '0.85rem 2rem', fontSize: '1.02rem', fontWeight: 800, borderRadius: '12px', background: !isLeader ? '#94A3B8' : 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: !isLeader ? 'none' : '0 4px 14px rgba(242, 101, 34, 0.28)', cursor: !isLeader ? 'not-allowed' : 'pointer' }}>
                 <Send size={18} />
                 <span>Lưu Nguyện vọng Đăng ký</span>
               </button>
