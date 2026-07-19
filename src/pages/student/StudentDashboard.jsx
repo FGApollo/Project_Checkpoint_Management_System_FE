@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { LayoutDashboard, BookOpen, User, Calendar, CheckSquare, Award, ArrowRight, ShieldCheck, Layers } from 'lucide-react';
+import { BookOpen, User, Calendar, CheckSquare, Award, ArrowRight, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const StudentDashboard = () => {
@@ -127,13 +127,15 @@ const StudentDashboard = () => {
           <span>Lịch Review Chính thức của Nhóm</span>
         </h3>
 
-        {loading ? (
+        {loading && (
           <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B' }}>Đang tải lịch review của nhóm...</div>
-        ) : mySchedules.length === 0 ? (
+        )}
+        {!loading && mySchedules.length === 0 && (
           <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B', background: '#F8FAFC', borderRadius: 'var(--radius-md)', border: '1px solid #E2E8F0' }}>
             Nhóm chưa có lịch review chính thức nào được công bố. Nếu bạn đã đăng ký ca rảnh, vui lòng chờ Phòng Đào tạo xếp lịch và thông báo.
           </div>
-        ) : (
+        )}
+        {!loading && mySchedules.length > 0 && (
           <div className="table-container">
             <table className="table">
               <thead>
@@ -147,9 +149,9 @@ const StudentDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {mySchedules.map((sc, idx) => (
-                  <tr key={sc.id || idx}>
-                    <td style={{ fontWeight: 600, color: '#0F172A' }}>#{sc.id || idx + 1}</td>
+                {mySchedules.map((sc) => (
+                  <tr key={sc.id ?? `${sc.groupId}-${sc.sessionDate}-${sc.slot}`}>
+                    <td style={{ fontWeight: 600, color: '#0F172A' }}>#{sc.id || 'N/A'}</td>
                     <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522' }}>{sc.groupCode || `Nhóm #${sc.groupId}`}</span></td>
                     <td style={{ color: '#475569' }}>{sc.sessionDate || sc.dayOfWeek} — Ca {sc.slot}</td>
                     <td style={{ fontWeight: 700, color: '#0F172A' }}>{sc.room || 'TBD'}</td>

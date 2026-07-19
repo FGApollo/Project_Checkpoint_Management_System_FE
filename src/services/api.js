@@ -59,8 +59,7 @@ api.interceptors.response.use(
           .then((token) => {
             originalRequest.headers.Authorization = `Bearer ${token}`;
             return api(originalRequest);
-          })
-          .catch((err) => Promise.reject(err));
+          });
       }
 
       originalRequest._retry = true;
@@ -69,7 +68,7 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem('cpms_refresh_token');
       if (!refreshToken) {
         isRefreshing = false;
-        return Promise.reject(error);
+        throw error;
       }
 
       try {
@@ -94,13 +93,13 @@ api.interceptors.response.use(
         localStorage.removeItem('cpms_refresh_token');
         localStorage.removeItem('cpms_user');
         window.dispatchEvent(new Event('auth:unauthorized'));
-        return Promise.reject(refreshError);
+        throw refreshError;
       } finally {
         isRefreshing = false;
       }
     }
 
-    return Promise.reject(error);
+    throw error;
   }
 );
 

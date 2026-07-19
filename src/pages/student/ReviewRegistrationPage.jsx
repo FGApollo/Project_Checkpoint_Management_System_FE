@@ -28,6 +28,88 @@ const formatReviewType = (type) => {
   return type || 'Review Checkpoint';
 };
 
+const getAvailabilityList = (data) => {
+  if (Array.isArray(data.myAvailability)) return data.myAvailability;
+  if (Array.isArray(data.registrations)) return data.registrations;
+  return [];
+};
+
+const loadReviewRounds = async (semesterId) => {
+  const reviewResponse = await api.get(`/student-review/rounds?semesterId=${semesterId}`).catch(() => ({ data: [] }));
+  const reviewRounds = Array.isArray(reviewResponse.data) ? reviewResponse.data : [];
+  if (reviewRounds.length > 0) return reviewRounds;
+  const fallbackResponse = await api.get(`/review-scheduling/rounds?semesterId=${semesterId}`).catch(() => ({ data: [] }));
+  return Array.isArray(fallbackResponse.data) ? fallbackResponse.data : [];
+};
+
+const loadSlotData = async (roundId) => {
+  try {
+    const response = await api.get(`/student-review/slots?roundId=${roundId}`);
+    const data = response.data || {};
+    return { data, registrations: getAvailabilityList(data) };
+  } catch (error) {
+    console.error('Failed to load slots, trying fallback:', error);
+    const fallback = await api.get(`/review-scheduling/student-registrations?roundId=${roundId}`).catch(() => ({ data: [] }));
+    return { data: {}, registrations: Array.isArray(fallback.data) ? fallback.data : [] };
+  }
+};
+
+const loadStudentSchedule = async () => {
+  const response = await api.get('/student-review/schedule').catch(() =>
+    api.get('/review-sessions/my').catch(() => ({ data: [] }))
+  );
+  return Array.isArray(response.data) ? response.data : [];
+};
+
+const getRegistrationStatusColors = (status) => {
+  if (status === 'Đang mở đăng ký') return { background: '#DCFCE7', color: '#16A34A' };
+  return { background: '#FEE2E2', color: '#DC2626' };
+};
+
+const RegistrationSlotGrid = ({ isSlotSelected, toggleSlot, roundStatus }) => (
+  <div className="table-container">
+    <table className="table" style={{ textAlign: 'center', width: '100%' }}>
+      <thead>
+        <tr style={{ background: '#F8FAFC' }}>
+          <th style={{ textAlign: 'left', minWidth: '135px', padding: '1rem', fontWeight: 800, color: '#334155' }}>Ca / Khung giờ</th>
+          {DAYS_OF_WEEK.map((day) => (
+            <th key={day.id} style={{ minWidth: '115px', padding: '1rem', fontWeight: 800, color: '#334155' }}>{day.name}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {SLOTS.map((slot) => (
+          <tr key={slot.id}>
+            <td style={{ textAlign: 'left', padding: '1rem' }}>
+              <div style={{ fontWeight: 850, color: '#0F172A', fontSize: '0.95rem' }}>{slot.name}</div>
+              <div style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 700, marginTop: '0.15rem' }}>{slot.time}</div>
+            </td>
+            {DAYS_OF_WEEK.map((day) => {
+              const checked = isSlotSelected(day.id, slot.id);
+              return (
+                <td key={`${day.id}-${slot.id}`} style={{ background: checked ? 'rgba(242, 101, 34, 0.14)' : 'transparent', transition: 'all 0.15s ease', padding: '0.85rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', cursor: roundStatus === 'Đang mở đăng ký' ? 'pointer' : 'not-allowed' }}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleSlot(day.id, slot.id)}
+                      disabled={roundStatus !== 'Đang mở đăng ký'}
+                      style={{ width: '19px', height: '19px', accentColor: '#F26522', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '0.85rem', fontWeight: checked ? 800 : 600, color: checked ? '#F26522' : '#64748B' }}>
+                      {checked ? 'Available' : 'Trống'}
+                    </span>
+                  </label>
+                </td>
+              );
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
 const ReviewRegistrationPage = () => {
   const { user } = useAuth();
   const [step, setStep] = useState(1); // 1: Chọn Đợt Review Hub, 2: Bảng chọn Slot 30 ô
@@ -72,25 +154,21 @@ const ReviewRegistrationPage = () => {
     const targetSem = semId !== undefined ? semId : semesterId;
     setLoading(true);
     try {
-      const revRes = await api.get(`/student-review/rounds?semesterId=${targetSem}`).catch(() => ({ data: [] }));
-      let list = Array.isArray(revRes.data) ? revRes.data : [];
-      if (list.length === 0) {
-        const fallbackRes = await api.get(`/review-scheduling/rounds?semesterId=${targetSem}`).catch(() => ({ data: [] }));
-        list = Array.isArray(fallbackRes.data) ? fallbackRes.data : [];
-      }
+      const list = await loadReviewRounds(targetSem);
       setRounds(list);
-      if (list.length > 0) {
-        if (list[0].isLeader !== undefined) setIsLeader(list[0].isLeader);
-        if (list[0].groupId) setGroupId(list[0].groupId);
-        if (list[0].groupCode) setGroupCode(list[0].groupCode);
+      const first = list[0];
+      if (!first) {
+        setSelectedRoundId('');
+        return;
       }
-      if (list.length > 0 && (!selectedRoundId || !list.some(r => r.id === selectedRoundId))) {
-        const first = list[0];
+      if (first.isLeader !== undefined) setIsLeader(first.isLeader);
+      if (first.groupId) setGroupId(first.groupId);
+      if (first.groupCode) setGroupCode(first.groupCode);
+      const selectedRoundExists = selectedRoundId && list.some((round) => round.id === selectedRoundId);
+      if (!selectedRoundExists) {
         setSelectedRoundId(first.id);
         setReviewType(formatReviewType(first.type));
         updateRoundStatus(first);
-      } else if (list.length === 0) {
-        setSelectedRoundId('');
       }
     } catch (err) {
       console.error(err);
@@ -121,26 +199,16 @@ const ReviewRegistrationPage = () => {
     setLoading(true);
     setError('');
     try {
-      let myRegFound = false;
-      let list = [];
-      try {
-        const slotRes = await api.get(`/student-review/slots?roundId=${selectedRoundId}`);
-        const gridData = slotRes.data || {};
-        if (gridData.isLeader !== undefined) setIsLeader(gridData.isLeader);
-        if (gridData.groupId) setGroupId(gridData.groupId);
-        if (gridData.groupCode) setGroupCode(gridData.groupCode);
-        list = Array.isArray(gridData.myAvailability) ? gridData.myAvailability : (Array.isArray(gridData.registrations) ? gridData.registrations : []);
-        if (gridData.myRegistration) {
-          setSelectedSlots([{ dayOfWeek: gridData.myRegistration.dayOfWeek, slot: gridData.myRegistration.slot }]);
-          myRegFound = true;
-        } else if (list.length > 0) {
-          setSelectedSlots(list.map((r) => ({ dayOfWeek: r.dayOfWeek, slot: r.slot })));
-          myRegFound = true;
-        }
-      } catch (slotErr) {
-        console.error('Failed to load slots, trying fallback:', slotErr);
-        const regRes = await api.get(`/review-scheduling/student-registrations?roundId=${selectedRoundId}`).catch(() => ({ data: [] }));
-        list = Array.isArray(regRes.data) ? regRes.data : [];
+      const { data: gridData, registrations: list } = await loadSlotData(selectedRoundId);
+      if (gridData.isLeader !== undefined) setIsLeader(gridData.isLeader);
+      if (gridData.groupId) setGroupId(gridData.groupId);
+      if (gridData.groupCode) setGroupCode(gridData.groupCode);
+      const myRegistration = gridData.myRegistration;
+      const myRegFound = Boolean(myRegistration) || list.length > 0;
+      if (myRegistration) {
+        setSelectedSlots([{ dayOfWeek: myRegistration.dayOfWeek, slot: myRegistration.slot }]);
+      } else if (list.length > 0) {
+        setSelectedSlots(list.map((registration) => ({ dayOfWeek: registration.dayOfWeek, slot: registration.slot })));
       }
       setRegistrations(list);
       if (!myRegFound && groupId) {
@@ -148,10 +216,7 @@ const ReviewRegistrationPage = () => {
         setSelectedSlots(myRegs.map((r) => ({ dayOfWeek: r.dayOfWeek, slot: r.slot })));
       }
 
-      const schedRes = await api.get('/student-review/schedule').catch(() =>
-        api.get('/review-sessions/my').catch(() => ({ data: [] }))
-      );
-      setMySchedules(Array.isArray(schedRes.data) ? schedRes.data : []);
+      setMySchedules(await loadStudentSchedule());
     } catch (err) {
       setError(err.response?.data?.error || 'Không thể tải dữ liệu nguyện vọng đăng ký.');
     } finally {
@@ -243,10 +308,11 @@ const ReviewRegistrationPage = () => {
   };
 
   const currentRound = rounds.find(r => r.id === Number(selectedRoundId)) || rounds[0];
+  const registrationStatusColors = getRegistrationStatusColors(roundStatus);
 
   return (
     <div className="page-container animate-fade-in">
-      {step === 1 ? (
+      {step === 1 ? (() => (
         /* STEP 1: ROUND SELECTION PORTAL HUB */
         <div>
           <div className="page-header" style={{ marginBottom: '2rem' }}>
@@ -326,9 +392,6 @@ const ReviewRegistrationPage = () => {
                 return (
                   <div
                     key={r.id}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSelectRoundStep2(r); }}
                     style={{
                       background: '#FFFFFF',
                       border: '1px solid #E2E8F0',
@@ -339,11 +402,9 @@ const ReviewRegistrationPage = () => {
                       justifyContent: 'space-between',
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
                       transition: 'all 0.25s ease',
-                      cursor: 'pointer',
                       position: 'relative',
                       overflow: 'hidden'
                     }}
-                    onClick={() => handleSelectRoundStep2(r)}
                     onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 16px 24px -6px rgba(242, 101, 34, 0.14)'; e.currentTarget.style.borderColor = '#F26522'; }}
                     onFocus={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 16px 24px -6px rgba(242, 101, 34, 0.14)'; e.currentTarget.style.borderColor = '#F26522'; }}
                     onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.05)'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
@@ -441,8 +502,8 @@ const ReviewRegistrationPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {mySchedules.map((sc, idx) => (
-                      <tr key={sc.id || idx}>
+                    {mySchedules.map((sc) => (
+                      <tr key={sc.id ?? `${sc.groupId}-${sc.sessionDate}-${sc.slot}`}>
                         <td style={{ fontWeight: 700, color: '#0F172A' }}>#{sc.id}</td>
                         <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontWeight: 800 }}>{sc.groupCode || `Nhóm #${sc.groupId}`}</span></td>
                         <td style={{ fontWeight: 700, color: '#0F172A' }}>{sc.sessionDate}</td>
@@ -458,7 +519,7 @@ const ReviewRegistrationPage = () => {
             )}
           </div>
         </div>
-      ) : (
+      ))() : (() => (
         /* STEP 2: 30-SLOT REGISTRATION WORKSPACE */
         <div className="animate-fade-in">
           {/* Navigation Bar Header */}
@@ -519,8 +580,8 @@ const ReviewRegistrationPage = () => {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
               <span className="badge" style={{
-                background: roundStatus === 'Đang mở đăng ký' ? '#DCFCE7' : '#FEE2E2',
-                color: roundStatus === 'Đang mở đăng ký' ? '#16A34A' : '#DC2626',
+                background: registrationStatusColors.background,
+                color: registrationStatusColors.color,
                 fontWeight: 800,
                 padding: '0.55rem 1.1rem',
                 borderRadius: '20px',
@@ -629,56 +690,7 @@ const ReviewRegistrationPage = () => {
               </span>
             </div>
 
-            <div className="table-container">
-              <table className="table" style={{ textAlign: 'center', width: '100%' }}>
-                <thead>
-                  <tr style={{ background: '#F8FAFC' }}>
-                    <th style={{ textAlign: 'left', minWidth: '135px', padding: '1rem', fontWeight: 800, color: '#334155' }}>Ca / Khung giờ</th>
-                    {DAYS_OF_WEEK.map((day) => (
-                      <th key={day.id} style={{ minWidth: '115px', padding: '1rem', fontWeight: 800, color: '#334155' }}>{day.name}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {SLOTS.map((s) => (
-                    <tr key={s.id}>
-                      <td style={{ textAlign: 'left', padding: '1rem' }}>
-                        <div style={{ fontWeight: 850, color: '#0F172A', fontSize: '0.95rem' }}>{s.name}</div>
-                        <div style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 700, marginTop: '0.15rem' }}>{s.time}</div>
-                      </td>
-                      {DAYS_OF_WEEK.map((day) => {
-                        const checked = isSlotSelected(day.id, s.id);
-                        return (
-                          <td
-                            key={`${day.id}-${s.id}`}
-                            onClick={() => toggleSlot(day.id, s.id)}
-                            style={{
-                              cursor: roundStatus === 'Đang mở đăng ký' ? 'pointer' : 'not-allowed',
-                              background: checked ? 'rgba(242, 101, 34, 0.14)' : 'transparent',
-                              transition: 'all 0.15s ease',
-                              padding: '0.85rem'
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', justify: 'center', gap: '0.5rem' }}>
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => {}}
-                                disabled={roundStatus !== 'Đang mở đăng ký'}
-                                style={{ width: '19px', height: '19px', accentColor: '#F26522', cursor: 'pointer' }}
-                              />
-                              <span style={{ fontSize: '0.85rem', fontWeight: checked ? 800 : 600, color: checked ? '#F26522' : '#64748B' }}>
-                                {checked ? 'Available' : 'Trống'}
-                              </span>
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <RegistrationSlotGrid isSlotSelected={isSlotSelected} toggleSlot={toggleSlot} roundStatus={roundStatus} />
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
               <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={!isLeader || loading || roundStatus !== 'Đang mở đăng ký'} style={{ padding: '0.85rem 2rem', fontSize: '1.02rem', fontWeight: 800, borderRadius: '12px', background: !isLeader ? '#94A3B8' : 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: !isLeader ? 'none' : '0 4px 14px rgba(242, 101, 34, 0.28)', cursor: !isLeader ? 'not-allowed' : 'pointer' }}>
@@ -721,7 +733,7 @@ const ReviewRegistrationPage = () => {
             </div>
           </div>
         </div>
-      )}
+      ))()}
     </div>
   );
 };

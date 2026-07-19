@@ -159,11 +159,13 @@ const SemesterManagementPage = () => {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {loading && (
                 <tr><td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: '#64748B' }}>Đang tải danh sách kỳ học...</td></tr>
-              ) : semesters.length === 0 ? (
+              )}
+              {!loading && semesters.length === 0 && (
                 <tr><td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: '#64748B' }}>Chưa có kỳ học nào.</td></tr>
-              ) : (
+              )}
+              {!loading && semesters.length > 0 && (
                 semesters.map((sem) => (
                   <tr key={sem.id}>
                     <td style={{ fontWeight: 600, color: '#0F172A' }}>#{sem.id}</td>

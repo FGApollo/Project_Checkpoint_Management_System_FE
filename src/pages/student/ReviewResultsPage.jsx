@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { CheckSquare, MessageSquare, FileText, Download, Award, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { MessageSquare, FileText, Download, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
 
 const ReviewResultsPage = () => {
   const [submissions, setSubmissions] = useState([]);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [comments, setComments] = useState([]);
   const [attendance, setAttendance] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const fetchMySubmissions = async () => {
-    setLoading(true);
     setError('');
     try {
       const response = await api.get('/review-submissions/my');
@@ -21,9 +19,7 @@ const ReviewResultsPage = () => {
         setSelectedSubmission(list[0]);
       }
     } catch (err) {
-      setError('Failed to fetch evaluation results.');
-    } finally {
-      setLoading(false);
+      setError(err.response?.data?.error || 'Failed to fetch evaluation results.');
     }
   };
 
@@ -74,7 +70,7 @@ const ReviewResultsPage = () => {
           <p className="page-subtitle" style={{ color: '#475569' }}>Xem nhận xét chuyên môn từ hội đồng giảng viên, kết quả đạt yêu cầu hay không đạt và tải biên bản review.</p>
         </div>
 
-        <button className="btn btn-secondary" onClick={fetchMySubmissions} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 600 }}>
+        <button type="button" className="btn btn-secondary" onClick={fetchMySubmissions} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 600 }}>
           <RefreshCw size={16} color="#F26522" />
           <span>Làm mới Kết quả</span>
         </button>
@@ -104,7 +100,8 @@ const ReviewResultsPage = () => {
               {submissions.map((sub) => {
                 const isSelected = selectedSubmission?.id === sub.id;
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={sub.id}
                     onClick={() => setSelectedSubmission(sub)}
                     style={{
@@ -114,7 +111,10 @@ const ReviewResultsPage = () => {
                       color: isSelected ? 'white' : '#0F172A',
                       cursor: 'pointer',
                       transition: 'all var(--transition-fast)',
-                      border: `1px solid ${isSelected ? '#F26522' : '#CBD5E1'}`
+                      border: `1px solid ${isSelected ? '#F26522' : '#CBD5E1'}`,
+                      textAlign: 'left',
+                      width: '100%',
+                      font: 'inherit'
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
@@ -126,7 +126,7 @@ const ReviewResultsPage = () => {
                     <p style={{ fontSize: '0.75rem', opacity: isSelected ? 0.95 : 0.75, margin: 0 }}>
                       Điểm: <strong>{sub.score || 'N/A'}</strong> — Ngày: {sub.submittedAt ? new Date(sub.submittedAt).toLocaleDateString('vi-VN') : 'Gần đây'}
                     </p>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -205,8 +205,8 @@ const ReviewResultsPage = () => {
                     {attendance.length === 0 ? (
                       <tr><td colSpan="3" style={{ textAlign: 'center', padding: '1.5rem', color: '#64748B' }}>Hồ sơ điểm danh đã xác nhận (`100% Có mặt`).</td></tr>
                     ) : (
-                      attendance.map((att, i) => (
-                        <tr key={i}>
+                      attendance.map((att) => (
+                        <tr key={att.studentId ?? att.id ?? att.studentCode}>
                           <td style={{ fontWeight: 700, color: '#0F172A' }}>{att.studentCode || `Thành viên #${att.studentId}`}</td>
                           <td style={{ color: '#334155' }}>{att.studentName || 'Thành viên Nhóm'}</td>
                           <td>
@@ -232,8 +232,8 @@ const ReviewResultsPage = () => {
                     Không có nhận xét bổ sung nào cho phiên review này.
                   </div>
                 ) : (
-                  comments.map((c, i) => (
-                    <div key={i} className="glass-panel" style={{ padding: '1rem', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
+                  comments.map((c) => (
+                    <div key={c.id ?? c.createdAt ?? `${c.authorName}-${c.commentText ?? c.content}`} className="glass-panel" style={{ padding: '1rem', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
                         <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#F26522' }}>{c.authorName || 'Giảng viên'}</span>
                         <span style={{ fontSize: '0.7rem', color: '#64748B' }}>{new Date(c.createdAt || Date.now()).toLocaleString('vi-VN')}</span>

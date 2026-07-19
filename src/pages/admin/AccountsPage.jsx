@@ -70,12 +70,12 @@ const AccountsPage = () => {
     if (totalPages <= 7) {
       for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else if (page <= 3) {
-      pages.push(1, 2, 3, 4, '...', totalPages);
+      pages.push(1, 2, 3, 4, 'ellipsis-end', totalPages);
     } else if (page >= totalPages - 2) {
-      pages.push(1, '...');
+      pages.push(1, 'ellipsis-start');
       for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
     } else {
-      pages.push(1, '...', page - 1, page, page + 1, '...', totalPages);
+      pages.push(1, 'ellipsis-start', page - 1, page, page + 1, 'ellipsis-end', totalPages);
     }
     return pages;
   };
@@ -126,7 +126,7 @@ const AccountsPage = () => {
       setSuccess(`Account status updated to ${!currentActive ? 'Active' : 'Deactivated'}.`);
       fetchAccounts();
     } catch (err) {
-      setError('Failed to update account status.');
+      setError(err.response?.data?.error || 'Failed to update account status.');
     }
   };
 
@@ -229,11 +229,13 @@ const AccountsPage = () => {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {loading && (
                 <tr><td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: '#64748B' }}>Đang tải danh sách tài khoản...</td></tr>
-              ) : filteredAccounts.length === 0 ? (
+              )}
+              {!loading && filteredAccounts.length === 0 && (
                 <tr><td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: '#64748B' }}>Không có tài khoản nào phù hợp với bộ lọc.</td></tr>
-              ) : (
+              )}
+              {!loading && filteredAccounts.length > 0 && (
                 filteredAccounts.map((acc) => {
                   const isLocked = acc.lockedUntil && new Date(acc.lockedUntil) > new Date();
                   return (
@@ -249,7 +251,10 @@ const AccountsPage = () => {
                           value={(acc.role === 'SystemAdministrator' || acc.role === 'TrainingDepartment' || acc.role === 'Moderator') ? 'Moderator' : acc.role}
                           onChange={(e) => {
                             const val = e.target.value;
-                            const targetRole = val === 'Moderator' ? (acc.role === 'SystemAdministrator' ? 'SystemAdministrator' : 'TrainingDepartment') : val;
+                            let targetRole = val;
+                            if (val === 'Moderator') {
+                              targetRole = acc.role === 'SystemAdministrator' ? 'SystemAdministrator' : 'TrainingDepartment';
+                            }
                             handleRoleChange(acc.id, targetRole);
                           }}
                           style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', fontWeight: 600, background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
@@ -334,9 +339,9 @@ const AccountsPage = () => {
                   Trang trước
                 </button>
 
-                {getPageNumbers().map((p, idx) =>
-                  p === '...' ? (
-                    <span key={`ellipsis-${idx}`} style={{ padding: '0.4rem 0.5rem', color: '#94A3B8', fontWeight: 700 }}>
+                {getPageNumbers().map((p) =>
+                  typeof p === 'string' ? (
+                    <span key={p} style={{ padding: '0.4rem 0.5rem', color: '#94A3B8', fontWeight: 700 }}>
                       ...
                     </span>
                   ) : (

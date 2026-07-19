@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { LayoutDashboard, Clock, CheckSquare, Calendar, Users, ArrowRight, MapPin } from 'lucide-react';
+import { Clock, CheckSquare, Calendar, Users, ArrowRight, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const SLOT_LABELS = {
@@ -142,8 +142,8 @@ const LecturerDashboard = () => {
         )}
         {!loading && myReviews.length > 0 && (
           <div style={{ padding: '0.5rem' }}>
-            {myReviews.map((review, idx) => (
-              <div key={review.id || idx} style={{
+            {myReviews.map((review) => (
+              <div key={review.id ?? `${review.groupId}-${review.sessionDate}-${review.slot}`} style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '1rem',

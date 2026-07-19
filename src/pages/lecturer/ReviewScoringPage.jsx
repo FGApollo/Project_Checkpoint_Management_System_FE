@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 
+const getTabButtonProps = (activeTab, tab) => {
+  if (activeTab === tab) return { className: 'btn btn-primary', style: {} };
+  return {
+    className: 'btn btn-secondary',
+    style: { background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }
+  };
+};
+
 const ReviewScoringPage = () => {
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -16,9 +24,7 @@ const ReviewScoringPage = () => {
   const [newComment, setNewComment] = useState('');
 
   // Submission / Evaluation State
-  const [submissionData, setSubmissionData] = useState(null);
   const [evalResult, setEvalResult] = useState('Pass'); // Pass | Fail | Defense2 | Drop
-  const [evalScore, setEvalScore] = useState('8.5');
   const [evalNotes, setEvalNotes] = useState('');
 
   const fetchMySessions = async () => {
@@ -32,7 +38,7 @@ const ReviewScoringPage = () => {
         setSelectedSession(list[0]);
       }
     } catch (err) {
-      setError('Failed to fetch assigned review sessions.');
+      setError(err.response?.data?.error || 'Failed to fetch assigned review sessions.');
     } finally {
       setLoading(false);
     }
@@ -57,14 +63,12 @@ const ReviewScoringPage = () => {
         const subId = sess.submissionId || sess.id;
         const res = await api.get(`/review-submissions/${subId}`).catch(() => ({ data: null }));
         if (res.data) {
-          setSubmissionData(res.data);
           setEvalResult(res.data.result || 'Pass');
-          setEvalScore(res.data.score || '8.5');
           setEvalNotes(res.data.notes || '');
         }
       }
     } catch (err) {
-      setError('Failed to load details for selected tab.');
+      setError(err.response?.data?.error || 'Failed to load details for selected tab.');
     } finally {
       setLoading(false);
     }
@@ -177,7 +181,7 @@ const ReviewScoringPage = () => {
           <p className="page-subtitle" style={{ color: '#475569' }}>Điểm danh sinh viên, nhập ý kiến nhận xét chuyên môn và đánh giá kết quả (Đạt yêu cầu / Không đạt).</p>
         </div>
 
-        <button className="btn btn-secondary" onClick={fetchMySessions} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
+        <button type="button" className="btn btn-secondary" onClick={fetchMySessions} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
           <RefreshCw size={16} color="#F26522" />
           <span style={{ fontWeight: 600 }}>Tải lại Danh sách Phân công</span>
         </button>
@@ -218,7 +222,8 @@ const ReviewScoringPage = () => {
               {sessions.map((sess) => {
                 const isSelected = selectedSession?.id === sess.id;
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={sess.id}
                     onClick={() => setSelectedSession(sess)}
                     style={{
@@ -228,7 +233,10 @@ const ReviewScoringPage = () => {
                       color: isSelected ? 'white' : '#0F172A',
                       cursor: 'pointer',
                       transition: 'all var(--transition-fast)',
-                      border: `1px solid ${isSelected ? '#F26522' : '#CBD5E1'}`
+                      border: `1px solid ${isSelected ? '#F26522' : '#CBD5E1'}`,
+                      textAlign: 'left',
+                      width: '100%',
+                      font: 'inherit'
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
@@ -240,7 +248,7 @@ const ReviewScoringPage = () => {
                     <p style={{ fontSize: '0.75rem', opacity: isSelected ? 0.95 : 0.75, margin: 0 }}>
                       {sess.sessionDate || sess.dayOfWeek} — Phòng {sess.room || 'TBD'}
                     </p>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -280,25 +288,28 @@ const ReviewScoringPage = () => {
               {/* Sub-Tabs */}
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                 <button
-                  className={`btn ${activeTab === 'attendance' ? 'btn-primary' : 'btn-secondary'}`}
+                  type="button"
+                  className={getTabButtonProps(activeTab, 'attendance').className}
                   onClick={() => setActiveTab('attendance')}
-                  style={activeTab !== 'attendance' ? { background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' } : {}}
+                  style={getTabButtonProps(activeTab, 'attendance').style}
                 >
                   <Users size={16} />
                   <span>Điểm danh Sinh viên</span>
                 </button>
                 <button
-                  className={`btn ${activeTab === 'comments' ? 'btn-primary' : 'btn-secondary'}`}
+                  type="button"
+                  className={getTabButtonProps(activeTab, 'comments').className}
                   onClick={() => setActiveTab('comments')}
-                  style={activeTab !== 'comments' ? { background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' } : {}}
+                  style={getTabButtonProps(activeTab, 'comments').style}
                 >
                   <MessageSquare size={16} />
                   <span>Nhận xét Tiến độ</span>
                 </button>
                 <button
-                  className={`btn ${activeTab === 'evaluation' ? 'btn-primary' : 'btn-secondary'}`}
+                  type="button"
+                  className={getTabButtonProps(activeTab, 'evaluation').className}
                   onClick={() => setActiveTab('evaluation')}
-                  style={activeTab !== 'evaluation' ? { background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' } : {}}
+                  style={getTabButtonProps(activeTab, 'evaluation').style}
                 >
                   <FileText size={16} />
                   <span>Chấm điểm & Đánh giá Chính thức</span>
@@ -324,7 +335,7 @@ const ReviewScoringPage = () => {
                           <tr><td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: '#64748B' }}>Chưa có danh sách sinh viên. Bấm Lưu để khởi tạo dữ liệu mặc định.</td></tr>
                         ) : (
                           attendanceList.map((att, idx) => (
-                            <tr key={att.studentId || idx}>
+                            <tr key={att.studentId ?? att.id ?? att.studentCode}>
                               <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontWeight: 700 }}>{att.studentCode || `SE#${att.studentId}`}</span></td>
                               <td style={{ fontWeight: 600, color: '#0F172A' }}>{att.studentName || 'Sinh viên Nhóm'}</td>
                               <td>
@@ -365,8 +376,8 @@ const ReviewScoringPage = () => {
                         Chưa có nhận xét nào được gửi. Hãy nhập góp ý chuyên môn cho nhóm bên dưới!
                       </div>
                     ) : (
-                      commentsList.map((comm, idx) => (
-                        <div key={idx} className="glass-panel" style={{ padding: '1rem', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
+                      commentsList.map((comm) => (
+                        <div key={comm.id ?? comm.createdAt ?? `${comm.authorName}-${comm.commentText ?? comm.content}`} className="glass-panel" style={{ padding: '1rem', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
                             <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#F26522' }}>{comm.authorName || 'Giảng viên'}</span>
                             <span style={{ fontSize: '0.7rem', color: '#64748B' }}>{new Date(comm.createdAt || Date.now()).toLocaleString()}</span>

@@ -3,16 +3,15 @@ import * as signalR from '@microsoft/signalr';
 const HUB_URL = 'http://localhost:5122/hubs/defense';
 
 class SignalRService {
-  constructor() {
-    this.connection = null;
-    this.callbacks = {
-      memberJoined: [],
-      defenseSessionStarted: [],
-      defenseSessionClosed: [],
-      scoreSubmitted: [],
-      defenseSessionState: [],
-    };
-  }
+  connection = null;
+
+  callbacks = {
+    memberJoined: [],
+    defenseSessionStarted: [],
+    defenseSessionClosed: [],
+    scoreSubmitted: [],
+    defenseSessionState: [],
+  };
 
   async startConnection() {
     if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {

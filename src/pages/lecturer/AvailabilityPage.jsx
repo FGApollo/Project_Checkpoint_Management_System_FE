@@ -27,11 +27,40 @@ const formatReviewType = (type) => {
   return type || 'Review Checkpoint';
 };
 
+const formatRoundDate = (value) => value ? new Date(value).toLocaleDateString('vi-VN') : '---';
+
+const getAvailabilityRoundMeta = (isOpen) => {
+  if (isOpen) {
+    return {
+      statusBackground: '#DCFCE7',
+      statusColor: '#16A34A',
+      statusLabel: 'ĐANG MỞ KHAI BÁO',
+      buttonBackground: 'linear-gradient(135deg, #4F46E5, #4338CA)',
+      buttonColor: '#FFFFFF',
+      buttonShadow: '0 6px 16px rgba(79, 70, 229, 0.28)',
+      buttonLabel: '👉 Chọn Đợt & Vào Khai Báo Lịch Rảnh'
+    };
+  }
+  return {
+    statusBackground: '#FEE2E2',
+    statusColor: '#DC2626',
+    statusLabel: 'ĐÃ ĐÓNG',
+    buttonBackground: '#F1F5F9',
+    buttonColor: '#475569',
+    buttonShadow: 'none',
+    buttonLabel: '👁 Xem Bảng Lịch Rảnh Đã Khai Báo'
+  };
+};
+
+const getSubmissionMeta = (isSubmitted) => {
+  if (isSubmitted) return { background: '#DCFCE7', color: '#16A34A', label: '✓ Đã nộp chính thức' };
+  return { background: '#FEF3C7', color: '#D97706', label: 'Đang soạn nháp' };
+};
+
 const AvailabilityPage = () => {
   const [step, setStep] = useState(1); // 1: Chọn Đợt Review Hub, 2: Bảng Khai báo 30 ô
   const [semesters, setSemesters] = useState([]);
   const [semesterId, setSemesterId] = useState(1);
-  const [weekStart, setWeekStart] = useState('2026-06-15');
   const [selectedSlots, setSelectedSlots] = useState([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -44,7 +73,6 @@ const AvailabilityPage = () => {
   const handleSelectRoundStep2 = (roundObj) => {
     setSelectedRoundId(roundObj.id);
     setSemesterId(roundObj.semesterId || semesterId);
-    if (roundObj.weekStartDate || roundObj.startDate) setWeekStart(roundObj.weekStartDate || roundObj.startDate);
     setStep(2);
   };
 
@@ -58,7 +86,6 @@ const AvailabilityPage = () => {
       if (list.length > 0 && (!selectedRoundId || !list.some(r => r.id === selectedRoundId))) {
         const first = list[0];
         setSelectedRoundId(first.id);
-        if (first.weekStartDate || first.startDate) setWeekStart(first.weekStartDate || first.startDate);
       } else if (list.length === 0) {
         setSelectedRoundId('');
       }
@@ -87,6 +114,7 @@ const AvailabilityPage = () => {
       setSelectedSlots(Array.isArray(data.slots) ? data.slots : []);
       setIsSubmitted(Boolean(data.isSubmitted || data.status === 'Submitted'));
     } catch (err) {
+      console.error('Failed to load availability:', err);
       setSelectedSlots([]);
       setIsSubmitted(false);
     } finally {
@@ -186,6 +214,7 @@ const AvailabilityPage = () => {
   };
 
   const currentRound = rounds.find(r => r.id === Number(selectedRoundId)) || rounds[0];
+  const submissionMeta = getSubmissionMeta(isSubmitted);
 
   return (
     <div className="page-container animate-fade-in">
@@ -255,12 +284,10 @@ const AvailabilityPage = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.75rem', marginBottom: '3rem' }}>
               {rounds.map((r) => {
                 const isOpen = r.status === 'Open' || r.status === 1 || r.status === 0 || r.status === 'Draft' || r.status === 'Đang mở';
+                const roundMeta = getAvailabilityRoundMeta(isOpen);
                 return (
                   <div
                     key={r.id}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSelectRoundStep2(r); }}
                     style={{
                       background: '#FFFFFF',
                       border: '1px solid #E2E8F0',
@@ -271,11 +298,9 @@ const AvailabilityPage = () => {
                       justifyContent: 'space-between',
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
                       transition: 'all 0.25s ease',
-                      cursor: 'pointer',
                       position: 'relative',
                       overflow: 'hidden'
                     }}
-                    onClick={() => handleSelectRoundStep2(r)}
                     onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 16px 24px -6px rgba(79, 70, 229, 0.14)'; e.currentTarget.style.borderColor = '#4F46E5'; }}
                     onFocus={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 16px 24px -6px rgba(79, 70, 229, 0.14)'; e.currentTarget.style.borderColor = '#4F46E5'; }}
                     onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.05)'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
@@ -287,8 +312,8 @@ const AvailabilityPage = () => {
                           {formatReviewType(r.type)}
                         </span>
                         <span className="badge" style={{
-                          background: isOpen ? '#DCFCE7' : '#FEE2E2',
-                          color: isOpen ? '#16A34A' : '#DC2626',
+                          background: roundMeta.statusBackground,
+                          color: roundMeta.statusColor,
                           fontWeight: 800,
                           fontSize: '0.75rem',
                           padding: '0.4rem 0.85rem',
@@ -298,7 +323,7 @@ const AvailabilityPage = () => {
                           gap: '0.4rem'
                         }}>
                           <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'currentColor' }}></span>
-                          {isOpen ? 'ĐANG MỞ KHAI BÁO' : 'ĐÃ ĐÓNG'}
+                          {roundMeta.statusLabel}
                         </span>
                       </div>
 
@@ -313,7 +338,7 @@ const AvailabilityPage = () => {
                       <div style={{ background: '#F8FAFC', padding: '1.15rem', borderRadius: '14px', border: '1px solid #F1F5F9', marginBottom: '1.75rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontSize: '0.88rem', color: '#334155', fontWeight: 650 }}>
                           <Calendar size={17} color="#3B82F6" />
-                          <span>Thời gian: <strong>{r.weekStartDate || r.startDate ? new Date(r.weekStartDate || r.startDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{r.weekEndDate || r.endDate ? new Date(r.weekEndDate || r.endDate).toLocaleDateString('vi-VN') : '---'}</strong></span>
+                          <span>Thời gian: <strong>{formatRoundDate(r.weekStartDate || r.startDate)}</strong> → <strong>{formatRoundDate(r.weekEndDate || r.endDate)}</strong></span>
                         </div>
                       </div>
                     </div>
@@ -329,16 +354,16 @@ const AvailabilityPage = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        background: isOpen ? 'linear-gradient(135deg, #4F46E5, #4338CA)' : '#F1F5F9',
-                        color: isOpen ? '#FFFFFF' : '#475569',
+                        background: roundMeta.buttonBackground,
+                        color: roundMeta.buttonColor,
                         border: 'none',
-                        boxShadow: isOpen ? '0 6px 16px rgba(79, 70, 229, 0.28)' : 'none',
+                        boxShadow: roundMeta.buttonShadow,
                         cursor: 'pointer',
                         transition: 'all 0.15s ease'
                       }}
                       onClick={(e) => { e.stopPropagation(); handleSelectRoundStep2(r); }}
                     >
-                      <span>{isOpen ? '👉 Chọn Đợt & Vào Khai Báo Lịch Rảnh' : '👁 Xem Bảng Lịch Rảnh Đã Khai Báo'}</span>
+                      <span>{roundMeta.buttonLabel}</span>
                       <ArrowRight size={19} />
                     </button>
                   </div>
@@ -401,15 +426,15 @@ const AvailabilityPage = () => {
                   </span>
                 </div>
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.88rem', color: '#64748B', fontWeight: 600 }}>
-                  Thời gian: <strong>{currentRound?.weekStartDate || currentRound?.startDate ? new Date(currentRound?.weekStartDate || currentRound?.startDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{currentRound?.weekEndDate || currentRound?.endDate ? new Date(currentRound?.weekEndDate || currentRound?.endDate).toLocaleDateString('vi-VN') : '---'}</strong>
+                  Thời gian: <strong>{formatRoundDate(currentRound?.weekStartDate || currentRound?.startDate)}</strong> → <strong>{formatRoundDate(currentRound?.weekEndDate || currentRound?.endDate)}</strong>
                 </p>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
               <span className="badge" style={{
-                background: isSubmitted ? '#DCFCE7' : '#FEF3C7',
-                color: isSubmitted ? '#16A34A' : '#D97706',
+                background: submissionMeta.background,
+                color: submissionMeta.color,
                 fontWeight: 800,
                 padding: '0.55rem 1.1rem',
                 borderRadius: '20px',
@@ -419,7 +444,7 @@ const AvailabilityPage = () => {
                 fontSize: '0.82rem'
               }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'currentColor' }}></span>
-                {isSubmitted ? '✓ Đã nộp chính thức' : 'Đang soạn nháp'}
+                {submissionMeta.label}
               </span>
 
               <button type="button" className="btn btn-secondary" onClick={fetchAvailability} disabled={loading} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.1rem', borderRadius: '12px' }}>

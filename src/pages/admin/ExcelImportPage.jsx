@@ -23,7 +23,7 @@ const ExcelImportPage = () => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+    if (e.dataTransfer.files?.[0]) {
       const dropped = e.dataTransfer.files[0];
       if (dropped.name.endsWith('.xlsx')) {
         setFile(dropped);
@@ -35,7 +35,7 @@ const ExcelImportPage = () => {
   };
 
   const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
+    if (e.target.files?.[0]) {
       const selected = e.target.files[0];
       if (selected.name.endsWith('.xlsx')) {
         setFile(selected);
@@ -148,9 +148,8 @@ const ExcelImportPage = () => {
 
       <div className="glass-card" style={{ padding: '2.5rem', textAlign: 'center', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
         <form onSubmit={handleSubmit}>
-          <div
-            role="button"
-            tabIndex={0}
+          <label
+            htmlFor="fileUploadInput"
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
@@ -163,13 +162,6 @@ const ExcelImportPage = () => {
               transition: 'all var(--transition-normal)',
               cursor: 'pointer',
               marginBottom: '1.5rem'
-            }}
-            onClick={() => document.getElementById('fileUploadInput').click()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                document.getElementById('fileUploadInput').click();
-              }
             }}
           >
             <input
@@ -199,7 +191,7 @@ const ExcelImportPage = () => {
             <p style={{ color: '#64748B', fontSize: '0.875rem', marginTop: '0.5rem' }}>
               {file ? `Dung lượng: ${(file.size / 1024).toFixed(1)} KB — Sẵn sàng xử lý` : 'hoặc nhấp chuột vào khung này để chọn tệp từ máy tính'}
             </p>
-          </div>
+          </label>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
             {file && (

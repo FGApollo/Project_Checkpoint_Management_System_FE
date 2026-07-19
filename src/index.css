@@ -189,7 +189,7 @@ button, input, select, textarea {
 
 .btn-primary {
   background: linear-gradient(135deg, var(--primary), #FF7A00);
-  color: white;
+  color: #111827;
   box-shadow: 0 4px 12px var(--primary-glow);
 }
 .btn-primary:hover:not(:disabled) {

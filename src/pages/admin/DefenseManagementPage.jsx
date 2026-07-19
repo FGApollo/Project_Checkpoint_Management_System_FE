@@ -131,8 +131,13 @@ const DefenseManagementPage = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    const councilId = Number(targetCouncilId);
+    if (!Number.isSafeInteger(councilId) || councilId <= 0) {
+      setError('Council ID must be a positive integer.');
+      return;
+    }
     try {
-      await api.post(`/defense-management/boards/${targetCouncilId}/members`, {
+      await api.post(`/defense-management/boards/${encodeURIComponent(councilId)}/members`, {
         lecturerId: Number(addLecturerId),
         role: Number(addMemberRole)
       });

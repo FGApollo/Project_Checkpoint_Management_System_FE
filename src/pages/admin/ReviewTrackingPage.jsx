@@ -10,13 +10,50 @@ import {
   RefreshCw, 
   Mail, 
   Eye, 
-  Users, 
   Calendar, 
   CheckSquare, 
   FileText, 
   ArrowRight,
   ShieldAlert
 } from 'lucide-react';
+
+const getReviewRoundLabels = (type, id) => {
+  if (typeof type === 'number') {
+    return {
+      type: ['Review1', 'Review2', 'Review3'][type] || `Review ${type}`,
+      display: ['Review 1', 'Review 2', 'Review 3'][type] || `Review ${type}`
+    };
+  }
+  if (typeof type === 'string') {
+    return { type, display: type.replace('Review', 'Review ') };
+  }
+  return { type: `Review #${id}`, display: `Review #${id}` };
+};
+
+const getRoundBadgeColors = (isSelected, status) => {
+  if (isSelected) return { background: 'rgba(255, 255, 255, 0.22)', color: '#FFF' };
+  if (status === 'Open' || status === 'Published') return { background: '#DCFCE7', color: '#15803D' };
+  return { background: '#F1F5F9', color: '#64748B' };
+};
+
+const ScoringStatus = ({ item }) => {
+  if (item.scoringStatus === 'COMPLETED') {
+    const failed = item.result === 'Fail';
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: failed ? '#EF4444' : '#10B981', fontWeight: 700, fontSize: '0.825rem' }}>
+          <CheckCircle2 size={15} />
+          {failed ? 'Không đạt (Fail)' : 'Đạt yêu cầu (Pass)'}
+        </span>
+        <span style={{ fontSize: '0.725rem', color: '#64748B' }}>Đã có nhận xét & đánh giá</span>
+      </div>
+    );
+  }
+  if (item.scoringStatus === 'OVERDUE_SUBMISSION') {
+    return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#EF4444', fontWeight: 600, fontSize: '0.8rem' }}><ShieldAlert size={15} />Chờ SV nộp bài</span>;
+  }
+  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#F59E0B', fontWeight: 600, fontSize: '0.8rem' }}><Clock size={15} />Đang chờ chấm điểm</span>;
+};
 
 const ReviewTrackingPage = () => {
   const [semesters, setSemesters] = useState([]);
@@ -63,19 +100,14 @@ const ReviewTrackingPage = () => {
         const revRounds = Array.isArray(revRoundsRes.data) ? revRoundsRes.data : [];
         
         const mappedRevRounds = revRounds.map(r => {
-          const typeStr = typeof r.type === 'number' 
-            ? ['Review1', 'Review2', 'Review3'][r.type] || `Review ${r.type}` 
-            : (r.type || `Review #${r.id}`);
-          const displayType = typeof r.type === 'number'
-            ? ['Review 1', 'Review 2', 'Review 3'][r.type] || `Review ${r.type}`
-            : (typeof r.type === 'string' ? r.type.replace('Review', 'Review ') : `Review #${r.id}`);
+          const labels = getReviewRoundLabels(r.type, r.id);
             
           return {
             id: `rev_${r.id}`,
             rawId: r.id,
             category: 'REVIEW',
-            type: typeStr,
-            name: r.name || `Đợt ${displayType}`,
+            type: labels.type,
+            name: r.name || `Đợt ${labels.display}`,
             weekStart: r.weekStartDate || r.startDate || '2026-06-15',
             weekEnd: r.weekEndDate || r.endDate || '',
             status: r.status || 'Open',
@@ -148,7 +180,7 @@ const ReviewTrackingPage = () => {
 
       setTrackingData(mappedSessions);
     } catch (err) {
-      setError('Không thể tải dữ liệu theo dõi từ Database.');
+      setError(err.response?.data?.error || 'Không thể tải dữ liệu theo dõi từ Database.');
       setTrackingData([]);
     } finally {
       setLoading(false);
@@ -290,6 +322,7 @@ const ReviewTrackingPage = () => {
       </div>
 
       {/* Semester Selection & Dynamic Rounds List Section */}
+      {(() => (
       <div className="glass-card" style={{ padding: '1.25rem', marginBottom: '1.25rem', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between', alignItems: 'center', borderBottom: roundsList.length > 0 ? '1px solid #F1F5F9' : 'none', paddingBottom: roundsList.length > 0 ? '1rem' : '0', marginBottom: roundsList.length > 0 ? '1rem' : '0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -399,6 +432,7 @@ const ReviewTrackingPage = () => {
 
               {roundsList.map((round) => {
                 const isSelected = selectedRound?.id === round.id;
+                const badgeColors = getRoundBadgeColors(isSelected, round.status);
                 return (
                   <button
                     type="button"
@@ -422,8 +456,8 @@ const ReviewTrackingPage = () => {
                   >
                     <span>{round.name}</span>
                     <span style={{
-                      background: isSelected ? 'rgba(255, 255, 255, 0.22)' : (round.status === 'Open' || round.status === 'Published' ? '#DCFCE7' : '#F1F5F9'),
-                      color: isSelected ? '#FFF' : (round.status === 'Open' || round.status === 'Published' ? '#15803D' : '#64748B'),
+                      background: badgeColors.background,
+                      color: badgeColors.color,
                       padding: '0.1rem 0.4rem',
                       borderRadius: '4px',
                       fontSize: '0.68rem',
@@ -439,6 +473,7 @@ const ReviewTrackingPage = () => {
           </div>
         )}
       </div>
+      ))()}
 
       {/* Search & Status Filter Section */}
       <div className="glass-card" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px' }}>
@@ -487,7 +522,8 @@ const ReviewTrackingPage = () => {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {(() => (<>
+              {loading && (
                 <tr>
                   <td colSpan="6" style={{ textAlign: 'center', padding: '3.5rem', color: '#64748B' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
@@ -496,7 +532,8 @@ const ReviewTrackingPage = () => {
                     </div>
                   </td>
                 </tr>
-              ) : filteredList.length === 0 ? (
+              )}
+              {!loading && filteredList.length === 0 && (
                 <tr>
                   <td colSpan="6" style={{ textAlign: 'center', padding: '3.5rem', color: '#64748B' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
@@ -506,7 +543,8 @@ const ReviewTrackingPage = () => {
                     </div>
                   </td>
                 </tr>
-              ) : (
+              )}
+              {!loading && filteredList.length > 0 && (
                 filteredList.map((item) => (
                   <tr key={item.id} style={{ transition: 'background 0.15s' }}>
                     <td>
@@ -537,8 +575,8 @@ const ReviewTrackingPage = () => {
 
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.8rem' }}>
-                        {item.reviewers.map((rev, i) => (
-                          <div key={`reviewer-${rev}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#334155' }}>
+                        {item.reviewers.map((rev) => (
+                          <div key={`reviewer-${rev}`} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#334155' }}>
                             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366F1' }} />
                             <span>{rev}</span>
                           </div>
@@ -567,25 +605,7 @@ const ReviewTrackingPage = () => {
                     </td>
 
                     <td>
-                      {item.scoringStatus === 'COMPLETED' ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: item.result === 'Fail' ? '#EF4444' : '#10B981', fontWeight: 700, fontSize: '0.825rem' }}>
-                            <CheckCircle2 size={15} />
-                            {item.result === 'Fail' ? 'Không đạt (Fail)' : 'Đạt yêu cầu (Pass)'}
-                          </span>
-                          <span style={{ fontSize: '0.725rem', color: '#64748B' }}>Đã có nhận xét & đánh giá</span>
-                        </div>
-                      ) : item.scoringStatus === 'OVERDUE_SUBMISSION' ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#EF4444', fontWeight: 600, fontSize: '0.8rem' }}>
-                          <ShieldAlert size={15} />
-                          Chờ SV nộp bài
-                        </span>
-                      ) : (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#F59E0B', fontWeight: 600, fontSize: '0.8rem' }}>
-                          <Clock size={15} />
-                          Đang chờ chấm điểm
-                        </span>
-                      )}
+                      <ScoringStatus item={item} />
                     </td>
 
                     <td style={{ textAlign: 'right' }}>
@@ -621,6 +641,7 @@ const ReviewTrackingPage = () => {
                   </tr>
                 ))
               )}
+              </>))()}
             </tbody>
           </table>
         </div>
