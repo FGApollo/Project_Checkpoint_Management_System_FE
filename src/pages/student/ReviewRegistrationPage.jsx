@@ -109,8 +109,6 @@ const ReviewRegistrationPage = () => {
     }
   };
 
-  };
-
   const handleSemesterChange = (newSemId) => {
     const numId = Number(newSemId);
     setSemesterId(numId);
