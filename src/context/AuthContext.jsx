@@ -7,12 +7,12 @@ const AuthContext = createContext(null);
 export const parseJwt = (token) => {
   try {
     const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const base64 = base64Url.replaceAll('-', '+').replaceAll('_', '/');
     const jsonPayload = decodeURIComponent(
       window
         .atob(base64)
         .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .map((c) => '%' + ('00' + c.codePointAt(0).toString(16)).slice(-2))
         .join('')
     );
     const parsed = JSON.parse(jsonPayload);
@@ -96,7 +96,7 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.post('/auth/bootstrap-admin', { username, email, password });
+      await api.post('/auth/bootstrap-admin', { username, email, password });
       // Now login using those credentials right away
       return await login(username, password);
     } catch (err) {
@@ -120,8 +120,13 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const contextValue = React.useMemo(
+    () => ({ user, loading, error, login, logout, bootstrapAdmin, setUser }),
+    [user, loading, error]
+  );
+
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, logout, bootstrapAdmin, setUser }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

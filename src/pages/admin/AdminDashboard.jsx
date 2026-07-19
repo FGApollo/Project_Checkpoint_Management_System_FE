@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, Users, CalendarClock, FileSpreadsheet, ArrowRight, Layers, BookOpen, Activity } from 'lucide-react';
+import { Users, CalendarClock, FileSpreadsheet, ArrowRight, Layers, Activity } from 'lucide-react';
 
 const AdminDashboard = () => {
   const { user } = useAuth();

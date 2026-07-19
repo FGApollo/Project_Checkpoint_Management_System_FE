@@ -212,6 +212,7 @@ const ReviewTrackingPage = () => {
         </div>
 
         <button 
+          type="button"
           className="btn btn-secondary" 
           onClick={fetchTrackingData}
           disabled={loading}
@@ -296,10 +297,11 @@ const ReviewTrackingPage = () => {
               <Calendar size={20} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+              <label htmlFor="tracking-semester-select" style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
                 Kỳ học:
               </label>
               <select
+                id="tracking-semester-select"
                 className="form-select"
                 value={selectedSemesterId}
                 onChange={(e) => setSelectedSemesterId(Number(e.target.value))}
@@ -374,6 +376,7 @@ const ReviewTrackingPage = () => {
                 Lọc theo đợt:
               </span>
               <button
+                type="button"
                 onClick={() => setSelectedRound('ALL')}
                 style={{
                   padding: '0.5rem 1rem',
@@ -398,6 +401,7 @@ const ReviewTrackingPage = () => {
                 const isSelected = selectedRound?.id === round.id;
                 return (
                   <button
+                    type="button"
                     key={round.id}
                     onClick={() => setSelectedRound(round)}
                     style={{
@@ -534,7 +538,7 @@ const ReviewTrackingPage = () => {
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.8rem' }}>
                         {item.reviewers.map((rev, i) => (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#334155' }}>
+                          <div key={`reviewer-${rev}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#334155' }}>
                             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366F1' }} />
                             <span>{rev}</span>
                           </div>
@@ -587,6 +591,7 @@ const ReviewTrackingPage = () => {
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                         <button
+                          type="button"
                           className="btn btn-secondary"
                           onClick={() => {
                             setSelectedItem(item);
@@ -601,6 +606,7 @@ const ReviewTrackingPage = () => {
 
                         {item.scoringStatus !== 'COMPLETED' && (
                           <button
+                            type="button"
                             className="btn"
                             onClick={() => handleRemindReviewer(item)}
                             style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', background: 'rgba(79, 70, 229, 0.1)', color: '#4F46E5', border: '1px solid rgba(79, 70, 229, 0.3)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
@@ -637,6 +643,7 @@ const ReviewTrackingPage = () => {
                 </span>
               </div>
               <button 
+                type="button"
                 onClick={() => setShowDetailModal(false)}
                 style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748B' }}
               >
@@ -696,6 +703,7 @@ const ReviewTrackingPage = () => {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #E2E8F0' }}>
               <button 
+                type="button"
                 className="btn btn-primary"
                 onClick={() => setShowDetailModal(false)}
                 style={{ padding: '0.6rem 1.5rem', fontWeight: 600, background: '#4F46E5', color: '#FFF' }}

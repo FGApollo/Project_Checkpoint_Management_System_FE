@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Clock, ArrowRight } from 'lucide-react';
+import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 
 const ReviewScoringPage = () => {
   const [sessions, setSessions] = useState([]);
@@ -205,13 +205,15 @@ const ReviewScoringPage = () => {
             <span>Ca Review được Phân công ({sessions.length})</span>
           </h3>
 
-          {loading && !sessions.length ? (
+          {loading && !sessions.length && (
             <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Đang tải...</div>
-          ) : sessions.length === 0 ? (
+          )}
+          {!loading && sessions.length === 0 && (
             <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B', fontSize: '0.8rem' }}>
               Hiện chưa có lịch review nào được phân công cho bạn trong tuần này.
             </div>
-          ) : (
+          )}
+          {sessions.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {sessions.map((sess) => {
                 const isSelected = selectedSession?.id === sess.id;
@@ -377,8 +379,9 @@ const ReviewScoringPage = () => {
 
                   <form onSubmit={handleAddComment}>
                     <div className="form-group">
-                      <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Thêm Nhận xét mới</label>
+                      <label htmlFor="rev-new-comment" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Thêm Nhận xét mới</label>
                       <textarea
+                        id="rev-new-comment"
                         className="form-input"
                         rows="3"
                         value={newComment}
@@ -405,8 +408,8 @@ const ReviewScoringPage = () => {
                   </p>
 
                   <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                    <label className="form-label" style={{ color: '#334155', fontWeight: 700, fontSize: '0.9rem' }}>Đánh giá mức độ đáp ứng tiến độ & yêu cầu Review</label>
-                    <select className="form-select" value={evalResult} onChange={(e) => setEvalResult(e.target.value)} style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', padding: '0.65rem 1rem', fontWeight: 600, fontSize: '0.9rem' }}>
+                    <label htmlFor="rev-eval-result" className="form-label" style={{ color: '#334155', fontWeight: 700, fontSize: '0.9rem' }}>Đánh giá mức độ đáp ứng tiến độ & yêu cầu Review</label>
+                    <select id="rev-eval-result" className="form-select" value={evalResult} onChange={(e) => setEvalResult(e.target.value)} style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', padding: '0.65rem 1rem', fontWeight: 600, fontSize: '0.9rem' }}>
                       <option value="Pass">✓ ĐẠT YÊU CẦU (Pass - Nhóm đáp ứng tốt tiến độ, được bước tiếp giai đoạn sau)</option>
                       <option value="Fail">✗ KHÔNG ĐẠT (Fail - Chưa đáp ứng yêu cầu, cần điều chỉnh toàn diện & review lại)</option>
                       <option value="Defense2">⚠ YÊU CẦU REVIEW LẠI (Defense 2 Required - Cần bảo vệ lại trước hội đồng)</option>
@@ -414,8 +417,9 @@ const ReviewScoringPage = () => {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label" style={{ color: '#334155', fontWeight: 700, fontSize: '0.9rem' }}>Ý kiến Nhận xét & Góp ý chuyên môn chi tiết cho Nhóm</label>
+                    <label htmlFor="rev-eval-notes" className="form-label" style={{ color: '#334155', fontWeight: 700, fontSize: '0.9rem' }}>Ý kiến Nhận xét & Góp ý chuyên môn chi tiết cho Nhóm</label>
                     <textarea
+                      id="rev-eval-notes"
                       className="form-input"
                       rows="6"
                       value={evalNotes}

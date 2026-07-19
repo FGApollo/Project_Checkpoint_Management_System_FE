@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { Calendar, Clock, CheckCircle2, AlertCircle, RefreshCw, Send, BookOpen, Layers, ArrowRight, ArrowLeft, Sparkles, ShieldCheck, Users } from 'lucide-react';
+import { Calendar, CheckCircle2, AlertCircle, RefreshCw, Send, BookOpen, Layers, ArrowRight, ArrowLeft, Sparkles, ShieldCheck, Users } from 'lucide-react';
 
 const DAYS_OF_WEEK = [
   { id: 1, name: 'Thứ 2' },
@@ -109,15 +109,6 @@ const ReviewRegistrationPage = () => {
     }
   };
 
-  const handleRoundChange = (e) => {
-    const rId = Number(e.target.value);
-    setSelectedRoundId(rId);
-    const found = rounds.find(r => r.id === rId);
-    if (found) {
-      setSemesterId(found.semesterId || semesterId);
-      setReviewType(formatReviewType(found.type));
-      updateRoundStatus(found);
-    }
   };
 
   const handleSemesterChange = (newSemId) => {
@@ -148,7 +139,8 @@ const ReviewRegistrationPage = () => {
           setSelectedSlots(list.map((r) => ({ dayOfWeek: r.dayOfWeek, slot: r.slot })));
           myRegFound = true;
         }
-      } catch (e) {
+      } catch (slotErr) {
+        console.error('Failed to load slots, trying fallback:', slotErr);
         const regRes = await api.get(`/review-scheduling/student-registrations?roundId=${selectedRoundId}`).catch(() => ({ data: [] }));
         list = Array.isArray(regRes.data) ? regRes.data : [];
       }
@@ -163,7 +155,7 @@ const ReviewRegistrationPage = () => {
       );
       setMySchedules(Array.isArray(schedRes.data) ? schedRes.data : []);
     } catch (err) {
-      setError('Không thể tải dữ liệu nguyện vọng đăng ký.');
+      setError(err.response?.data?.error || 'Không thể tải dữ liệu nguyện vọng đăng ký.');
     } finally {
       setLoading(false);
     }
@@ -296,7 +288,7 @@ const ReviewRegistrationPage = () => {
                 </span>
               </div>
 
-              <button className="btn btn-secondary" onClick={() => fetchRounds()} disabled={loading} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.2rem', borderRadius: '12px' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => fetchRounds()} disabled={loading} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.2rem', borderRadius: '12px' }}>
                 <RefreshCw size={16} color="#F26522" />
                 <span>Tải lại Đợt</span>
               </button>
@@ -324,7 +316,7 @@ const ReviewRegistrationPage = () => {
               <p style={{ color: '#64748B', maxWidth: '520px', margin: '0 auto 1.5rem', lineHeight: 1.6 }}>
                 Hiện tại Ban quản lý (Admin / Trưởng bộ môn) chưa mở hoặc chưa tạo đợt chấm tiến trình nào cho học kỳ đang chọn. Bạn vui lòng kiểm tra kỳ học hoặc quay lại sau!
               </p>
-              <button className="btn btn-primary" onClick={() => fetchRounds()} style={{ padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '12px' }}>
+              <button type="button" className="btn btn-primary" onClick={() => fetchRounds()} style={{ padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '12px' }}>
                 <RefreshCw size={18} />
                 <span>Kiểm tra lại ngay</span>
               </button>
@@ -336,6 +328,9 @@ const ReviewRegistrationPage = () => {
                 return (
                   <div
                     key={r.id}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSelectRoundStep2(r); }}
                     style={{
                       background: '#FFFFFF',
                       border: '1px solid #E2E8F0',
@@ -352,7 +347,9 @@ const ReviewRegistrationPage = () => {
                     }}
                     onClick={() => handleSelectRoundStep2(r)}
                     onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 16px 24px -6px rgba(242, 101, 34, 0.14)'; e.currentTarget.style.borderColor = '#F26522'; }}
+                    onFocus={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 16px 24px -6px rgba(242, 101, 34, 0.14)'; e.currentTarget.style.borderColor = '#F26522'; }}
                     onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.05)'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
+                    onBlur={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.05)'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
                   >
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', gap: '0.5rem' }}>
@@ -499,7 +496,9 @@ const ReviewRegistrationPage = () => {
                   fontSize: '0.92rem'
                 }}
                 onMouseOver={(e) => { e.currentTarget.style.background = '#E2E8F0'; }}
+                onFocus={(e) => { e.currentTarget.style.background = '#E2E8F0'; }}
                 onMouseOut={(e) => { e.currentTarget.style.background = '#F1F5F9'; }}
+                onBlur={(e) => { e.currentTarget.style.background = '#F1F5F9'; }}
               >
                 <ArrowLeft size={18} />
                 <span>Quay lại Chọn Đợt</span>
@@ -536,7 +535,7 @@ const ReviewRegistrationPage = () => {
                 {roundStatus}
               </span>
 
-              <button className="btn btn-secondary" onClick={fetchData} disabled={loading} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.1rem', borderRadius: '12px' }}>
+              <button type="button" className="btn btn-secondary" onClick={fetchData} disabled={loading} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.1rem', borderRadius: '12px' }}>
                 <RefreshCw size={16} color="#F26522" />
                 <span>Tải lại</span>
               </button>

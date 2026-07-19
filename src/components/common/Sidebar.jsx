@@ -140,6 +140,7 @@ const Sidebar = () => {
 
       <div style={{ padding: '0.75rem', borderTop: '1px solid #E2E8F0' }}>
         <button
+          type="button"
           onClick={logout}
           style={{
             display: 'flex',

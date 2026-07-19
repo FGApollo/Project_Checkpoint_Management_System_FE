@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Calendar, Plus, Search, CheckCircle, AlertCircle, RefreshCw, CalendarDays, Lock, Unlock, Trash2 } from 'lucide-react';
+import { Plus, CheckCircle, AlertCircle, RefreshCw, CalendarDays, Lock, Unlock, Trash2 } from 'lucide-react';
 
 const SemesterManagementPage = () => {
   const [semesters, setSemesters] = useState([]);
@@ -8,7 +8,7 @@ const SemesterManagementPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
+  const [pageSize] = useState(15);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
@@ -34,7 +34,7 @@ const SemesterManagementPage = () => {
       if (response.data?.totalCount !== undefined) {
         setTotalCount(response.data.totalCount || 0);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch semesters.');
     } finally {
       setLoading(false);
@@ -119,11 +119,11 @@ const SemesterManagementPage = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="btn btn-secondary" onClick={() => fetchSemesters(page, pageSize)} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
+          <button type="button" className="btn btn-secondary" onClick={() => fetchSemesters(page, pageSize)} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
             <RefreshCw size={16} />
             <span>Làm mới</span>
           </button>
-          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+          <button type="button" className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
             <Plus size={16} />
             <span>Tạo Kỳ học mới</span>
           </button>
@@ -228,6 +228,7 @@ const SemesterManagementPage = () => {
             {totalPages > 1 && (
               <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                 <button
+                  type="button"
                   className="btn btn-secondary"
                   disabled={page <= 1}
                   onClick={() => setPage(page - 1)}
@@ -238,6 +239,7 @@ const SemesterManagementPage = () => {
 
                 {getPageNumbers().map((p) => (
                   <button
+                    type="button"
                     key={p}
                     onClick={() => setPage(p)}
                     style={{
@@ -256,6 +258,7 @@ const SemesterManagementPage = () => {
                 ))}
 
                 <button
+                  type="button"
                   className="btn btn-secondary"
                   disabled={page >= totalPages}
                   onClick={() => setPage(page + 1)}
@@ -277,8 +280,9 @@ const SemesterManagementPage = () => {
             <form onSubmit={handleCreateSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Kỳ học (Mùa)</label>
+                  <label htmlFor="season-select" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Kỳ học (Mùa)</label>
                   <select
+                    id="season-select"
                     className="form-select"
                     value={formData.season}
                     onChange={(e) => setFormData({ ...formData, season: e.target.value })}
@@ -290,8 +294,9 @@ const SemesterManagementPage = () => {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Năm học</label>
+                  <label htmlFor="academic-year-input" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Năm học</label>
                   <input
+                    id="academic-year-input"
                     type="number"
                     className="form-input"
                     value={formData.academicYear}
@@ -313,7 +318,7 @@ const SemesterManagementPage = () => {
                   <div>
                     <span style={{ fontSize: '0.8rem', color: '#94A3B8' }}>Tên kỳ học:</span>
                     <div style={{ fontWeight: 800, color: '#0F172A' }}>
-                      {formData.season === 'SP' ? 'Spring' : formData.season === 'SU' ? 'Summer' : 'Fall'} {formData.academicYear}
+                      {(() => { const seasonNames = { SP: 'Spring', SU: 'Summer', FA: 'Fall' }; return seasonNames[formData.season] || 'Fall'; })()} {formData.academicYear}
                     </div>
                   </div>
                 </div>
@@ -321,8 +326,9 @@ const SemesterManagementPage = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ngày bắt đầu</label>
+                  <label htmlFor="start-date-input" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ngày bắt đầu</label>
                   <input
+                    id="start-date-input"
                     type="date"
                     className="form-input"
                     value={formData.startDate}
@@ -332,8 +338,9 @@ const SemesterManagementPage = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ngày kết thúc</label>
+                  <label htmlFor="end-date-input" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ngày kết thúc</label>
                   <input
+                    id="end-date-input"
                     type="date"
                     className="form-input"
                     value={formData.endDate}

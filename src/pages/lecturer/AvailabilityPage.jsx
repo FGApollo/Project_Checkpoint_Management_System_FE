@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Clock, CheckCircle2, AlertCircle, RefreshCw, Save, Send, Check, ArrowLeft, ArrowRight, BookOpen, Layers, Sparkles, Calendar, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, AlertCircle, RefreshCw, Save, Send, Check, ArrowLeft, ArrowRight, BookOpen, Sparkles, Calendar, ShieldCheck } from 'lucide-react';
 
 const DAYS_OF_WEEK = [
   { id: 1, name: 'Thứ 2' },
@@ -69,14 +69,6 @@ const AvailabilityPage = () => {
     }
   };
 
-  const handleRoundChange = (e) => {
-    const rId = Number(e.target.value);
-    setSelectedRoundId(rId);
-    const found = rounds.find(r => r.id === rId);
-    if (found) {
-      setSemesterId(found.semesterId || semesterId);
-      if (found.weekStartDate || found.startDate) setWeekStart(found.weekStartDate || found.startDate);
-    }
   };
 
   const handleSemesterChange = (newSemId) => {
@@ -231,7 +223,7 @@ const AvailabilityPage = () => {
                 </div>
               )}
 
-              <button className="btn btn-secondary" onClick={() => fetchRounds()} disabled={loading} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.2rem', borderRadius: '12px' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => fetchRounds()} disabled={loading} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.2rem', borderRadius: '12px' }}>
                 <RefreshCw size={16} color="#4F46E5" />
                 <span>Tải lại Đợt</span>
               </button>
@@ -256,7 +248,7 @@ const AvailabilityPage = () => {
               <p style={{ color: '#64748B', maxWidth: '520px', margin: '0 auto 1.5rem', lineHeight: 1.6 }}>
                 Hiện tại Ban quản lý (Admin / Trưởng bộ môn) chưa mở hoặc chưa tạo đợt chấm tiến trình nào cho học kỳ đang chọn. Bạn vui lòng kiểm tra kỳ học hoặc quay lại sau!
               </p>
-              <button className="btn btn-primary" onClick={() => fetchRounds()} style={{ padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '12px', background: '#4F46E5' }}>
+              <button type="button" className="btn btn-primary" onClick={() => fetchRounds()} style={{ padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '12px', background: '#4F46E5' }}>
                 <RefreshCw size={18} />
                 <span>Kiểm tra lại ngay</span>
               </button>
@@ -268,6 +260,9 @@ const AvailabilityPage = () => {
                 return (
                   <div
                     key={r.id}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSelectRoundStep2(r); }}
                     style={{
                       background: '#FFFFFF',
                       border: '1px solid #E2E8F0',
@@ -284,7 +279,9 @@ const AvailabilityPage = () => {
                     }}
                     onClick={() => handleSelectRoundStep2(r)}
                     onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 16px 24px -6px rgba(79, 70, 229, 0.14)'; e.currentTarget.style.borderColor = '#4F46E5'; }}
+                    onFocus={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 16px 24px -6px rgba(79, 70, 229, 0.14)'; e.currentTarget.style.borderColor = '#4F46E5'; }}
                     onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.05)'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
+                    onBlur={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.05)'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
                   >
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', gap: '0.5rem' }}>
@@ -388,7 +385,9 @@ const AvailabilityPage = () => {
                   fontSize: '0.92rem'
                 }}
                 onMouseOver={(e) => { e.currentTarget.style.background = '#E2E8F0'; }}
+                onFocus={(e) => { e.currentTarget.style.background = '#E2E8F0'; }}
                 onMouseOut={(e) => { e.currentTarget.style.background = '#F1F5F9'; }}
+                onBlur={(e) => { e.currentTarget.style.background = '#F1F5F9'; }}
               >
                 <ArrowLeft size={18} />
                 <span>Quay lại Chọn Đợt</span>
@@ -425,7 +424,7 @@ const AvailabilityPage = () => {
                 {isSubmitted ? '✓ Đã nộp chính thức' : 'Đang soạn nháp'}
               </span>
 
-              <button className="btn btn-secondary" onClick={fetchAvailability} disabled={loading} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.1rem', borderRadius: '12px' }}>
+              <button type="button" className="btn btn-secondary" onClick={fetchAvailability} disabled={loading} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.1rem', borderRadius: '12px' }}>
                 <RefreshCw size={16} color="#4F46E5" />
                 <span>Tải lại</span>
               </button>
@@ -454,6 +453,7 @@ const AvailabilityPage = () => {
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button
+                type="button"
                 onClick={handleSaveDraft}
                 disabled={loading || isSubmitted}
                 className="btn btn-secondary"
@@ -462,6 +462,7 @@ const AvailabilityPage = () => {
                 <Save size={16} /> <span>Lưu nháp</span>
               </button>
               <button
+                type="button"
                 onClick={handleSubmitFinal}
                 disabled={loading || isSubmitted || selectedSlots.length === 0}
                 className="btn btn-primary"
@@ -504,6 +505,7 @@ const AvailabilityPage = () => {
                       <th key={day.id} style={{ padding: '0.85rem 0.5rem', background: '#F8FAFC', borderBottom: '2px solid #E2E8F0', textAlign: 'center' }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0F172A' }}>{day.name}</div>
                         <button
+                          type="button"
                           onClick={() => selectAllDay(day.id)}
                           disabled={isSubmitted}
                           style={{
@@ -528,6 +530,7 @@ const AvailabilityPage = () => {
                         return (
                           <td key={`${day.id}-${slot.id}`} style={{ padding: '0.5rem', borderBottom: '1px solid #F1F5F9', textAlign: 'center' }}>
                             <button
+                              type="button"
                               onClick={() => toggleSlot(day.id, slot.id)}
                               disabled={isSubmitted}
                               style={{
@@ -567,6 +570,7 @@ const AvailabilityPage = () => {
           {/* Bottom Actions Bar */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '2rem' }}>
             <button
+              type="button"
               onClick={handleSaveDraft}
               disabled={loading || isSubmitted}
               className="btn btn-secondary"
@@ -575,6 +579,7 @@ const AvailabilityPage = () => {
               <Save size={18} /> <span>Lưu nháp</span>
             </button>
             <button
+              type="button"
               onClick={handleSubmitFinal}
               disabled={loading || isSubmitted || selectedSlots.length === 0}
               className="btn btn-primary"

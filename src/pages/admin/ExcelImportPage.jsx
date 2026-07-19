@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import api from '../../services/api';
-import { FileSpreadsheet, UploadCloud, CheckCircle2, AlertTriangle, Layers, Users, BookOpen, Mail, ArrowRight, ShieldAlert } from 'lucide-react';
+import { FileSpreadsheet, UploadCloud, CheckCircle2, Layers, Users, BookOpen, Mail, ArrowRight, ShieldAlert } from 'lucide-react';
 
 const ExcelImportPage = () => {
   const [file, setFile] = useState(null);
@@ -149,6 +149,8 @@ const ExcelImportPage = () => {
       <div className="glass-card" style={{ padding: '2.5rem', textAlign: 'center', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
         <form onSubmit={handleSubmit}>
           <div
+            role="button"
+            tabIndex={0}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
@@ -163,6 +165,12 @@ const ExcelImportPage = () => {
               marginBottom: '1.5rem'
             }}
             onClick={() => document.getElementById('fileUploadInput').click()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                document.getElementById('fileUploadInput').click();
+              }
+            }}
           >
             <input
               id="fileUploadInput"

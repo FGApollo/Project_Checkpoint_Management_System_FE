@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Layers, UserPlus, Zap, CheckCircle2, AlertCircle, RefreshCw, Plus, Clock, Users, Calendar, ArrowRight, Play, CheckSquare, Lock, Unlock, ShieldAlert } from 'lucide-react';
+import { Layers, UserPlus, Zap, CheckCircle2, AlertCircle, Plus, Clock, Users, Calendar, ArrowRight, Play, CheckSquare, Lock, Unlock, ShieldAlert } from 'lucide-react';
 
 const formatReviewType = (type) => {
   if (type === 'Review1' || type === 0) return 'Review 1';
@@ -77,11 +77,7 @@ const ReviewManagementPage = () => {
         data.availabilitySubmissions?.some(s => s.lecturerId === l.id && (s.isSubmitted || s.submitted || s.slotCount > 0)) ||
         data.availability?.some(a => a.lecturerId === l.id)
       ).length || data.availabilitySubmissions?.filter(s => s.isSubmitted || s.submitted || s.slotCount > 0).length || 0;
-      const registeredGroupsCount = (round.registrationCount !== undefined && round.registrationCount !== null)
-        ? round.registrationCount
-        : ((round.registeredGroupCount !== undefined && round.registeredGroupCount !== null)
-          ? round.registeredGroupCount
-          : 0);
+      const registeredGroupsCount = round.registrationCount ?? round.registeredGroupCount ?? 0;
       const sessions = Array.isArray(data.sessions) ? data.sessions : [];
 
       setBoardData({
@@ -344,12 +340,12 @@ const ReviewManagementPage = () => {
           const isActive = activeStep >= s.step;
           const isAccessible = s.step === 1 || (s.step <= 3 && rounds.length > 0 && selectedRound) || (s.step === 4 && boardData.sessions.length > 0);
           return (
-            <div key={s.step} style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: isAccessible ? 'pointer' : 'not-allowed', opacity: isAccessible ? 1 : 0.65 }} onClick={() => handleStepClick(s.step)}>
+            <button type="button" key={s.step} style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: isAccessible ? 'pointer' : 'not-allowed', opacity: isAccessible ? 1 : 0.65, background: 'none', border: 'none', padding: 0 }} onClick={() => handleStepClick(s.step)}>
               <div style={{ width: 44, height: 44, borderRadius: '50%', background: isActive ? '#4F46E5' : '#F1F5F9', border: `2px solid ${isActive ? '#4F46E5' : '#CBD5E1'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: isActive ? 'white' : '#64748B', transition: 'all 0.2s' }}>
                 <s.icon size={20} />
               </div>
               <span style={{ fontSize: '0.85rem', fontWeight: isActive ? 700 : 500, color: isActive ? '#0F172A' : '#64748B' }}>{s.label}</span>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -365,8 +361,9 @@ const ReviewManagementPage = () => {
               <div>
                 <form onSubmit={handleCreateRound}>
                   <div className="form-group" style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Kỳ học (Semester)</label>
+                    <label htmlFor="semester-select" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Kỳ học (Semester)</label>
                     <select
+                      id="semester-select"
                       className="form-select"
                       value={formData.semesterId}
                       onChange={(e) => {
@@ -384,8 +381,8 @@ const ReviewManagementPage = () => {
                     </select>
                   </div>
                   <div className="form-group" style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Loại Review</label>
-                    <select className="form-select" value={formData.reviewType} onChange={e => setFormData({ ...formData, reviewType: e.target.value })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }}>
+                    <label htmlFor="review-type-select" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Loại Review</label>
+                    <select id="review-type-select" className="form-select" value={formData.reviewType} onChange={e => setFormData({ ...formData, reviewType: e.target.value })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }}>
                       <option value="Review1">Review 1</option>
                       <option value="Review2">Review 2</option>
                       <option value="Review3">Review 3</option>
@@ -393,12 +390,12 @@ const ReviewManagementPage = () => {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.75rem' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Từ ngày (Thứ 2)</label>
-                      <input required type="date" className="form-input" value={formData.startDate} onChange={handleStartDateChange} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
+                      <label htmlFor="start-date-round" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Từ ngày (Thứ 2)</label>
+                      <input id="start-date-round" required type="date" className="form-input" value={formData.startDate} onChange={handleStartDateChange} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Đến ngày (Thứ 7)</label>
-                      <input required type="date" className="form-input" value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
+                      <label htmlFor="end-date-round" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Đến ngày (Thứ 7)</label>
+                      <input id="end-date-round" required type="date" className="form-input" value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
                     </div>
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#64748B', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -416,9 +413,9 @@ const ReviewManagementPage = () => {
                       const isSelected = selectedRound?.id === r.id;
                       const isOpen = r.status === 'Open' || r.status === 1;
                       const isClosed = r.status === 'Closed' || r.status === 2;
-                      const isDraft = r.status === 'Draft' || r.status === 0;
+                      const isDraftStatus = r.status === 'Draft' || r.status === 0;
                       return (
-                        <div key={r.id} onClick={() => setSelectedRound(r)} style={{ padding: '1rem', background: isSelected ? '#EEF2FF' : '#F8FAFC', borderRadius: '12px', border: isSelected ? '2px solid #4F46E5' : '1px solid #E2E8F0', cursor: 'pointer', transition: 'all 0.2s' }}>
+                        <div key={r.id} onClick={() => setSelectedRound(r)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedRound(r); }} style={{ padding: '1rem', background: isSelected ? '#EEF2FF' : '#F8FAFC', borderRadius: '12px', border: isSelected ? '2px solid #4F46E5' : '1px solid #E2E8F0', cursor: 'pointer', transition: 'all 0.2s' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.6rem' }}>
                             <div>
                               <p style={{ fontWeight: 750, fontSize: '1rem', color: isSelected ? '#4F46E5' : '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -428,14 +425,14 @@ const ReviewManagementPage = () => {
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
                               <span className="badge" style={{
-                                background: isOpen ? '#DCFCE7' : (isClosed ? '#FEE2E2' : (isDraft ? '#FEF3C7' : '#E0F2FE')),
-                                color: isOpen ? '#16A34A' : (isClosed ? '#DC2626' : (isDraft ? '#D97706' : '#0284C7')),
+                                background: isOpen ? '#DCFCE7' : isClosed ? '#FEE2E2' : isDraftStatus ? '#FEF3C7' : '#E0F2FE',
+                                color: isOpen ? '#16A34A' : isClosed ? '#DC2626' : isDraftStatus ? '#D97706' : '#0284C7',
                                 fontWeight: 800,
                                 fontSize: '0.75rem',
                                 padding: '0.3rem 0.65rem',
                                 borderRadius: '12px'
                               }}>
-                                {isOpen ? '● Đang Mở Đăng Ký' : (isClosed ? '🔒 Đã Khóa Đăng Ký' : (isDraft ? '📝 Nháp (Chưa Mở)' : 'Đã Công Bố'))}
+                                {isOpen ? '● Đang Mở Đăng Ký' : isClosed ? '🔒 Đã Khóa Đăng Ký' : isDraftStatus ? '📝 Nháp (Chưa Mở)' : 'Đã Công Bố'}
                               </span>
                               <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 700 }}>{r.registrationCount || 0} nhóm</span>
                             </div>
@@ -469,7 +466,7 @@ const ReviewManagementPage = () => {
                       );
                     })}
                     {selectedRound && (
-                      <button className="btn btn-secondary" onClick={() => handleStepClick(2)} style={{ marginTop: '0.5rem', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', background: '#F1F5F9', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700 }}>
+                      <button type="button" className="btn btn-secondary" onClick={() => handleStepClick(2)} style={{ marginTop: '0.5rem', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', background: '#F1F5F9', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700 }}>
                         <span>Sang Bước 2 với đợt đang chọn: {formatReviewType(selectedRound.type)}</span>
                         <ArrowRight size={16} />
                       </button>
@@ -489,7 +486,7 @@ const ReviewManagementPage = () => {
                 <AlertCircle size={48} color="#EF4444" style={{ margin: '0 auto 1rem' }} />
                 <h3 style={{ fontSize: '1.25rem', color: '#0F172A', marginBottom: '0.5rem' }}>Chưa tạo hoặc chưa chọn đợt review nào</h3>
                 <p style={{ color: '#64748B', marginBottom: '1.5rem' }}>Vui lòng quay lại Bước 1 để thiết lập đợt review trước khi mở đăng ký.</p>
-                <button className="btn btn-primary" onClick={() => setActiveStep(1)}>Quay lại Bước 1: Tạo đợt</button>
+                <button type="button" className="btn btn-primary" onClick={() => setActiveStep(1)}>Quay lại Bước 1: Tạo đợt</button>
               </div>
             ) : (
               <>
@@ -502,11 +499,11 @@ const ReviewManagementPage = () => {
                 {(() => {
                   const isOpen = selectedRound.status === 'Open' || selectedRound.status === 1;
                   const isClosed = selectedRound.status === 'Closed' || selectedRound.status === 2;
-                  const isDraft = selectedRound.status === 'Draft' || selectedRound.status === 0;
+                  const isDraftStatus = selectedRound.status === 'Draft' || selectedRound.status === 0;
                   return (
                     <div style={{
-                      background: isOpen ? '#ECFDF5' : (isClosed ? '#FEF2F2' : '#FFFBEB'),
-                      border: `1px solid ${isOpen ? '#6EE7B7' : (isClosed ? '#FCA5A5' : '#FDE68A')}`,
+                      background: isOpen ? '#ECFDF5' : isClosed ? '#FEF2F2' : '#FFFBEB',
+                      border: `1px solid ${isOpen ? '#6EE7B7' : isClosed ? '#FCA5A5' : '#FDE68A'}`,
                       borderRadius: '14px',
                       padding: '1.25rem',
                       maxWidth: '680px',
@@ -517,19 +514,19 @@ const ReviewManagementPage = () => {
                       textAlign: 'left',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
                     }}>
-                      <div style={{ padding: '0.75rem', borderRadius: '12px', background: isOpen ? '#D1FAE5' : (isClosed ? '#FEE2E2' : '#FEF3C7'), color: isOpen ? '#10B981' : (isClosed ? '#EF4444' : '#D97706') }}>
-                        {isOpen ? <Unlock size={26} /> : (isClosed ? <Lock size={26} /> : <ShieldAlert size={26} />)}
+                      <div style={{ padding: '0.75rem', borderRadius: '12px', background: isOpen ? '#D1FAE5' : isClosed ? '#FEE2E2' : '#FEF3C7', color: isOpen ? '#10B981' : isClosed ? '#EF4444' : '#D97706' }}>
+                        {isOpen ? <Unlock size={26} /> : isClosed ? <Lock size={26} /> : <ShieldAlert size={26} />}
                       </div>
                       <div>
-                        <h4 style={{ margin: '0 0 0.25rem', fontSize: '1.05rem', fontWeight: 800, color: isOpen ? '#065F46' : (isClosed ? '#991B1B' : '#92400E') }}>
-                          Trạng thái: {isOpen ? 'ĐANG MỞ ĐĂNG KÝ (OPEN)' : (isClosed ? 'ĐÃ KHÓA ĐĂNG KÝ (CLOSED)' : 'NHÁP (CHƯA MỞ ĐĂNG KÝ)')}
+                        <h4 style={{ margin: '0 0 0.25rem', fontSize: '1.05rem', fontWeight: 800, color: isOpen ? '#065F46' : isClosed ? '#991B1B' : '#92400E' }}>
+                          Trạng thái: {isOpen ? 'ĐANG MỞ ĐĂNG KÝ (OPEN)' : isClosed ? 'ĐÃ KHÓA ĐĂNG KÝ (CLOSED)' : 'NHÁP (CHƯA MỞ ĐĂNG KÝ)'}
                         </h4>
-                        <p style={{ margin: 0, fontSize: '0.88rem', color: isOpen ? '#047857' : (isClosed ? '#B91C1C' : '#B45309'), lineHeight: 1.5, fontWeight: 550 }}>
+                        <p style={{ margin: 0, fontSize: '0.88rem', color: isOpen ? '#047857' : isClosed ? '#B91C1C' : '#B45309', lineHeight: 1.5, fontWeight: 550 }}>
                           {isOpen
                             ? '● Giảng viên và Sinh viên có quyền truy cập vào bảng 30 ô để tick chọn hoặc chỉnh sửa lịch rảnh.'
-                            : (isClosed
+                            : isClosed
                               ? '🔒 Đã khóa không cho phép tick chọn thêm hoặc sửa lịch. Bạn có thể bấm "Mở Khóa Đăng Ký" dưới đây nếu cần cho phép họ đăng ký lại.'
-                              : '📝 Đợt vừa tạo ở dạng Nháp. Vui lòng bấm "Mở Khóa Đăng Ký" để bắt đầu nhận nguyện vọng từ Giảng viên & Sinh viên.')}
+                              : '📝 Đợt vừa tạo ở dạng Nháp. Vui lòng bấm "Mở Khóa Đăng Ký" để bắt đầu nhận nguyện vọng từ Giảng viên & Sinh viên.'}
                         </p>
                       </div>
                     </div>
@@ -601,7 +598,7 @@ const ReviewManagementPage = () => {
                 <AlertCircle size={48} color="#EF4444" style={{ margin: '0 auto 1rem' }} />
                 <h3 style={{ fontSize: '1.25rem', color: '#0F172A', marginBottom: '0.5rem' }}>Chưa có đợt review nào được chọn</h3>
                 <p style={{ color: '#64748B', marginBottom: '1.5rem' }}>Vui lòng thiết lập đợt review ở Bước 1 trước khi chạy thuật toán phân công.</p>
-                <button className="btn btn-primary" onClick={() => setActiveStep(1)}>Quay lại Bước 1</button>
+                <button type="button" className="btn btn-primary" onClick={() => setActiveStep(1)}>Quay lại Bước 1</button>
               </div>
             ) : (
               <>
@@ -615,7 +612,7 @@ const ReviewManagementPage = () => {
                   <Zap size={48} color="#D97706" style={{ margin: '0 auto 1rem' }} />
                   <h3 style={{ fontSize: '1.1rem', color: '#0F172A', marginBottom: '0.5rem' }}>Sẵn sàng chạy thuật toán</h3>
                   <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem' }}>Hiện có {boardData.registeredGroupsCount} nhóm chờ phân công và {boardData.registeredLecturersCount} giảng viên đã gửi lịch rảnh cho đợt {selectedRound.type}.</p>
-                  <button className="btn btn-primary" onClick={handleMatch} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#4F46E5' }}>
+                  <button type="button" className="btn btn-primary" onClick={handleMatch} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#4F46E5' }}>
                     <Play size={18} fill="white" /> {loading ? 'Đang chạy Auto-Match...' : 'Chạy Auto-Match'}
                   </button>
                 </div>
@@ -632,7 +629,7 @@ const ReviewManagementPage = () => {
                 <AlertCircle size={48} color="#EF4444" style={{ margin: '0 auto 1rem' }} />
                 <h3 style={{ fontSize: '1.25rem', color: '#0F172A', marginBottom: '0.5rem' }}>Chưa chọn đợt review</h3>
                 <p style={{ color: '#64748B', marginBottom: '1.5rem' }}>Vui lòng thực hiện từ Bước 1.</p>
-                <button className="btn btn-primary" onClick={() => setActiveStep(1)}>Quay lại Bước 1</button>
+                <button type="button" className="btn btn-primary" onClick={() => setActiveStep(1)}>Quay lại Bước 1</button>
               </div>
             ) : boardData.sessions.length === 0 ? (
               <div style={{ padding: '3rem' }}>
@@ -641,7 +638,7 @@ const ReviewManagementPage = () => {
                 <p style={{ color: '#64748B', marginBottom: '1.5rem', maxWidth: '500px', margin: '0 auto 1.5rem' }}>
                   Đợt {selectedRound.type} hiện chưa có dữ liệu ca review. Vui lòng quay lại Bước 3 và bấm "Chạy Auto-Match" trước khi công bố lịch.
                 </p>
-                <button className="btn btn-primary" onClick={() => setActiveStep(3)}>Quay lại Bước 3: Phân công</button>
+                <button type="button" className="btn btn-primary" onClick={() => setActiveStep(3)}>Quay lại Bước 3: Phân công</button>
               </div>
             ) : (
               <>
@@ -664,7 +661,7 @@ const ReviewManagementPage = () => {
                   })()}
                 </div>
 
-                <button className="btn btn-success" onClick={handlePublish} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#10B981', color: 'white' }}>
+                <button type="button" className="btn btn-success" onClick={handlePublish} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#10B981', color: 'white' }}>
                   <CheckSquare size={18} /> {loading ? 'Đang công bố...' : 'Công bố Lịch Chính thức'}
                 </button>
               </>

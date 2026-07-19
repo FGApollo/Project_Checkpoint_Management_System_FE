@@ -116,7 +116,7 @@ const Navbar = () => {
 
       {user && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button style={{
+          <button type="button" style={{
             background: 'none',
             border: 'none',
             cursor: 'pointer',
@@ -166,6 +166,7 @@ const Navbar = () => {
           </div>
 
           <button
+            type="button"
             onClick={logout}
             title="Đăng xuất"
             style={{

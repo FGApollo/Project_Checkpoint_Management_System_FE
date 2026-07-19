@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Users, Plus, Search, Filter, Shield, UserCheck, UserX, Lock, Unlock, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Plus, Search, Filter, UserCheck, UserX, Lock, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 
 const AccountsPage = () => {
   const [accounts, setAccounts] = useState([]);
@@ -20,7 +20,7 @@ const AccountsPage = () => {
     role: 'Lecturer',
     identityCode: '',
     email: '',
-    password: 'Test@123456',
+    password: '',
     fullName: '',
     department: '',
     position: '',
@@ -51,6 +51,7 @@ const AccountsPage = () => {
         setTotalCount(response.data.totalCount || 0);
       }
     } catch (err) {
+      console.error(err);
       setError('Failed to fetch user accounts.');
     } finally {
       setLoading(false);
@@ -68,22 +69,13 @@ const AccountsPage = () => {
     const pages = [];
     if (totalPages <= 7) {
       for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else if (page <= 3) {
+      pages.push(1, 2, 3, 4, '...', totalPages);
+    } else if (page >= totalPages - 2) {
+      pages.push(1, '...');
+      for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
     } else {
-      if (page <= 3) {
-        for (let i = 1; i <= 4; i++) pages.push(i);
-        pages.push('...');
-        pages.push(totalPages);
-      } else if (page >= totalPages - 2) {
-        pages.push(1);
-        pages.push('...');
-        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
-      } else {
-        pages.push(1);
-        pages.push('...');
-        for (let i = page - 1; i <= page + 1; i++) pages.push(i);
-        pages.push('...');
-        pages.push(totalPages);
-      }
+      pages.push(1, '...', page - 1, page, page + 1, '...', totalPages);
     }
     return pages;
   };
@@ -109,7 +101,7 @@ const AccountsPage = () => {
         role: 'Lecturer',
         identityCode: '',
         email: '',
-        password: 'Test@123456',
+        password: '',
         fullName: '',
         department: '',
         position: '',
@@ -144,6 +136,7 @@ const AccountsPage = () => {
       setSuccess('Account role updated successfully.');
       fetchAccounts();
     } catch (err) {
+      console.error(err);
       setError(err.response?.data?.error || 'Failed to update account role.');
     }
   };
@@ -166,11 +159,11 @@ const AccountsPage = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="btn btn-secondary" onClick={() => fetchAccounts(page, pageSize)} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
+          <button type="button" className="btn btn-secondary" onClick={() => fetchAccounts(page, pageSize)} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
             <RefreshCw size={16} />
             <span>Làm mới</span>
           </button>
-          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+          <button type="button" className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
             <Plus size={16} />
             <span>Tạo Tài khoản mới</span>
           </button>
@@ -332,6 +325,7 @@ const AccountsPage = () => {
             {totalPages > 1 && (
               <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                 <button
+                  type="button"
                   className="btn btn-secondary"
                   disabled={page <= 1}
                   onClick={() => setPage(page - 1)}
@@ -347,7 +341,8 @@ const AccountsPage = () => {
                     </span>
                   ) : (
                     <button
-                      key={p}
+                      type="button"
+                      key={`page-${p}`}
                       onClick={() => setPage(p)}
                       style={{
                         padding: '0.4rem 0.75rem',
@@ -366,6 +361,7 @@ const AccountsPage = () => {
                 )}
 
                 <button
+                  type="button"
                   className="btn btn-secondary"
                   disabled={page >= totalPages}
                   onClick={() => setPage(page + 1)}
@@ -386,8 +382,9 @@ const AccountsPage = () => {
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.25rem', color: '#0F172A' }}>Tạo Hồ sơ Tài khoản Mới</h3>
             <form onSubmit={handleCreateSubmit}>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Vai trò chính</label>
+                <label htmlFor="acc-role" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Vai trò chính</label>
                 <select
+                  id="acc-role"
                   className="form-select"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
@@ -401,8 +398,9 @@ const AccountsPage = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mã số cá nhân (Mã GV / MSSV)</label>
+                  <label htmlFor="acc-identity" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mã số cá nhân (Mã GV / MSSV)</label>
                   <input
+                    id="acc-identity"
                     type="text"
                     className="form-input"
                     value={formData.identityCode}
@@ -413,8 +411,9 @@ const AccountsPage = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Họ và tên đầy đủ</label>
+                  <label htmlFor="acc-fullname" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Họ và tên đầy đủ</label>
                   <input
+                    id="acc-fullname"
                     type="text"
                     className="form-input"
                     value={formData.fullName}
@@ -428,8 +427,9 @@ const AccountsPage = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Địa chỉ Email</label>
+                  <label htmlFor="acc-email" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Địa chỉ Email</label>
                   <input
+                    id="acc-email"
                     type="email"
                     className="form-input"
                     value={formData.email}
@@ -440,8 +440,9 @@ const AccountsPage = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mật khẩu khởi tạo</label>
+                  <label htmlFor="acc-password" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mật khẩu khởi tạo</label>
                   <input
+                    id="acc-password"
                     type="text"
                     className="form-input"
                     value={formData.password}
@@ -454,8 +455,9 @@ const AccountsPage = () => {
 
               {(formData.role === 'Lecturer' || formData.role === 'TrainingDepartment' || formData.role === 'SystemAdministrator' || formData.role === 'Moderator') && (
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Khoa / Phòng ban</label>
+                  <label htmlFor="acc-dept" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Khoa / Phòng ban</label>
                   <input
+                    id="acc-dept"
                     type="text"
                     className="form-input"
                     value={formData.department}
@@ -469,16 +471,16 @@ const AccountsPage = () => {
               {formData.role === 'Student' && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
                   <div className="form-group">
-                    <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Lớp học</label>
-                    <input type="text" className="form-input" value={formData.classCode} onChange={(e) => setFormData({ ...formData, classCode: e.target.value })} placeholder="SE1801" style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                    <label htmlFor="acc-class" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Lớp học</label>
+                    <input id="acc-class" type="text" className="form-input" value={formData.classCode} onChange={(e) => setFormData({ ...formData, classCode: e.target.value })} placeholder="SE1801" style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Khóa</label>
-                    <input type="text" className="form-input" value={formData.batch} onChange={(e) => setFormData({ ...formData, batch: e.target.value })} placeholder="2026" style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                    <label htmlFor="acc-batch" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Khóa</label>
+                    <input id="acc-batch" type="text" className="form-input" value={formData.batch} onChange={(e) => setFormData({ ...formData, batch: e.target.value })} placeholder="2026" style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Chuyên ngành</label>
-                    <input type="text" className="form-input" value={formData.major} onChange={(e) => setFormData({ ...formData, major: e.target.value })} placeholder="SWD" style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                    <label htmlFor="acc-major" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Chuyên ngành</label>
+                    <input id="acc-major" type="text" className="form-input" value={formData.major} onChange={(e) => setFormData({ ...formData, major: e.target.value })} placeholder="SWD" style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
                   </div>
                 </div>
               )}
