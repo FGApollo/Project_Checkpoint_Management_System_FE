@@ -69,8 +69,6 @@ const AvailabilityPage = () => {
     }
   };
 
-  };
-
   const handleSemesterChange = (newSemId) => {
     const numId = Number(newSemId);
     setSemesterId(numId);
