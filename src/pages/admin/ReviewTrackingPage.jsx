@@ -322,7 +322,7 @@ const ReviewTrackingPage = () => {
       </div>
 
       {/* Semester Selection & Dynamic Rounds List Section */}
-      {(() => (
+      {(() => { return (
       <div className="glass-card" style={{ padding: '1.25rem', marginBottom: '1.25rem', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between', alignItems: 'center', borderBottom: roundsList.length > 0 ? '1px solid #F1F5F9' : 'none', paddingBottom: roundsList.length > 0 ? '1rem' : '0', marginBottom: roundsList.length > 0 ? '1rem' : '0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -473,7 +473,7 @@ const ReviewTrackingPage = () => {
           </div>
         )}
       </div>
-      ))()}
+      ); })()}
 
       {/* Search & Status Filter Section */}
       <div className="glass-card" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px' }}>
@@ -522,7 +522,7 @@ const ReviewTrackingPage = () => {
               </tr>
             </thead>
             <tbody>
-              {(() => (<>
+              {(() => { return (<>
               {loading && (
                 <tr>
                   <td colSpan="6" style={{ textAlign: 'center', padding: '3.5rem', color: '#64748B' }}>
@@ -641,7 +641,7 @@ const ReviewTrackingPage = () => {
                   </tr>
                 ))
               )}
-              </>))()}
+              </>); })()}
             </tbody>
           </table>
         </div>

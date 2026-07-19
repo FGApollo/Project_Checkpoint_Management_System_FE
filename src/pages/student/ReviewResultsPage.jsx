@@ -31,11 +31,16 @@ const ReviewResultsPage = () => {
     if (!selectedSubmission) return;
     const fetchDetails = async () => {
       try {
-        const sessionId = selectedSubmission.sessionId || selectedSubmission.id;
-        const commRes = await api.get(`/review-attendance/${sessionId}/comments`).catch(() => ({ data: [] }));
+        const sessionId = Number(selectedSubmission.sessionId || selectedSubmission.id);
+        if (!Number.isSafeInteger(sessionId) || sessionId <= 0) {
+          setError('Invalid review session identifier.');
+          return;
+        }
+        const safeSessionId = encodeURIComponent(String(sessionId));
+        const commRes = await api.get(`/review-attendance/${safeSessionId}/comments`).catch(() => ({ data: [] }));
         setComments(Array.isArray(commRes.data) ? commRes.data : []);
 
-        const attRes = await api.get(`/review-attendance/${sessionId}`).catch(() => ({ data: [] }));
+        const attRes = await api.get(`/review-attendance/${safeSessionId}`).catch(() => ({ data: [] }));
         setAttendance(Array.isArray(attRes.data) ? attRes.data : (attRes.data?.students || []));
       } catch (e) {
         console.error('Error fetching submission details:', e);
@@ -45,7 +50,13 @@ const ReviewResultsPage = () => {
   }, [selectedSubmission]);
 
   const handleDownloadReport = (subId, ext) => {
-    window.open(`http://localhost:5122/api/review-submissions/${subId}/export.${ext}`, '_blank');
+    const submissionId = Number(subId);
+    if (!Number.isSafeInteger(submissionId) || submissionId <= 0) {
+      setError('Invalid review submission identifier.');
+      return;
+    }
+    const safeExtension = ext === 'xlsx' ? 'xlsx' : 'zip';
+    window.open(`http://localhost:5122/api/review-submissions/${encodeURIComponent(String(submissionId))}/export.${safeExtension}`, '_blank');
   };
 
   const getResultBadge = (res) => {

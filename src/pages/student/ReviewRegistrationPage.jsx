@@ -312,7 +312,7 @@ const ReviewRegistrationPage = () => {
 
   return (
     <div className="page-container animate-fade-in">
-      {step === 1 ? (() => (
+      {step === 1 ? (() => { return (
         /* STEP 1: ROUND SELECTION PORTAL HUB */
         <div>
           <div className="page-header" style={{ marginBottom: '2rem' }}>
@@ -519,7 +519,7 @@ const ReviewRegistrationPage = () => {
             )}
           </div>
         </div>
-      ))() : (() => (
+      ); })() : (() => { return (
         /* STEP 2: 30-SLOT REGISTRATION WORKSPACE */
         <div className="animate-fade-in">
           {/* Navigation Bar Header */}
@@ -733,7 +733,7 @@ const ReviewRegistrationPage = () => {
             </div>
           </div>
         </div>
-      ))()}
+      ); })()}
     </div>
   );
 };
