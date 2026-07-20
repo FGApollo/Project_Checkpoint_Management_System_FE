@@ -16,6 +16,7 @@ const StudentDashboard = () => {
   const [documentType, setDocumentType] = useState('Final');
   const [selectedFile, setSelectedFile] = useState(null);
   const [documentBusy, setDocumentBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [documentMessage, setDocumentMessage] = useState('');
 
   useEffect(() => {
@@ -45,9 +46,11 @@ const StudentDashboard = () => {
   const handleUpload = async (event) => {
     event.preventDefault();
     if (!selectedFile || !groupId) return;
-    setDocumentBusy(true); setDocumentMessage('');
+    setDocumentBusy(true); setUploadProgress(0); setDocumentMessage('');
     try {
-      await uploadProjectDocument(groupId, documentType, selectedFile);
+      await uploadProjectDocument(groupId, documentType, selectedFile, (progressEvent) => {
+        if (progressEvent.total) setUploadProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
+      });
       const { data } = await listProjectDocuments(groupId);
       setDocuments(Array.isArray(data) ? data : []); setSelectedFile(null); event.target.reset(); setDocumentMessage('Đã tải tài liệu lên thành công.');
     } catch (error) { setDocumentMessage(error.response?.data?.error || 'Không thể tải tài liệu lên.'); }
@@ -159,6 +162,7 @@ const StudentDashboard = () => {
           <input type="file" accept=".pdf,.docx,.zip,.txt" onChange={(event) => setSelectedFile(event.target.files?.[0] || null)} />
           <button className="btn btn-primary" type="submit" disabled={!selectedFile || documentBusy}><Upload size={16} /> {documentBusy ? 'Đang tải...' : 'Tải tài liệu'}</button>
         </form> : <p style={{ color: '#B45309' }}>Tài khoản chưa được gán vào nhóm.</p>}
+        {documentBusy && <div aria-live="polite" style={{ color: '#475569', fontSize: '0.85rem' }}>Đã tải {uploadProgress}%</div>}
         {documentMessage && <p style={{ color: documentMessage.startsWith('Đã') ? '#059669' : '#DC2626', fontSize: '0.9rem' }}>{documentMessage}</p>}
         {documents.length === 0 ? <p style={{ color: '#64748B', padding: '1rem 0' }}>Chưa có tài liệu nào.</p> : documents.map((document) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E2E8F0', padding: '0.75rem 0' }}><span><strong>{document.fileName}</strong><small style={{ display: 'block', color: '#64748B' }}>{document.docType} · phiên bản {document.versionNo}</small></span><button className="btn btn-secondary" type="button" onClick={() => handleDownload(document)}><Download size={15} /> Xem/Tải</button></div>)}
       </div>

@@ -61,4 +61,7 @@ test('students upload project documents and assigned lecturers can view them', a
   assert.match(documentService, /FormData/);
   assert.match(documentService, /\/documents\/group\//);
   assert.match(documentService, /responseType: 'blob'/);
+  assert.match(documentService, /documents\/\$\{id\}\/suggestions/);
+  assert.match(lecturerPage, /generateProjectDocumentSuggestions/);
+  assert.match(lecturerPage, /AI phân tích/);
 });

@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import api from '../../services/api';
-import { listProjectDocuments, downloadProjectDocument } from '../../services/documents';
+import { listProjectDocuments, downloadProjectDocument, generateProjectDocumentSuggestions } from '../../services/documents';
 import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
 
 const getTabButtonProps = (activeTab, tab) => {
@@ -102,6 +102,16 @@ const ReviewScoringPage = () => {
     } finally {
       setAiLoading(false);
     }
+  };
+
+  const handleAnalyzeDocument = async (document) => {
+    setAiLoading(true); setError(''); setSuccess('');
+    try {
+      const { data } = await generateProjectDocumentSuggestions(document.id);
+      setAiSuggestion(data); setActiveTab('evaluation');
+      setSuccess(`AI đã đọc ${document.fileName} và tạo gợi ý. Giảng viên cần kiểm tra trước khi sử dụng.`);
+    } catch (err) { setError(err.response?.data?.error || 'Không thể phân tích tài liệu bằng AI lúc này.'); }
+    finally { setAiLoading(false); }
   };
 
   const handleSaveAttendance = async () => {
@@ -326,7 +336,7 @@ const ReviewScoringPage = () => {
 
               <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', marginBottom: '1.25rem' }}>
                 <strong style={{ color: '#0F172A' }}>Tài liệu đồ án của nhóm</strong>
-                {documents.length === 0 ? <p style={{ margin: '0.5rem 0 0', color: '#64748B', fontSize: '0.85rem' }}>Nhóm chưa tải tài liệu.</p> : documents.map((document) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.6rem' }}><span style={{ fontSize: '0.9rem' }}>{document.fileName} <small style={{ color: '#64748B' }}>({document.docType}, v{document.versionNo})</small></span><button type="button" className="btn btn-secondary" onClick={async () => { const response = await downloadProjectDocument(document.id); const url = URL.createObjectURL(response.data); window.open(url, '_blank', 'noopener,noreferrer'); }}><Download size={14} /> Xem</button></div>)}
+                {documents.length === 0 ? <p style={{ margin: '0.5rem 0 0', color: '#64748B', fontSize: '0.85rem' }}>Nhóm chưa tải tài liệu.</p> : documents.map((document) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', paddingTop: '0.6rem' }}><span style={{ fontSize: '0.9rem', overflowWrap: 'anywhere' }}>{document.fileName} <small style={{ color: '#64748B' }}>({document.docType}, v{document.versionNo})</small></span><span style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}><button type="button" className="btn btn-secondary" onClick={async () => { const response = await downloadProjectDocument(document.id); const url = URL.createObjectURL(response.data); window.open(url, '_blank', 'noopener,noreferrer'); window.setTimeout(() => URL.revokeObjectURL(url), 60000); }}><Download size={14} /> Xem</button><button type="button" className="btn btn-primary" disabled={aiLoading || document.fileName.toLowerCase().endsWith('.zip')} onClick={() => handleAnalyzeDocument(document)}><Sparkles size={14} /> AI phân tích</button></span></div>)}
               </div>
 
               {/* Sub-Tabs */}
