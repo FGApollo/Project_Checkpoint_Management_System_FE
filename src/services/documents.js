@@ -4,7 +4,7 @@ export const listProjectDocuments = (groupId) => api.get(`/documents/group/${gro
 export const uploadProjectDocument = (groupId, docType, file, onUploadProgress) => {
   const form = new FormData();
   form.append('groupId', String(groupId)); form.append('docType', docType); form.append('file', file);
-  return api.post('/documents', form, { headers: { 'Content-Type': undefined }, onUploadProgress });
+  return api.post('/documents', form, { onUploadProgress });
 };
 export const downloadProjectDocument = (id) => api.get(`/documents/${id}/download`, { responseType: 'blob' });
 export const generateProjectDocumentSuggestions = (id) => api.post(`/documents/${id}/suggestions`);
