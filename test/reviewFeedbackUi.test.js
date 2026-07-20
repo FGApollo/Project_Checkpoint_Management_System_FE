@@ -39,3 +39,12 @@ test('Google sign-in is wired from the login page through the auth context', asy
   assert.match(loginPage, /google\.accounts\.id\.initialize/);
   assert.match(authContext, /api\.post\('\/auth\/google'/);
 });
+
+test('lecturer can request AI review suggestions without score fields', async () => {
+  const lecturerPage = await readSource('../src/pages/lecturer/ReviewScoringPage.jsx');
+  assert.match(lecturerPage, /project-suggestions\/summary/);
+  assert.match(lecturerPage, /Tạo gợi ý nhận xét bằng AI/);
+  assert.match(lecturerPage, /contentSummary/);
+  assert.match(lecturerPage, /improvementSummary/);
+  assert.doesNotMatch(lecturerPage, /scoreValue|evalResult|resultText:\s*evalResult/);
+});

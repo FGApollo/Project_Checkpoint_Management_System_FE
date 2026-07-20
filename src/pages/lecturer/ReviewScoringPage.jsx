@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import api from '../../services/api';
-import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
 
 const getTabButtonProps = (activeTab, tab) => {
   if (activeTab === tab) return { className: 'btn btn-primary', style: {} };
@@ -25,6 +25,9 @@ const ReviewScoringPage = () => {
 
   // Final reviewer feedback
   const [evalNotes, setEvalNotes] = useState('');
+  const [aiProjectContent, setAiProjectContent] = useState('');
+  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const fetchMySessions = useCallback(async () => {
     setLoading(true);
@@ -72,9 +75,31 @@ const ReviewScoringPage = () => {
 
   useEffect(() => {
     if (selectedSession) {
+      setAiProjectContent(selectedSession.projectContent || selectedSession.description || '');
+      setAiSuggestion(null);
       fetchSessionDetails(selectedSession);
     }
   }, [selectedSession, fetchSessionDetails]);
+
+  const handleGenerateAiSuggestion = async () => {
+    if (!selectedSession) return;
+    const projectName = selectedSession.projectName || selectedSession.groupCode || `Nhóm #${selectedSession.groupId}`;
+    const projectContent = aiProjectContent.trim() || evalNotes.trim();
+    if (!projectContent) {
+      setError('Hãy nhập mô tả/nội dung dự án để AI có dữ liệu tham khảo.');
+      return;
+    }
+    setAiLoading(true);
+    setError('');
+    try {
+      const response = await api.post('/project-suggestions/summary', { projectName, projectContent });
+      setAiSuggestion(response.data);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Không thể tạo gợi ý AI lúc này. Vui lòng thử lại sau.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleSaveAttendance = async () => {
     if (!selectedSession) return;
@@ -428,6 +453,34 @@ const ReviewScoringPage = () => {
                   <p style={{ fontSize: '0.8rem', color: '#64748B', marginBottom: '1.5rem', lineHeight: 1.5 }}>
                     Giảng viên ghi rõ nội dung nhóm đã thực hiện, các vấn đề cần khắc phục và định hướng cho giai đoạn tiếp theo. Hệ thống chỉ ghi nhận nhận xét, không ghi điểm hoặc xếp loại Pass/Fail.
                   </p>
+
+                  <div className="form-group">
+                    <label htmlFor="rev-ai-project-content" className="form-label" style={{ color: '#334155', fontWeight: 700, fontSize: '0.9rem' }}>Nội dung dự án cho AI tham khảo</label>
+                    <textarea
+                      id="rev-ai-project-content"
+                      className="form-input"
+                      rows="4"
+                      value={aiProjectContent}
+                      onChange={(e) => setAiProjectContent(e.target.value)}
+                      placeholder="Dán mô tả dự án, mục tiêu, chức năng hoặc nội dung sinh viên trình bày..."
+                      style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', fontSize: '0.9rem', lineHeight: 1.6 }}
+                    />
+                    <button type="button" className="btn btn-secondary" onClick={handleGenerateAiSuggestion} disabled={aiLoading} style={{ marginTop: '0.75rem', background: '#EEF2FF', border: '1px solid #C7D2FE', color: '#4338CA', fontWeight: 700 }}>
+                      <Sparkles size={16} />
+                      <span>{aiLoading ? 'AI đang phân tích...' : 'Tạo gợi ý nhận xét bằng AI'}</span>
+                    </button>
+                    {aiSuggestion && (
+                      <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '0.75rem', background: '#F8FAFC', border: '1px solid #C7D2FE', color: '#1E293B' }}>
+                        <strong style={{ color: '#4338CA' }}>Gợi ý AI — giảng viên cần kiểm tra và chỉnh sửa trước khi gửi</strong>
+                        <p><b>Tóm tắt:</b> {aiSuggestion.contentSummary}</p>
+                        <p><b>Điểm mạnh:</b> {aiSuggestion.strengthsSummary}</p>
+                        <p style={{ marginBottom: 0 }}><b>Cải thiện:</b> {aiSuggestion.improvementSummary}</p>
+                        <button type="button" className="btn btn-secondary" onClick={() => setEvalNotes((current) => current.trim() ? `${current.trim()}\n\n${aiSuggestion.improvementSummary}` : aiSuggestion.improvementSummary)} style={{ marginTop: '0.75rem', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
+                          Dùng phần cải thiện làm bản nháp nhận xét
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
                   <div className="form-group">
                     <label htmlFor="rev-eval-notes" className="form-label" style={{ color: '#334155', fontWeight: 700, fontSize: '0.9rem' }}>Ý kiến Nhận xét & Góp ý chuyên môn chi tiết cho Nhóm</label>
