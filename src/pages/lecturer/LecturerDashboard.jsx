@@ -142,7 +142,7 @@ const LecturerDashboard = () => {
         )}
         {!loading && myReviews.length > 0 && (
           <div style={{ padding: '0.5rem' }}>
-            {myReviews.map((review) => (
+            {myReviews.map((review, idx) => (
               <div key={review.id ?? `${review.groupId}-${review.sessionDate}-${review.slot}`} style={{
                 display: 'flex',
                 alignItems: 'center',
