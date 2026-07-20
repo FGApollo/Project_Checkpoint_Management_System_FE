@@ -1,9 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { downloadReviewReport } from '../../services/reviewReports';
 import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 
-const getSessionKey = (session) => `${session?.sessionId || session?.id}:${session?.submissionId || ''}`;
+const getTabButtonProps = (activeTab, tab) => {
+  if (activeTab === tab) return { className: 'btn btn-primary', style: {} };
+  return {
+    className: 'btn btn-secondary',
+    style: { background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }
+  };
+};
 
 const ReviewScoringPage = () => {
   const [sessions, setSessions] = useState([]);
@@ -21,94 +26,83 @@ const ReviewScoringPage = () => {
   // Submission / Evaluation State
   const [evalResult, setEvalResult] = useState('Pass'); // Pass | Fail | Defense2 | Drop
   const [evalNotes, setEvalNotes] = useState('');
-  const [submissionDetails, setSubmissionDetails] = useState(null);
 
-  const fetchMySessions = useCallback(async () => {
+  const fetchMySessions = async () => {
     setLoading(true);
     setError('');
     try {
       const response = await api.get('/review-sessions/my');
       const list = Array.isArray(response.data) ? response.data : (response.data.items || []);
       setSessions(list);
-      setSelectedSession((currentSession) => (
-        currentSession && list.some((session) => getSessionKey(session) === getSessionKey(currentSession))
-          ? currentSession
-          : list[0] || null
-      ));
-    } catch {
-      setError('Failed to fetch assigned review sessions.');
+      if (list.length > 0 && !selectedSession) {
+        setSelectedSession(list[0]);
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to fetch assigned review sessions.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     fetchMySessions();
-  }, [fetchMySessions]);
+  }, []);
 
-  const fetchSessionDetails = useCallback(async (sess) => {
+  const fetchSessionDetails = async (sess) => {
     if (!sess) return;
     setLoading(true);
     setError('');
     try {
-      const sessionId = sess.sessionId || sess.id;
-      const submissionResponse = sess.submissionId
-        ? await api.get(`/review-submissions/${sess.submissionId}`)
-        : { data: null };
-      const details = submissionResponse.data || null;
-      const groupQuery = details?.groupId ? `?groupId=${details.groupId}` : '';
-      setSubmissionDetails(details);
-
       if (activeTab === 'attendance') {
-        const res = await api.get(`/review-attendance/${sessionId}${groupQuery}`).catch(() => ({ data: [] }));
-        const students = Array.isArray(res.data) ? res.data : res.data?.students;
-        setAttendanceList(Array.isArray(students) ? students : []);
+        const res = await api.get(`/review-attendance/${sess.id}`).catch(() => ({ data: [] }));
+        setAttendanceList(Array.isArray(res.data) ? res.data : (res.data?.students || []));
       } else if (activeTab === 'comments') {
-        const res = await api.get(`/review-attendance/${sessionId}/comments${groupQuery}`).catch(() => ({ data: [] }));
+        const res = await api.get(`/review-attendance/${sess.id}/comments`).catch(() => ({ data: [] }));
         setCommentsList(Array.isArray(res.data) ? res.data : []);
       } else if (activeTab === 'evaluation') {
-        if (details) {
-          setEvalResult(details.resultText || 'Pass');
-          setEvalNotes(details.reviewerComment || '');
+        const subId = sess.submissionId || sess.id;
+        const res = await api.get(`/review-submissions/${subId}`).catch(() => ({ data: null }));
+        if (res.data) {
+          setEvalResult(res.data.result || 'Pass');
+          setEvalNotes(res.data.notes || '');
         }
       }
-    } catch {
-      setError('Failed to load details for selected tab.');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load details for selected tab.');
     } finally {
       setLoading(false);
     }
-  }, [activeTab]);
+  };
 
   useEffect(() => {
     if (selectedSession) {
       fetchSessionDetails(selectedSession);
     }
-  }, [selectedSession, fetchSessionDetails]);
+  }, [selectedSession, activeTab]);
 
   const handleSaveAttendance = async () => {
     if (!selectedSession) return;
     setError('');
     setSuccess('');
     try {
-      if (!submissionDetails?.groupId) throw new Error('Không xác định được nhóm cần điểm danh.');
-      await api.post(`/review-attendance/${selectedSession.sessionId || selectedSession.id}`, {
-        groupId: submissionDetails.groupId,
-        entries: attendanceList.map(({ studentId, isPresent, note }) => ({
-          studentId,
-          isPresent: isPresent !== false,
-          note: note || null,
-        })),
+      await api.post(`/review-attendance/${selectedSession.id}`, {
+        groupId: Number(selectedSession.groupId),
+        entries: attendanceList.map(item => ({
+          studentId: Number(item.studentId || item.id),
+          isPresent: Boolean(item.isPresent),
+          note: item.note || ''
+        }))
       });
-      setSuccess('Đã lưu kết quả điểm danh.');
+      setSuccess('Student attendance records saved successfully.');
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to save attendance.');
+      setError(err.response?.data?.error || 'Failed to save attendance.');
     }
   };
 
   const handleToggleAttendance = (index) => {
-    setAttendanceList((currentList) => currentList.map((entry, entryIndex) => (
-      entryIndex === index ? { ...entry, isPresent: entry.isPresent === false } : entry
-    )));
+    const updated = [...attendanceList];
+    updated[index].isPresent = !updated[index].isPresent;
+    setAttendanceList(updated);
   };
 
   const handleAddComment = async (e) => {
@@ -117,28 +111,32 @@ const ReviewScoringPage = () => {
     setError('');
     setSuccess('');
     try {
-      if (!submissionDetails?.groupId) throw new Error('Không xác định được nhóm cần nhận xét.');
-      await api.post(`/review-attendance/${selectedSession.sessionId || selectedSession.id}/comments`, {
-        groupId: submissionDetails.groupId,
-        content: newComment.trim(),
+      await api.post(`/review-attendance/${selectedSession.id}/comments`, {
+        groupId: Number(selectedSession.groupId),
+        content: newComment
       });
       setNewComment('');
-      setSuccess('Đã gửi nhận xét cho nhóm sinh viên.');
+      setSuccess('Checkpoint comment posted to group.');
       fetchSessionDetails(selectedSession);
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to submit comment.');
+      setError(err.response?.data?.error || 'Failed to submit comment.');
     }
   };
 
   const handleSaveEvaluationDraft = async () => {
     if (!selectedSession) return;
-    const subId = selectedSession.submissionId;
+    const subId = selectedSession.submissionId || selectedSession.id;
     setError('');
     setSuccess('');
     try {
       await api.put(`/review-submissions/${subId}/draft`, {
-        resultText: evalResult,
-        reviewerComment: evalNotes.trim(),
+        workProductVersion: '1.0',
+        workProductSize: 'Standard',
+        effortHours: 10,
+        reviewerComment: evalNotes,
+        suggestion: evalNotes,
+        resultText: evalResult || 'Pass',
+        items: []
       });
       setSuccess('Đã lưu bản nháp nhận xét & đánh giá thành công!');
     } catch (err) {
@@ -148,39 +146,31 @@ const ReviewScoringPage = () => {
 
   const handleSubmitEvaluationFinal = async () => {
     if (!selectedSession) return;
-    if (!evalNotes.trim()) {
-      setError('Vui lòng nhập nhận xét chuyên môn trước khi kết thúc buổi review.');
-      return;
-    }
-    const subId = selectedSession.submissionId;
+    const subId = selectedSession.submissionId || selectedSession.id;
     setError('');
     setSuccess('');
     try {
-      if (!subId || !submissionDetails?.groupId) {
-        throw new Error('Không xác định được phiếu đánh giá hoặc nhóm cần hoàn tất.');
-      }
       await api.put(`/review-submissions/${subId}/draft`, {
-        resultText: evalResult,
-        reviewerComment: evalNotes.trim(),
+        workProductVersion: '1.0',
+        workProductSize: 'Standard',
+        effortHours: 10,
+        reviewerComment: evalNotes,
+        suggestion: evalNotes,
+        resultText: evalResult || 'Pass',
+        items: []
       });
       await api.post(`/review-submissions/${subId}/submit`);
-      await api.post(`/review-attendance/${selectedSession.sessionId || selectedSession.id}/groups/${submissionDetails.groupId}/complete`);
       setSuccess('Đã gửi KẾT QUẢ ĐÁNH GIÁ REVIEW! Nhận xét, kết quả đạt yêu cầu và điểm danh đã được nộp chính thức cho sinh viên.');
       fetchSessionDetails(selectedSession);
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to submit final checkpoint review.');
+      setError(err.response?.data?.error || 'Failed to submit final checkpoint review.');
     }
   };
 
-  const handleDownloadReport = async () => {
+  const handleDownloadReport = (ext) => {
     if (!selectedSession) return;
-    const subId = selectedSession.submissionId;
-    setError('');
-    try {
-      await downloadReviewReport(subId);
-    } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Không thể tải phiếu đánh giá.');
-    }
+    const subId = selectedSession.submissionId || selectedSession.id;
+    window.open(`http://localhost:5122/api/review-submissions/${subId}/export.${ext}`, '_blank');
   };
 
   return (
@@ -191,7 +181,7 @@ const ReviewScoringPage = () => {
           <p className="page-subtitle" style={{ color: '#475569' }}>Điểm danh sinh viên, nhập ý kiến nhận xét chuyên môn và đánh giá kết quả (Đạt yêu cầu / Không đạt).</p>
         </div>
 
-        <button className="btn btn-secondary" onClick={fetchMySessions} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
+        <button type="button" className="btn btn-secondary" onClick={fetchMySessions} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
           <RefreshCw size={16} color="#F26522" />
           <span style={{ fontWeight: 600 }}>Tải lại Danh sách Phân công</span>
         </button>
@@ -219,19 +209,22 @@ const ReviewScoringPage = () => {
             <span>Ca Review được Phân công ({sessions.length})</span>
           </h3>
 
-          {loading && !sessions.length ? (
+          {loading && !sessions.length && (
             <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Đang tải...</div>
-          ) : sessions.length === 0 ? (
+          )}
+          {!loading && sessions.length === 0 && (
             <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B', fontSize: '0.8rem' }}>
               Hiện chưa có lịch review nào được phân công cho bạn trong tuần này.
             </div>
-          ) : (
+          )}
+          {sessions.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {sessions.map((sess) => {
-                const isSelected = getSessionKey(selectedSession) === getSessionKey(sess);
+                const isSelected = selectedSession?.id === sess.id;
                 return (
-                  <div
-                    key={getSessionKey(sess)}
+                  <button
+                    type="button"
+                    key={sess.id}
                     onClick={() => setSelectedSession(sess)}
                     style={{
                       padding: '1rem',
@@ -240,7 +233,10 @@ const ReviewScoringPage = () => {
                       color: isSelected ? 'white' : '#0F172A',
                       cursor: 'pointer',
                       transition: 'all var(--transition-fast)',
-                      border: `1px solid ${isSelected ? '#F26522' : '#CBD5E1'}`
+                      border: `1px solid ${isSelected ? '#F26522' : '#CBD5E1'}`,
+                      textAlign: 'left',
+                      width: '100%',
+                      font: 'inherit'
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
@@ -252,7 +248,7 @@ const ReviewScoringPage = () => {
                     <p style={{ fontSize: '0.75rem', opacity: isSelected ? 0.95 : 0.75, margin: 0 }}>
                       {sess.sessionDate || sess.dayOfWeek} — Phòng {sess.room || 'TBD'}
                     </p>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -273,14 +269,18 @@ const ReviewScoringPage = () => {
                     Chấm điểm Checkpoint Nhóm {selectedSession.groupCode || `#${selectedSession.groupId}`}
                   </h2>
                   <p style={{ fontSize: '0.85rem', color: '#64748B' }}>
-                    ID Ca: #{selectedSession.sessionId || selectedSession.id} — Ngày: {selectedSession.sessionDate} — Phòng: {selectedSession.room || 'N/A'}
+                    ID Ca: #{selectedSession.id} — Ngày: {selectedSession.sessionDate} — Phòng: {selectedSession.room || 'N/A'}
                   </p>
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={handleDownloadReport} title="Xuất Báo cáo (.xlsx)" style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => handleDownloadReport('xlsx')} title="Xuất Báo cáo (.xlsx)" style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A' }}>
                     <Download size={16} color="#10B981" />
                     <span style={{ fontWeight: 600 }}>Báo cáo Excel (.xlsx)</span>
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={() => handleDownloadReport('zip')} title="Xuất Hồ sơ (.zip)" style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A' }}>
+                    <Download size={16} color="#0EA5E9" />
+                    <span style={{ fontWeight: 600 }}>Tải Hồ sơ (.zip)</span>
                   </button>
                 </div>
               </div>
@@ -288,25 +288,28 @@ const ReviewScoringPage = () => {
               {/* Sub-Tabs */}
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                 <button
-                  className={`btn ${activeTab === 'attendance' ? 'btn-primary' : 'btn-secondary'}`}
+                  type="button"
+                  className={getTabButtonProps(activeTab, 'attendance').className}
                   onClick={() => setActiveTab('attendance')}
-                  style={activeTab !== 'attendance' ? { background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' } : {}}
+                  style={getTabButtonProps(activeTab, 'attendance').style}
                 >
                   <Users size={16} />
                   <span>Điểm danh Sinh viên</span>
                 </button>
                 <button
-                  className={`btn ${activeTab === 'comments' ? 'btn-primary' : 'btn-secondary'}`}
+                  type="button"
+                  className={getTabButtonProps(activeTab, 'comments').className}
                   onClick={() => setActiveTab('comments')}
-                  style={activeTab !== 'comments' ? { background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' } : {}}
+                  style={getTabButtonProps(activeTab, 'comments').style}
                 >
                   <MessageSquare size={16} />
                   <span>Nhận xét Tiến độ</span>
                 </button>
                 <button
-                  className={`btn ${activeTab === 'evaluation' ? 'btn-primary' : 'btn-secondary'}`}
+                  type="button"
+                  className={getTabButtonProps(activeTab, 'evaluation').className}
                   onClick={() => setActiveTab('evaluation')}
-                  style={activeTab !== 'evaluation' ? { background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' } : {}}
+                  style={getTabButtonProps(activeTab, 'evaluation').style}
                 >
                   <FileText size={16} />
                   <span>Chấm điểm & Đánh giá Chính thức</span>
@@ -329,12 +332,12 @@ const ReviewScoringPage = () => {
                       </thead>
                       <tbody>
                         {attendanceList.length === 0 ? (
-                          <tr><td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: '#64748B' }}>Chưa có danh sách sinh viên cho ca review này.</td></tr>
+                          <tr><td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: '#64748B' }}>Chưa có danh sách sinh viên. Bấm Lưu để khởi tạo dữ liệu mặc định.</td></tr>
                         ) : (
                           attendanceList.map((att, idx) => (
-                            <tr key={att.studentId || idx}>
+                            <tr key={att.studentId ?? att.id ?? att.studentCode}>
                               <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontWeight: 700 }}>{att.studentCode || `SE#${att.studentId}`}</span></td>
-                              <td style={{ fontWeight: 600, color: '#0F172A' }}>{att.fullName || att.studentName || 'Sinh viên Nhóm'}</td>
+                              <td style={{ fontWeight: 600, color: '#0F172A' }}>{att.studentName || 'Sinh viên Nhóm'}</td>
                               <td>
                                 <span className="badge" style={{
                                   background: att.isPresent !== false ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
@@ -355,7 +358,7 @@ const ReviewScoringPage = () => {
                       </tbody>
                     </table>
                   </div>
-                  <button type="button" className="btn btn-success" onClick={handleSaveAttendance} disabled={attendanceList.length === 0} style={{ background: '#10B981', color: 'white' }}>
+                  <button type="button" className="btn btn-success" onClick={handleSaveAttendance} style={{ background: '#10B981', color: 'white' }}>
                     <Save size={16} />
                     <span style={{ fontWeight: 700 }}>Lưu Kết quả Điểm danh</span>
                   </button>
@@ -373,8 +376,8 @@ const ReviewScoringPage = () => {
                         Chưa có nhận xét nào được gửi. Hãy nhập góp ý chuyên môn cho nhóm bên dưới!
                       </div>
                     ) : (
-                      commentsList.map((comm, idx) => (
-                        <div key={idx} className="glass-panel" style={{ padding: '1rem', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
+                      commentsList.map((comm) => (
+                        <div key={comm.id ?? comm.createdAt ?? `${comm.authorName}-${comm.commentText ?? comm.content}`} className="glass-panel" style={{ padding: '1rem', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
                             <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#F26522' }}>{comm.authorName || 'Giảng viên'}</span>
                             <span style={{ fontSize: '0.7rem', color: '#64748B' }}>{new Date(comm.createdAt || Date.now()).toLocaleString()}</span>
@@ -387,8 +390,9 @@ const ReviewScoringPage = () => {
 
                   <form onSubmit={handleAddComment}>
                     <div className="form-group">
-                      <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Thêm Nhận xét mới</label>
+                      <label htmlFor="rev-new-comment" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Thêm Nhận xét mới</label>
                       <textarea
+                        id="rev-new-comment"
                         className="form-input"
                         rows="3"
                         value={newComment}
@@ -415,8 +419,8 @@ const ReviewScoringPage = () => {
                   </p>
 
                   <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                    <label className="form-label" style={{ color: '#334155', fontWeight: 700, fontSize: '0.9rem' }}>Đánh giá mức độ đáp ứng tiến độ & yêu cầu Review</label>
-                    <select className="form-select" value={evalResult} onChange={(e) => setEvalResult(e.target.value)} style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', padding: '0.65rem 1rem', fontWeight: 600, fontSize: '0.9rem' }}>
+                    <label htmlFor="rev-eval-result" className="form-label" style={{ color: '#334155', fontWeight: 700, fontSize: '0.9rem' }}>Đánh giá mức độ đáp ứng tiến độ & yêu cầu Review</label>
+                    <select id="rev-eval-result" className="form-select" value={evalResult} onChange={(e) => setEvalResult(e.target.value)} style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', padding: '0.65rem 1rem', fontWeight: 600, fontSize: '0.9rem' }}>
                       <option value="Pass">✓ ĐẠT YÊU CẦU (Pass - Nhóm đáp ứng tốt tiến độ, được bước tiếp giai đoạn sau)</option>
                       <option value="Fail">✗ KHÔNG ĐẠT (Fail - Chưa đáp ứng yêu cầu, cần điều chỉnh toàn diện & review lại)</option>
                       <option value="Defense2">⚠ YÊU CẦU REVIEW LẠI (Defense 2 Required - Cần bảo vệ lại trước hội đồng)</option>
@@ -424,8 +428,9 @@ const ReviewScoringPage = () => {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label" style={{ color: '#334155', fontWeight: 700, fontSize: '0.9rem' }}>Ý kiến Nhận xét & Góp ý chuyên môn chi tiết cho Nhóm</label>
+                    <label htmlFor="rev-eval-notes" className="form-label" style={{ color: '#334155', fontWeight: 700, fontSize: '0.9rem' }}>Ý kiến Nhận xét & Góp ý chuyên môn chi tiết cho Nhóm</label>
                     <textarea
+                      id="rev-eval-notes"
                       className="form-input"
                       rows="6"
                       value={evalNotes}

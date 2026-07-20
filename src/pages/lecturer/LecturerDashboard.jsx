@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { LayoutDashboard, Clock, CheckSquare, Calendar, Users, ArrowRight, MapPin } from 'lucide-react';
+import { Clock, CheckSquare, Calendar, Users, ArrowRight, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const SLOT_LABELS = {
@@ -130,18 +130,20 @@ const LecturerDashboard = () => {
           </div>
         </div>
 
-        {loading ? (
+        {loading && (
           <div style={{ padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>Đang tải dữ liệu...</div>
-        ) : myReviews.length === 0 ? (
+        )}
+        {!loading && myReviews.length === 0 && (
           <div style={{ padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>
             <Calendar size={40} color="#CBD5E1" style={{ marginBottom: '0.75rem' }} />
             <p style={{ fontWeight: 600, color: '#64748B' }}>Chưa có lịch review nào được phân công</p>
             <p style={{ fontSize: '0.8rem' }}>Lịch sẽ hiển thị sau khi Admin publish đợt review.</p>
           </div>
-        ) : (
+        )}
+        {!loading && myReviews.length > 0 && (
           <div style={{ padding: '0.5rem' }}>
-            {myReviews.map((review, idx) => (
-              <div key={review.id || idx} style={{
+            {myReviews.map((review) => (
+              <div key={review.id ?? `${review.groupId}-${review.sessionDate}-${review.slot}`} style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '1rem',

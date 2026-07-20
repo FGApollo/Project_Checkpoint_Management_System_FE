@@ -2,16 +2,15 @@ import * as signalR from '@microsoft/signalr';
 import { DEFENSE_HUB_URL } from '../config/environment';
 
 class SignalRService {
-  constructor() {
-    this.connection = null;
-    this.callbacks = {
-      memberJoined: [],
-      defenseSessionStarted: [],
-      defenseSessionClosed: [],
-      scoreSubmitted: [],
-      defenseSessionState: [],
-    };
-  }
+  connection = null;
+
+  callbacks = {
+    memberJoined: [],
+    defenseSessionStarted: [],
+    defenseSessionClosed: [],
+    scoreSubmitted: [],
+    defenseSessionState: [],
+  };
 
   async startConnection() {
     if (this.connection && this.connection.state === signalR.HubConnectionState.Connected) {

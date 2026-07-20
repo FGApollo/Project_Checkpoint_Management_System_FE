@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { getRoundStatusMeta, isRegistrationOpen } from '../../features/reviews/reviewDomain';
 import { CheckCircle2, AlertCircle, RefreshCw, Save, Send, Check, ArrowLeft, ArrowRight, BookOpen, Sparkles, Calendar, ShieldCheck } from 'lucide-react';
 
 const DAYS_OF_WEEK = [
@@ -26,6 +25,36 @@ const formatReviewType = (type) => {
   if (type === 'Review3' || type === 2) return 'Review 3';
   if (typeof type === 'string' && type.startsWith('Review')) return type.replace('Review', 'Review ');
   return type || 'Review Checkpoint';
+};
+
+const formatRoundDate = (value) => value ? new Date(value).toLocaleDateString('vi-VN') : '---';
+
+const getAvailabilityRoundMeta = (isOpen) => {
+  if (isOpen) {
+    return {
+      statusBackground: '#DCFCE7',
+      statusColor: '#16A34A',
+      statusLabel: 'ĐANG MỞ KHAI BÁO',
+      buttonBackground: 'linear-gradient(135deg, #4F46E5, #4338CA)',
+      buttonColor: '#FFFFFF',
+      buttonShadow: '0 6px 16px rgba(79, 70, 229, 0.28)',
+      buttonLabel: '👉 Chọn Đợt & Vào Khai Báo Lịch Rảnh'
+    };
+  }
+  return {
+    statusBackground: '#FEE2E2',
+    statusColor: '#DC2626',
+    statusLabel: 'ĐÃ ĐÓNG',
+    buttonBackground: '#F1F5F9',
+    buttonColor: '#475569',
+    buttonShadow: 'none',
+    buttonLabel: '👁 Xem Bảng Lịch Rảnh Đã Khai Báo'
+  };
+};
+
+const getSubmissionMeta = (isSubmitted) => {
+  if (isSubmitted) return { background: '#DCFCE7', color: '#16A34A', label: '✓ Đã nộp chính thức' };
+  return { background: '#FEF3C7', color: '#D97706', label: 'Đang soạn nháp' };
 };
 
 const AvailabilityPage = () => {
@@ -75,6 +104,7 @@ const AvailabilityPage = () => {
   };
 
   const fetchAvailability = async () => {
+    if (!selectedRoundId) return;
     setLoading(true);
     setError('');
     setSuccess('');
@@ -83,7 +113,8 @@ const AvailabilityPage = () => {
       const data = response.data || {};
       setSelectedSlots(Array.isArray(data.slots) ? data.slots : []);
       setIsSubmitted(Boolean(data.isSubmitted || data.status === 'Submitted'));
-    } catch {
+    } catch (err) {
+      console.error('Failed to load availability:', err);
       setSelectedSlots([]);
       setIsSubmitted(false);
     } finally {
@@ -118,7 +149,7 @@ const AvailabilityPage = () => {
   }, [selectedRoundId]);
 
   const toggleSlot = (dayId, slotId) => {
-    if (!canEditAvailability) return;
+    if (isSubmitted) return;
     setError('');
     setSuccess('');
     const exists = selectedSlots.some((s) => s.dayOfWeek === dayId && s.slot === slotId);
@@ -134,10 +165,7 @@ const AvailabilityPage = () => {
   };
 
   const handleSaveDraft = async () => {
-    if (!isRegistrationOpen(currentRound?.status)) {
-      setError('Đợt review chưa mở hoặc đã khóa đăng ký.');
-      return;
-    }
+    if (!selectedRoundId) return;
     setLoading(true);
     setError('');
     setSuccess('');
@@ -155,10 +183,7 @@ const AvailabilityPage = () => {
   };
 
   const handleSubmitFinal = async () => {
-    if (!isRegistrationOpen(currentRound?.status)) {
-      setError('Đợt review chưa mở hoặc đã khóa đăng ký.');
-      return;
-    }
+    if (!selectedRoundId) return;
     setLoading(true);
     setError('');
     setSuccess('');
@@ -177,7 +202,7 @@ const AvailabilityPage = () => {
   };
 
   const selectAllDay = (dayId) => {
-    if (!canEditAvailability) return;
+    if (isSubmitted) return;
     const allSelected = SLOTS.every((s) => isSlotSelected(dayId, s.id));
     if (allSelected) {
       setSelectedSlots(selectedSlots.filter((s) => s.dayOfWeek !== dayId));
@@ -189,9 +214,7 @@ const AvailabilityPage = () => {
   };
 
   const currentRound = rounds.find(r => r.id === Number(selectedRoundId)) || rounds[0];
-  const roundIsOpen = isRegistrationOpen(currentRound?.status);
-  const canEditAvailability = roundIsOpen && !isSubmitted;
-  const roundStatusMeta = getRoundStatusMeta(currentRound?.status);
+  const submissionMeta = getSubmissionMeta(isSubmitted);
 
   return (
     <div className="page-container animate-fade-in">
@@ -227,7 +250,7 @@ const AvailabilityPage = () => {
                 </div>
               )}
 
-              <button className="btn btn-secondary" onClick={() => fetchRounds()} disabled={loading} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.2rem', borderRadius: '12px' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => fetchRounds()} disabled={loading} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.2rem', borderRadius: '12px' }}>
                 <RefreshCw size={16} color="#4F46E5" />
                 <span>Tải lại Đợt</span>
               </button>
@@ -252,7 +275,7 @@ const AvailabilityPage = () => {
               <p style={{ color: '#64748B', maxWidth: '520px', margin: '0 auto 1.5rem', lineHeight: 1.6 }}>
                 Hiện tại Ban quản lý (Admin / Trưởng bộ môn) chưa mở hoặc chưa tạo đợt chấm tiến trình nào cho học kỳ đang chọn. Bạn vui lòng kiểm tra kỳ học hoặc quay lại sau!
               </p>
-              <button className="btn btn-primary" onClick={() => fetchRounds()} style={{ padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '12px', background: '#4F46E5' }}>
+              <button type="button" className="btn btn-primary" onClick={() => fetchRounds()} style={{ padding: '0.75rem 1.75rem', fontWeight: 700, borderRadius: '12px', background: '#4F46E5' }}>
                 <RefreshCw size={18} />
                 <span>Kiểm tra lại ngay</span>
               </button>
@@ -260,8 +283,8 @@ const AvailabilityPage = () => {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.75rem', marginBottom: '3rem' }}>
               {rounds.map((r) => {
-                const isOpen = isRegistrationOpen(r.status);
-                const statusMeta = getRoundStatusMeta(r.status);
+                const isOpen = r.status === 'Open' || r.status === 1 || r.status === 0 || r.status === 'Draft' || r.status === 'Đang mở';
+                const roundMeta = getAvailabilityRoundMeta(isOpen);
                 return (
                   <div
                     key={r.id}
@@ -275,13 +298,13 @@ const AvailabilityPage = () => {
                       justifyContent: 'space-between',
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
                       transition: 'all 0.25s ease',
-                      cursor: 'pointer',
                       position: 'relative',
                       overflow: 'hidden'
                     }}
-                    onClick={() => handleSelectRoundStep2(r)}
                     onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 16px 24px -6px rgba(79, 70, 229, 0.14)'; e.currentTarget.style.borderColor = '#4F46E5'; }}
+                    onFocus={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = '0 16px 24px -6px rgba(79, 70, 229, 0.14)'; e.currentTarget.style.borderColor = '#4F46E5'; }}
                     onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.05)'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
+                    onBlur={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.05)'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
                   >
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', gap: '0.5rem' }}>
@@ -289,8 +312,8 @@ const AvailabilityPage = () => {
                           {formatReviewType(r.type)}
                         </span>
                         <span className="badge" style={{
-                          background: statusMeta.background,
-                          color: statusMeta.color,
+                          background: roundMeta.statusBackground,
+                          color: roundMeta.statusColor,
                           fontWeight: 800,
                           fontSize: '0.75rem',
                           padding: '0.4rem 0.85rem',
@@ -300,7 +323,7 @@ const AvailabilityPage = () => {
                           gap: '0.4rem'
                         }}>
                           <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'currentColor' }}></span>
-                          {statusMeta.label.toUpperCase()}
+                          {roundMeta.statusLabel}
                         </span>
                       </div>
 
@@ -315,7 +338,7 @@ const AvailabilityPage = () => {
                       <div style={{ background: '#F8FAFC', padding: '1.15rem', borderRadius: '14px', border: '1px solid #F1F5F9', marginBottom: '1.75rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontSize: '0.88rem', color: '#334155', fontWeight: 650 }}>
                           <Calendar size={17} color="#3B82F6" />
-                          <span>Thời gian: <strong>{r.weekStartDate || r.startDate ? new Date(r.weekStartDate || r.startDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{r.weekEndDate || r.endDate ? new Date(r.weekEndDate || r.endDate).toLocaleDateString('vi-VN') : '---'}</strong></span>
+                          <span>Thời gian: <strong>{formatRoundDate(r.weekStartDate || r.startDate)}</strong> → <strong>{formatRoundDate(r.weekEndDate || r.endDate)}</strong></span>
                         </div>
                       </div>
                     </div>
@@ -331,16 +354,16 @@ const AvailabilityPage = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        background: isOpen ? 'linear-gradient(135deg, #4F46E5, #4338CA)' : '#F1F5F9',
-                        color: isOpen ? '#FFFFFF' : '#475569',
+                        background: roundMeta.buttonBackground,
+                        color: roundMeta.buttonColor,
                         border: 'none',
-                        boxShadow: isOpen ? '0 6px 16px rgba(79, 70, 229, 0.28)' : 'none',
+                        boxShadow: roundMeta.buttonShadow,
                         cursor: 'pointer',
                         transition: 'all 0.15s ease'
                       }}
                       onClick={(e) => { e.stopPropagation(); handleSelectRoundStep2(r); }}
                     >
-                      <span>{isOpen ? '👉 Chọn Đợt & Vào Khai Báo Lịch Rảnh' : '👁 Xem Bảng Lịch Rảnh Đã Khai Báo'}</span>
+                      <span>{roundMeta.buttonLabel}</span>
                       <ArrowRight size={19} />
                     </button>
                   </div>
@@ -385,7 +408,9 @@ const AvailabilityPage = () => {
                   fontSize: '0.92rem'
                 }}
                 onMouseOver={(e) => { e.currentTarget.style.background = '#E2E8F0'; }}
+                onFocus={(e) => { e.currentTarget.style.background = '#E2E8F0'; }}
                 onMouseOut={(e) => { e.currentTarget.style.background = '#F1F5F9'; }}
+                onBlur={(e) => { e.currentTarget.style.background = '#F1F5F9'; }}
               >
                 <ArrowLeft size={18} />
                 <span>Quay lại Chọn Đợt</span>
@@ -401,15 +426,15 @@ const AvailabilityPage = () => {
                   </span>
                 </div>
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.88rem', color: '#64748B', fontWeight: 600 }}>
-                  Thời gian: <strong>{currentRound?.weekStartDate || currentRound?.startDate ? new Date(currentRound?.weekStartDate || currentRound?.startDate).toLocaleDateString('vi-VN') : '---'}</strong> → <strong>{currentRound?.weekEndDate || currentRound?.endDate ? new Date(currentRound?.weekEndDate || currentRound?.endDate).toLocaleDateString('vi-VN') : '---'}</strong>
+                  Thời gian: <strong>{formatRoundDate(currentRound?.weekStartDate || currentRound?.startDate)}</strong> → <strong>{formatRoundDate(currentRound?.weekEndDate || currentRound?.endDate)}</strong>
                 </p>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
               <span className="badge" style={{
-                background: isSubmitted ? '#DCFCE7' : roundStatusMeta.background,
-                color: isSubmitted ? '#16A34A' : roundStatusMeta.color,
+                background: submissionMeta.background,
+                color: submissionMeta.color,
                 fontWeight: 800,
                 padding: '0.55rem 1.1rem',
                 borderRadius: '20px',
@@ -419,10 +444,10 @@ const AvailabilityPage = () => {
                 fontSize: '0.82rem'
               }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'currentColor' }}></span>
-                {isSubmitted ? '✓ Đã nộp chính thức' : roundStatusMeta.label}
+                {submissionMeta.label}
               </span>
 
-              <button className="btn btn-secondary" onClick={fetchAvailability} disabled={loading} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.1rem', borderRadius: '12px' }}>
+              <button type="button" className="btn btn-secondary" onClick={fetchAvailability} disabled={loading} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700, padding: '0.65rem 1.1rem', borderRadius: '12px' }}>
                 <RefreshCw size={16} color="#4F46E5" />
                 <span>Tải lại</span>
               </button>
@@ -451,18 +476,20 @@ const AvailabilityPage = () => {
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button
+                type="button"
                 onClick={handleSaveDraft}
-                disabled={loading || !canEditAvailability}
+                disabled={loading || isSubmitted}
                 className="btn btn-secondary"
-                style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#334155', opacity: canEditAvailability ? 1 : 0.5, fontWeight: 700, padding: '0.65rem 1.25rem', borderRadius: '10px' }}
+                style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#334155', opacity: isSubmitted ? 0.5 : 1, fontWeight: 700, padding: '0.65rem 1.25rem', borderRadius: '10px' }}
               >
                 <Save size={16} /> <span>Lưu nháp</span>
               </button>
               <button
+                type="button"
                 onClick={handleSubmitFinal}
-                disabled={loading || !canEditAvailability || selectedSlots.length === 0}
+                disabled={loading || isSubmitted || selectedSlots.length === 0}
                 className="btn btn-primary"
-                style={{ background: 'linear-gradient(135deg, #4F46E5, #4338CA)', border: 'none', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)', opacity: (!canEditAvailability || selectedSlots.length === 0) ? 0.5 : 1, fontWeight: 800, padding: '0.65rem 1.5rem', borderRadius: '10px' }}
+                style={{ background: 'linear-gradient(135deg, #4F46E5, #4338CA)', border: 'none', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)', opacity: (isSubmitted || selectedSlots.length === 0) ? 0.5 : 1, fontWeight: 800, padding: '0.65rem 1.5rem', borderRadius: '10px' }}
               >
                 <Send size={16} /> <span>Nộp chính thức</span>
               </button>
@@ -501,10 +528,11 @@ const AvailabilityPage = () => {
                       <th key={day.id} style={{ padding: '0.85rem 0.5rem', background: '#F8FAFC', borderBottom: '2px solid #E2E8F0', textAlign: 'center' }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0F172A' }}>{day.name}</div>
                         <button
+                          type="button"
                           onClick={() => selectAllDay(day.id)}
-                          disabled={!canEditAvailability}
+                          disabled={isSubmitted}
                           style={{
-                            marginTop: '0.3rem', fontSize: '0.72rem', color: '#4F46E5', background: 'none', border: 'none', cursor: canEditAvailability ? 'pointer' : 'not-allowed', fontWeight: 700, opacity: canEditAvailability ? 1 : 0.4,
+                            marginTop: '0.3rem', fontSize: '0.72rem', color: '#4F46E5', background: 'none', border: 'none', cursor: isSubmitted ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: isSubmitted ? 0.4 : 1,
                           }}
                         >
                           {SLOTS.every((s) => isSlotSelected(day.id, s.id)) ? 'Bỏ tất cả' : '+ Chọn tất cả'}
@@ -525,20 +553,21 @@ const AvailabilityPage = () => {
                         return (
                           <td key={`${day.id}-${slot.id}`} style={{ padding: '0.5rem', borderBottom: '1px solid #F1F5F9', textAlign: 'center' }}>
                             <button
+                              type="button"
                               onClick={() => toggleSlot(day.id, slot.id)}
-                              disabled={!canEditAvailability}
+                              disabled={isSubmitted}
                               style={{
                                 width: '100%',
                                 height: '48px',
                                 borderRadius: '10px',
                                 border: selected ? '2px solid #4F46E5' : '1px solid #E2E8F0',
                                 background: selected ? '#EEF2FF' : '#FFFFFF',
-                                cursor: canEditAvailability ? 'pointer' : 'not-allowed',
+                                cursor: isSubmitted ? 'not-allowed' : 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 transition: 'all 0.15s ease',
-                                opacity: canEditAvailability ? 1 : 0.6,
+                                opacity: isSubmitted ? 0.6 : 1,
                                 boxShadow: selected ? '0 2px 6px rgba(79, 70, 229, 0.15)' : 'none'
                               }}
                             >
@@ -564,18 +593,20 @@ const AvailabilityPage = () => {
           {/* Bottom Actions Bar */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '2rem' }}>
             <button
+              type="button"
               onClick={handleSaveDraft}
-              disabled={loading || !canEditAvailability}
+              disabled={loading || isSubmitted}
               className="btn btn-secondary"
-              style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#334155', opacity: canEditAvailability ? 1 : 0.5, fontWeight: 700, padding: '0.8rem 1.5rem', borderRadius: '12px' }}
+              style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#334155', opacity: isSubmitted ? 0.5 : 1, fontWeight: 700, padding: '0.8rem 1.5rem', borderRadius: '12px' }}
             >
               <Save size={18} /> <span>Lưu nháp</span>
             </button>
             <button
+              type="button"
               onClick={handleSubmitFinal}
-              disabled={loading || !canEditAvailability || selectedSlots.length === 0}
+              disabled={loading || isSubmitted || selectedSlots.length === 0}
               className="btn btn-primary"
-              style={{ background: 'linear-gradient(135deg, #4F46E5, #4338CA)', border: 'none', boxShadow: '0 4px 14px rgba(79, 70, 229, 0.28)', opacity: (!canEditAvailability || selectedSlots.length === 0) ? 0.5 : 1, fontWeight: 800, padding: '0.8rem 2rem', borderRadius: '12px' }}
+              style={{ background: 'linear-gradient(135deg, #4F46E5, #4338CA)', border: 'none', boxShadow: '0 4px 14px rgba(79, 70, 229, 0.28)', opacity: (isSubmitted || selectedSlots.length === 0) ? 0.5 : 1, fontWeight: 800, padding: '0.8rem 2rem', borderRadius: '12px' }}
             >
               <Send size={18} /> <span>Nộp chính thức ({selectedSlots.length} ô)</span>
             </button>

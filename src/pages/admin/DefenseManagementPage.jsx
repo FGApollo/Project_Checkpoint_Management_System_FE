@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Gavel, Plus, Users, ShieldAlert, CheckCircle, AlertCircle, RefreshCw, Calendar, ArrowRight, Layers } from 'lucide-react';
+import { Gavel, Plus, Users, ShieldAlert, CheckCircle, AlertCircle, Calendar, ArrowRight, Layers } from 'lucide-react';
 
 const DefenseManagementPage = () => {
   const [activeTab, setActiveTab] = useState('rounds');
@@ -45,6 +45,7 @@ const DefenseManagementPage = () => {
       const response = await api.get('/defense-management/rounds');
       setRounds(Array.isArray(response.data) ? response.data : (response.data?.items || []));
     } catch (err) {
+      console.error(err);
       setError('Failed to fetch defense rounds.');
     } finally {
       setLoading(false);
@@ -97,6 +98,7 @@ const DefenseManagementPage = () => {
       setShowCreateRound(false);
       fetchRounds();
     } catch (err) {
+      console.error(err);
       setError(err.response?.data?.error || 'Failed to create defense round.');
     }
   };
@@ -107,7 +109,7 @@ const DefenseManagementPage = () => {
     setSuccess('');
     setLoading(true);
     try {
-      const memberIds = memberIdsStr.split(',').map((id) => Number(id.trim())).filter((id) => !isNaN(id) && id > 0);
+      const memberIds = memberIdsStr.split(',').map((id) => Number(id.trim())).filter((id) => !Number.isNaN(id) && id > 0);
       const response = await api.post('/defense-management/boards', {
         code: boardCode,
         semesterId: Number(boardSemesterId),
@@ -118,6 +120,7 @@ const DefenseManagementPage = () => {
       });
       setSuccess(`Defense Council / Board '${boardCode}' (ID: #${response.data.id || 'new'}) established successfully!`);
     } catch (err) {
+      console.error(err);
       setError(err.response?.data?.error || 'Failed to create defense board. Check that all Lecturer IDs exist.');
     } finally {
       setLoading(false);
@@ -128,13 +131,19 @@ const DefenseManagementPage = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    const councilId = Number(targetCouncilId);
+    if (!Number.isSafeInteger(councilId) || councilId <= 0) {
+      setError('Council ID must be a positive integer.');
+      return;
+    }
     try {
-      await api.post(`/defense-management/boards/${targetCouncilId}/members`, {
+      await api.post(`/defense-management/boards/${encodeURIComponent(councilId)}/members`, {
         lecturerId: Number(addLecturerId),
         role: Number(addMemberRole)
       });
       setSuccess(`Lecturer #${addLecturerId} successfully added to Council #${targetCouncilId}!`);
     } catch (err) {
+      console.error(err);
       setError(err.response?.data?.error || 'Failed to add member to council.');
     }
   };
@@ -146,14 +155,17 @@ const DefenseManagementPage = () => {
     setLoading(true);
     try {
       await api.post('/defense-management/sessions', {
+        code: `DEF_${sessGroupId}_${sessSlot}_${Date.now()}`,
+        defenseRoundId: Number(rounds[0]?.id || 1),
         councilId: Number(sessCouncilId),
         groupId: Number(sessGroupId),
-        date: sessDate,
+        sessionDate: sessDate,
         slot: Number(sessSlot),
         room: sessRoom
       });
       setSuccess(`Project Group #${sessGroupId} successfully assigned to Council #${sessCouncilId} in Room ${sessRoom}!`);
     } catch (err) {
+      console.error(err);
       setError(err.response?.data?.error || 'Assignment rejected due to non-negotiable supervisor conflict rules or council capacity restrictions!');
     } finally {
       setLoading(false);
@@ -170,6 +182,7 @@ const DefenseManagementPage = () => {
 
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
+            type="button"
             className={`btn ${activeTab === 'rounds' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setActiveTab('rounds')}
             style={activeTab !== 'rounds' ? { background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' } : {}}
@@ -178,6 +191,7 @@ const DefenseManagementPage = () => {
             <span>Các đợt bảo vệ</span>
           </button>
           <button
+            type="button"
             className={`btn ${activeTab === 'boards' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setActiveTab('boards')}
             style={activeTab !== 'boards' ? { background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' } : {}}
@@ -186,6 +200,7 @@ const DefenseManagementPage = () => {
             <span>Thành lập Hội đồng</span>
           </button>
           <button
+            type="button"
             className={`btn ${activeTab === 'members' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setActiveTab('members')}
             style={activeTab !== 'members' ? { background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' } : {}}
@@ -194,6 +209,7 @@ const DefenseManagementPage = () => {
             <span>Thêm Thành viên</span>
           </button>
           <button
+            type="button"
             className={`btn ${activeTab === 'sessions' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setActiveTab('sessions')}
             style={activeTab !== 'sessions' ? { background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' } : {}}
@@ -223,7 +239,7 @@ const DefenseManagementPage = () => {
         <div className="glass-card" style={{ padding: '1.75rem', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>Danh sách Các đợt Bảo vệ</h3>
-            <button className="btn btn-primary" onClick={() => setShowCreateRound(true)}>
+            <button type="button" className="btn btn-primary" onClick={() => setShowCreateRound(true)}>
               <Plus size={16} />
               <span>Tạo Đợt Bảo vệ</span>
             </button>
@@ -276,18 +292,18 @@ const DefenseManagementPage = () => {
           <form onSubmit={handleCreateBoard}>
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mã Hội đồng</label>
-                <input type="text" className="form-input" value={boardCode} onChange={(e) => setBoardCode(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <label htmlFor="def-boardCode" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mã Hội đồng</label>
+                <input id="def-boardCode" type="text" className="form-input" value={boardCode} onChange={(e) => setBoardCode(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
               </div>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Học kỳ</label>
-                <input type="number" className="form-input" value={boardSemesterId} onChange={(e) => setBoardSemesterId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <label htmlFor="def-boardSem" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Học kỳ</label>
+                <input id="def-boardSem" type="number" className="form-input" value={boardSemesterId} onChange={(e) => setBoardSemesterId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
               </div>
             </div>
 
             <div className="form-group">
-              <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Cơ cấu Số lượng Thành viên</label>
-              <select className="form-select" value={boardType} onChange={(e) => setBoardType(Number(e.target.value))} style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}>
+              <label htmlFor="def-boardType" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Cơ cấu Số lượng Thành viên</label>
+              <select id="def-boardType" className="form-select" value={boardType} onChange={(e) => setBoardType(Number(e.target.value))} style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}>
                 <option value={0}>Hội đồng Tiêu chuẩn (5 Thành viên: Chủ tịch, Thư ký + 3 Ủy viên)</option>
                 <option value={1}>Hội đồng Rút gọn (3 Thành viên: Chủ tịch, Thư ký + 1 Ủy viên)</option>
               </select>
@@ -295,18 +311,19 @@ const DefenseManagementPage = () => {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Giảng viên (Chủ tịch)</label>
-                <input type="number" className="form-input" value={chairmanId} onChange={(e) => setChairmanId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <label htmlFor="def-chairman" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Giảng viên (Chủ tịch)</label>
+                <input id="def-chairman" type="number" className="form-input" value={chairmanId} onChange={(e) => setChairmanId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
               </div>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Giảng viên (Thư ký)</label>
-                <input type="number" className="form-input" value={secretaryId} onChange={(e) => setSecretaryId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <label htmlFor="def-secretary" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Giảng viên (Thư ký)</label>
+                <input id="def-secretary" type="number" className="form-input" value={secretaryId} onChange={(e) => setSecretaryId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
               </div>
             </div>
 
             <div className="form-group">
-              <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Danh sách ID Ủy viên (cách nhau bởi dấu phẩy)</label>
+              <label htmlFor="def-members" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Danh sách ID Ủy viên (cách nhau bởi dấu phẩy)</label>
               <input
+                id="def-members"
                 type="text"
                 className="form-input"
                 value={memberIdsStr}
@@ -338,18 +355,18 @@ const DefenseManagementPage = () => {
 
           <form onSubmit={handleAddMember}>
             <div className="form-group">
-              <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Hội đồng mục tiêu</label>
-              <input type="number" className="form-input" value={targetCouncilId} onChange={(e) => setTargetCouncilId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+              <label htmlFor="def-targetCouncil" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Hội đồng mục tiêu</label>
+              <input id="def-targetCouncil" type="number" className="form-input" value={targetCouncilId} onChange={(e) => setTargetCouncilId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
             </div>
 
             <div className="form-group">
-              <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Giảng viên</label>
-              <input type="number" className="form-input" value={addLecturerId} onChange={(e) => setAddLecturerId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+              <label htmlFor="def-addLec" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Giảng viên</label>
+              <input id="def-addLec" type="number" className="form-input" value={addLecturerId} onChange={(e) => setAddLecturerId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
             </div>
 
             <div className="form-group">
-              <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Vai trò trong Hội đồng</label>
-              <select className="form-select" value={addMemberRole} onChange={(e) => setAddMemberRole(Number(e.target.value))} style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}>
+              <label htmlFor="def-addRole" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Vai trò trong Hội đồng</label>
+              <select id="def-addRole" className="form-select" value={addMemberRole} onChange={(e) => setAddMemberRole(Number(e.target.value))} style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}>
                 <option value={0}>Chủ tịch Hội đồng (Quyền mở/đóng ca chấm)</option>
                 <option value={1}>Thư ký Hội đồng (Tổng hợp hồ sơ)</option>
                 <option value={2}>Ủy viên Hội đồng (Chấm điểm)</option>
@@ -379,27 +396,27 @@ const DefenseManagementPage = () => {
           <form onSubmit={handleAssignSession}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Hội đồng</label>
-                <input type="number" className="form-input" value={sessCouncilId} onChange={(e) => setSessCouncilId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <label htmlFor="def-sessCouncil" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Hội đồng</label>
+                <input id="def-sessCouncil" type="number" className="form-input" value={sessCouncilId} onChange={(e) => setSessCouncilId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
               </div>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Nhóm Checkpoint</label>
-                <input type="number" className="form-input" value={sessGroupId} onChange={(e) => setSessGroupId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <label htmlFor="def-sessGroup" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Nhóm Checkpoint</label>
+                <input id="def-sessGroup" type="number" className="form-input" value={sessGroupId} onChange={(e) => setSessGroupId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '1rem' }}>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ngày Bảo vệ</label>
-                <input type="date" className="form-input" value={sessDate} onChange={(e) => setSessDate(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <label htmlFor="def-sessDate" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ngày Bảo vệ</label>
+                <input id="def-sessDate" type="date" className="form-input" value={sessDate} onChange={(e) => setSessDate(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
               </div>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ca học (1-8)</label>
-                <input type="number" className="form-input" value={sessSlot} onChange={(e) => setSessSlot(e.target.value)} min="1" max="8" required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <label htmlFor="def-sessSlot" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ca học (1-8)</label>
+                <input id="def-sessSlot" type="number" className="form-input" value={sessSlot} onChange={(e) => setSessSlot(e.target.value)} min="1" max="8" required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
               </div>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Phòng bảo vệ</label>
-                <input type="text" className="form-input" value={sessRoom} onChange={(e) => setSessRoom(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <label htmlFor="def-sessRoom" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Phòng bảo vệ</label>
+                <input id="def-sessRoom" type="text" className="form-input" value={sessRoom} onChange={(e) => setSessRoom(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
               </div>
             </div>
 
@@ -418,21 +435,21 @@ const DefenseManagementPage = () => {
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.25rem', color: '#0F172A' }}>Khởi tạo Đợt Bảo vệ Mới</h3>
             <form onSubmit={handleCreateRound}>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mã Đợt</label>
-                <input type="text" className="form-input" value={roundCode} onChange={(e) => setRoundCode(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <label htmlFor="def-roundCode" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mã Đợt</label>
+                <input id="def-roundCode" type="text" className="form-input" value={roundCode} onChange={(e) => setRoundCode(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
               </div>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Tên Đợt Bảo vệ</label>
-                <input type="text" className="form-input" value={roundName} onChange={(e) => setRoundName(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <label htmlFor="def-roundName" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Tên Đợt Bảo vệ</label>
+                <input id="def-roundName" type="text" className="form-input" value={roundName} onChange={(e) => setRoundName(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Học kỳ</label>
-                  <input type="number" className="form-input" value={roundSemesterId} onChange={(e) => setRoundSemesterId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                  <label htmlFor="def-roundSem" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Học kỳ</label>
+                  <input id="def-roundSem" type="number" className="form-input" value={roundSemesterId} onChange={(e) => setRoundSemesterId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Cơ cấu Hội đồng</label>
-                  <select className="form-select" value={roundType} onChange={(e) => setRoundType(Number(e.target.value))} style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}>
+                  <label htmlFor="def-roundType" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Cơ cấu Hội đồng</label>
+                  <select id="def-roundType" className="form-select" value={roundType} onChange={(e) => setRoundType(Number(e.target.value))} style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}>
                     <option value={0}>Tiêu chuẩn (5 Thành viên)</option>
                     <option value={1}>Rút gọn (3 Thành viên)</option>
                   </select>
@@ -440,12 +457,12 @@ const DefenseManagementPage = () => {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ngày bắt đầu</label>
-                  <input type="date" className="form-input" value={roundStart} onChange={handleRoundStartChange} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                  <label htmlFor="def-roundStart" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ngày bắt đầu</label>
+                  <input id="def-roundStart" type="date" className="form-input" value={roundStart} onChange={handleRoundStartChange} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ngày kết thúc</label>
-                  <input type="date" className="form-input" value={roundEnd} onChange={(e) => setRoundEnd(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                  <label htmlFor="def-roundEnd" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ngày kết thúc</label>
+                  <input id="def-roundEnd" type="date" className="form-input" value={roundEnd} onChange={(e) => setRoundEnd(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>

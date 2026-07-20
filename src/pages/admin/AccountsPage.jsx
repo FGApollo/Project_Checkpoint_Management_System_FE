@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Users, Plus, Search, Filter, Shield, UserCheck, UserX, Lock, Unlock, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Plus, Search, Filter, UserCheck, UserX, Lock, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 
 const AccountsPage = () => {
   const [accounts, setAccounts] = useState([]);
@@ -9,6 +9,10 @@ const AccountsPage = () => {
   const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   // Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -16,7 +20,7 @@ const AccountsPage = () => {
     role: 'Lecturer',
     identityCode: '',
     email: '',
-    password: 'Test@123456',
+    password: '',
     fullName: '',
     department: '',
     position: '',
@@ -27,13 +31,27 @@ const AccountsPage = () => {
     major: 'Software Engineering'
   });
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = async (pageNumber = page, size = pageSize) => {
     setLoading(true);
     setError('');
     try {
-      const response = await api.get('/accounts');
+      let url = `/accounts?page=${pageNumber}&pageSize=${size}`;
+      if (searchTerm.trim()) {
+        url += `&search=${encodeURIComponent(searchTerm.trim())}`;
+      }
+      if (roleFilter === 'Student' || roleFilter === 'Lecturer') {
+        url += `&filterBy=role&filterValue=${encodeURIComponent(roleFilter)}`;
+      }
+      const response = await api.get(url);
       setAccounts(Array.isArray(response.data) ? response.data : (response.data.items || []));
+      if (response.data?.totalPages !== undefined) {
+        setTotalPages(response.data.totalPages || 1);
+      }
+      if (response.data?.totalCount !== undefined) {
+        setTotalCount(response.data.totalCount || 0);
+      }
     } catch (err) {
+      console.error(err);
       setError('Failed to fetch user accounts.');
     } finally {
       setLoading(false);
@@ -41,8 +59,26 @@ const AccountsPage = () => {
   };
 
   useEffect(() => {
-    fetchAccounts();
-  }, []);
+    const timer = setTimeout(() => {
+      fetchAccounts(page, pageSize);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [page, pageSize, searchTerm, roleFilter]);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else if (page <= 3) {
+      pages.push(1, 2, 3, 4, 'ellipsis-end', totalPages);
+    } else if (page >= totalPages - 2) {
+      pages.push(1, 'ellipsis-start');
+      for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1, 'ellipsis-start', page - 1, page, page + 1, 'ellipsis-end', totalPages);
+    }
+    return pages;
+  };
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
@@ -65,7 +101,7 @@ const AccountsPage = () => {
         role: 'Lecturer',
         identityCode: '',
         email: '',
-        password: 'Test@123456',
+        password: '',
         fullName: '',
         department: '',
         position: '',
@@ -90,7 +126,7 @@ const AccountsPage = () => {
       setSuccess(`Account status updated to ${!currentActive ? 'Active' : 'Deactivated'}.`);
       fetchAccounts();
     } catch (err) {
-      setError('Failed to update account status.');
+      setError(err.response?.data?.error || 'Failed to update account status.');
     }
   };
 
@@ -100,11 +136,13 @@ const AccountsPage = () => {
       setSuccess('Account role updated successfully.');
       fetchAccounts();
     } catch (err) {
+      console.error(err);
       setError(err.response?.data?.error || 'Failed to update account role.');
     }
   };
 
   const filteredAccounts = accounts.filter((acc) => {
+    if (roleFilter === 'Student' || roleFilter === 'Lecturer') return true;
     const matchesSearch = (acc.username || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (acc.email || '').toLowerCase().includes(searchTerm.toLowerCase());
     const effectiveRole = (acc.role === 'SystemAdministrator' || acc.role === 'TrainingDepartment' || acc.role === 'Moderator') ? 'Moderator' : acc.role;
@@ -121,11 +159,11 @@ const AccountsPage = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="btn btn-secondary" onClick={fetchAccounts} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
+          <button type="button" className="btn btn-secondary" onClick={() => fetchAccounts(page, pageSize)} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
             <RefreshCw size={16} />
             <span>Làm mới</span>
           </button>
-          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+          <button type="button" className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
             <Plus size={16} />
             <span>Tạo Tài khoản mới</span>
           </button>
@@ -154,7 +192,7 @@ const AccountsPage = () => {
               type="text"
               className="form-input"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
               placeholder="Tìm kiếm theo mã số, tên đăng nhập hoặc email..."
               style={{ width: '100%', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
             />
@@ -165,7 +203,7 @@ const AccountsPage = () => {
             <select
               className="form-select"
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
+              onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
               style={{ minWidth: '180px', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
             >
               <option value="ALL">Tất cả vai trò</option>
@@ -191,11 +229,13 @@ const AccountsPage = () => {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {loading && (
                 <tr><td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: '#64748B' }}>Đang tải danh sách tài khoản...</td></tr>
-              ) : filteredAccounts.length === 0 ? (
+              )}
+              {!loading && filteredAccounts.length === 0 && (
                 <tr><td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: '#64748B' }}>Không có tài khoản nào phù hợp với bộ lọc.</td></tr>
-              ) : (
+              )}
+              {!loading && filteredAccounts.length > 0 && (
                 filteredAccounts.map((acc) => {
                   const isLocked = acc.lockedUntil && new Date(acc.lockedUntil) > new Date();
                   return (
@@ -211,7 +251,10 @@ const AccountsPage = () => {
                           value={(acc.role === 'SystemAdministrator' || acc.role === 'TrainingDepartment' || acc.role === 'Moderator') ? 'Moderator' : acc.role}
                           onChange={(e) => {
                             const val = e.target.value;
-                            const targetRole = val === 'Moderator' ? (acc.role === 'SystemAdministrator' ? 'SystemAdministrator' : 'TrainingDepartment') : val;
+                            let targetRole = val;
+                            if (val === 'Moderator') {
+                              targetRole = acc.role === 'SystemAdministrator' ? 'SystemAdministrator' : 'TrainingDepartment';
+                            }
                             handleRoleChange(acc.id, targetRole);
                           }}
                           style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', fontWeight: 600, background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
@@ -259,6 +302,82 @@ const AccountsPage = () => {
             </tbody>
           </table>
         </div>
+
+        {accounts.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #E2E8F0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <span style={{ fontSize: '0.875rem', color: '#64748B', fontWeight: 600 }}>
+                Trang <strong style={{ color: '#0F172A' }}>{page}</strong> / <strong style={{ color: '#0F172A' }}>{totalPages}</strong> ({totalCount || accounts.length} tài khoản)
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.8rem', color: '#64748B' }}>Hiển thị:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)', border: '1px solid #CBD5E1', background: '#F8FAFC', color: '#0F172A', fontWeight: 600 }}
+                >
+                  <option value={10}>10 dòng</option>
+                  <option value={15}>15 dòng</option>
+                  <option value={20}>20 dòng</option>
+                  <option value={50}>50 dòng</option>
+                </select>
+              </div>
+            </div>
+
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                  style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}
+                >
+                  Trang trước
+                </button>
+
+                {getPageNumbers().map((p) =>
+                  typeof p === 'string' ? (
+                    <span key={p} style={{ padding: '0.4rem 0.5rem', color: '#94A3B8', fontWeight: 700 }}>
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      key={`page-${p}`}
+                      onClick={() => setPage(p)}
+                      style={{
+                        padding: '0.4rem 0.75rem',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        borderRadius: 'var(--radius-sm)',
+                        border: p === page ? 'none' : '1px solid #CBD5E1',
+                        background: p === page ? '#3B82F6' : '#FFFFFF',
+                        color: p === page ? '#FFFFFF' : '#0F172A',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(page + 1)}
+                  style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}
+                >
+                  Trang sau
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Create Modal */}
@@ -268,8 +387,9 @@ const AccountsPage = () => {
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.25rem', color: '#0F172A' }}>Tạo Hồ sơ Tài khoản Mới</h3>
             <form onSubmit={handleCreateSubmit}>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Vai trò chính</label>
+                <label htmlFor="acc-role" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Vai trò chính</label>
                 <select
+                  id="acc-role"
                   className="form-select"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
@@ -283,8 +403,9 @@ const AccountsPage = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mã số cá nhân (Mã GV / MSSV)</label>
+                  <label htmlFor="acc-identity" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mã số cá nhân (Mã GV / MSSV)</label>
                   <input
+                    id="acc-identity"
                     type="text"
                     className="form-input"
                     value={formData.identityCode}
@@ -295,8 +416,9 @@ const AccountsPage = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Họ và tên đầy đủ</label>
+                  <label htmlFor="acc-fullname" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Họ và tên đầy đủ</label>
                   <input
+                    id="acc-fullname"
                     type="text"
                     className="form-input"
                     value={formData.fullName}
@@ -310,8 +432,9 @@ const AccountsPage = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Địa chỉ Email</label>
+                  <label htmlFor="acc-email" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Địa chỉ Email</label>
                   <input
+                    id="acc-email"
                     type="email"
                     className="form-input"
                     value={formData.email}
@@ -322,8 +445,9 @@ const AccountsPage = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mật khẩu khởi tạo</label>
+                  <label htmlFor="acc-password" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mật khẩu khởi tạo</label>
                   <input
+                    id="acc-password"
                     type="text"
                     className="form-input"
                     value={formData.password}
@@ -336,8 +460,9 @@ const AccountsPage = () => {
 
               {(formData.role === 'Lecturer' || formData.role === 'TrainingDepartment' || formData.role === 'SystemAdministrator' || formData.role === 'Moderator') && (
                 <div className="form-group">
-                  <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Khoa / Phòng ban</label>
+                  <label htmlFor="acc-dept" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Khoa / Phòng ban</label>
                   <input
+                    id="acc-dept"
                     type="text"
                     className="form-input"
                     value={formData.department}
@@ -351,16 +476,16 @@ const AccountsPage = () => {
               {formData.role === 'Student' && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
                   <div className="form-group">
-                    <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Lớp học</label>
-                    <input type="text" className="form-input" value={formData.classCode} onChange={(e) => setFormData({ ...formData, classCode: e.target.value })} placeholder="SE1801" style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                    <label htmlFor="acc-class" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Lớp học</label>
+                    <input id="acc-class" type="text" className="form-input" value={formData.classCode} onChange={(e) => setFormData({ ...formData, classCode: e.target.value })} placeholder="SE1801" style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Khóa</label>
-                    <input type="text" className="form-input" value={formData.batch} onChange={(e) => setFormData({ ...formData, batch: e.target.value })} placeholder="2026" style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                    <label htmlFor="acc-batch" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Khóa</label>
+                    <input id="acc-batch" type="text" className="form-input" value={formData.batch} onChange={(e) => setFormData({ ...formData, batch: e.target.value })} placeholder="2026" style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Chuyên ngành</label>
-                    <input type="text" className="form-input" value={formData.major} onChange={(e) => setFormData({ ...formData, major: e.target.value })} placeholder="SWD" style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                    <label htmlFor="acc-major" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Chuyên ngành</label>
+                    <input id="acc-major" type="text" className="form-input" value={formData.major} onChange={(e) => setFormData({ ...formData, major: e.target.value })} placeholder="SWD" style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
                   </div>
                 </div>
               )}

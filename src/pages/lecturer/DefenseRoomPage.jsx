@@ -3,8 +3,28 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import signalRService from '../../services/signalr';
-import { getBackendUrl } from '../../config/environment';
-import { Gavel, Play, Square, Send, Camera, UploadCloud, Users, ShieldAlert, CheckCircle2, AlertCircle, RefreshCw, Lock, Unlock, Award, Eye, Clock } from 'lucide-react';
+import { Gavel, Play, Square, Send, Camera, UploadCloud, Users, CheckCircle2, AlertCircle, Lock, Unlock, Award, Eye, Clock } from 'lucide-react';
+
+const addConnectedMember = (members, member) => {
+  if (members.some((current) => current.lecturerId === member.lecturerId)) return members;
+  return [...members, member];
+};
+
+const getConnectionStatusLabel = (status) => {
+  if (status === 'Connected') return 'Đã kết nối';
+  if (status === 'Connecting') return 'Đang kết nối...';
+  return 'Chưa kết nối';
+};
+
+const SessionStatusBadge = ({ sessionState }) => {
+  if (sessionState.isLocked) {
+    return <span className="badge" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', fontWeight: 700 }}><Lock size={16} /> Phiên Đã Chốt & Khóa điểm</span>;
+  }
+  if (sessionState.startedAt) {
+    return <span className="badge" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', fontWeight: 700 }}><Unlock size={16} /> Đang Chấm điểm (Chủ tịch đã mở phiên)</span>;
+  }
+  return <span className="badge" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', background: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B', fontWeight: 700 }}><Clock size={16} /> Đang chờ Chủ tịch mở phiên...</span>;
+};
 
 const DefenseRoomPage = () => {
   const { user } = useAuth();
@@ -110,10 +130,7 @@ const DefenseRoomPage = () => {
     // SignalR Event Handlers
     const handleMemberJoined = (data) => {
       if (!isMounted) return;
-      setConnectedMembers((prev) => {
-        if (prev.some((m) => m.lecturerId === data.lecturerId)) return prev;
-        return [...prev, data];
-      });
+      setConnectedMembers((prev) => addConnectedMember(prev, data));
     };
 
     const handleSessionStarted = (data) => {
@@ -202,8 +219,13 @@ const DefenseRoomPage = () => {
     try {
       await api.post(`/defense-sessions/${sessionState.id}/scores`, {
         studentId: Number(studentId),
-        chamBaoVe: Number(stScore.chamBaoVe),
-        chamNguoi: Number(stScore.chamNguoi)
+        scoreType: 'BaoVe',
+        scoreValue: Number(stScore.chamBaoVe)
+      });
+      await api.post(`/defense-sessions/${sessionState.id}/scores`, {
+        studentId: Number(studentId),
+        scoreType: 'Nguoi',
+        scoreValue: Number(stScore.chamNguoi)
       });
       setSuccess(`Scores submitted for Student #${studentId}! Immutable audit log & score history appended.`);
     } catch (err) {
@@ -243,7 +265,7 @@ const DefenseRoomPage = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.85rem', borderRadius: '9999px', background: connectionStatus === 'Connected' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)', border: '1px solid #CBD5E1' }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: connectionStatus === 'Connected' ? '#10B981' : '#F59E0B' }} />
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: connectionStatus === 'Connected' ? '#10B981' : '#F59E0B' }}>
-              Phòng trực tuyến: {connectionStatus === 'Connected' ? 'Đã kết nối' : connectionStatus === 'Connecting' ? 'Đang kết nối...' : 'Chưa kết nối'}
+              Phòng trực tuyến: {getConnectionStatusLabel(connectionStatus)}
             </span>
           </div>
 
@@ -346,19 +368,7 @@ const DefenseRoomPage = () => {
                 </div>
               ) : (
                 <div>
-                  {sessionState.isLocked ? (
-                    <span className="badge" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', fontWeight: 700 }}>
-                      <Lock size={16} /> Phiên Đã Chốt & Khóa điểm
-                    </span>
-                  ) : sessionState.startedAt ? (
-                    <span className="badge" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', fontWeight: 700 }}>
-                      <Unlock size={16} /> Đang Chấm điểm (Chủ tịch đã mở phiên)
-                    </span>
-                  ) : (
-                    <span className="badge" style={{ padding: '0.6rem 1.25rem', fontSize: '0.85rem', background: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B', fontWeight: 700 }}>
-                      <Clock size={16} /> Đang chờ Chủ tịch mở phiên...
-                    </span>
-                  )}
+                  <SessionStatusBadge sessionState={sessionState} />
                 </div>
               )}
             </div>
@@ -478,8 +488,8 @@ const DefenseRoomPage = () => {
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {connectedMembers.map((m, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem', background: '#F8FAFC', borderRadius: 'var(--radius-md)', border: '1px solid #CBD5E1' }}>
+                {connectedMembers.map((m) => (
+                  <div key={m.lecturerId ?? m.id ?? m.fullName} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem', background: '#F8FAFC', borderRadius: 'var(--radius-md)', border: '1px solid #CBD5E1' }}>
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981', boxShadow: '0 0 8px #10B981' }} />
                     <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0F172A' }}>{m.fullName || `Thành viên #${m.lecturerId}`}</span>
                   </div>
@@ -514,9 +524,9 @@ const DefenseRoomPage = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B' }}>Danh sách ảnh ({evidences.length})</span>
                   {evidences.map((ev, idx) => (
-                    <div key={idx} className="glass-panel" style={{ padding: '0.6rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
+                    <div key={ev.id ?? ev.url ?? ev.filePath} className="glass-panel" style={{ padding: '0.6rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0F172A' }}>Minh chứng #{idx + 1}</span>
-                      <a href={getBackendUrl(ev.url || ev.filePath)} target="_blank" rel="noopener noreferrer" className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontWeight: 700, textDecoration: 'none' }}>
+                      <a href={`http://localhost:5122${ev.url || ev.filePath || ''}`} target="_blank" rel="noopener noreferrer" className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontWeight: 700, textDecoration: 'none' }}>
                         <Eye size={12} /> Xem ảnh
                       </a>
                     </div>

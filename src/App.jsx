@@ -11,6 +11,7 @@ import LoginPage from './pages/auth/LoginPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AccountsPage from './pages/admin/AccountsPage';
 import ExcelImportPage from './pages/admin/ExcelImportPage';
+import SemesterManagementPage from './pages/admin/SemesterManagementPage';
 import ReviewManagementPage from './pages/admin/ReviewManagementPage';
 import ReviewTrackingPage from './pages/admin/ReviewTrackingPage';
 import DefenseManagementPage from './pages/admin/DefenseManagementPage';
@@ -107,6 +108,14 @@ const AppContent = () => {
           element={
             <ProtectedRoute allowedRoles={['SystemAdministrator', 'TrainingDepartment', 'Moderator']}>
               <AccountsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/semesters"
+          element={
+            <ProtectedRoute allowedRoles={['SystemAdministrator', 'TrainingDepartment', 'Moderator']}>
+              <SemesterManagementPage />
             </ProtectedRoute>
           }
         />

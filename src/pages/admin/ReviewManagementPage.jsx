@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { getReviewSlotCapacityViolations, getRoundStatusMeta, MAX_GROUPS_PER_REVIEW_SLOT, ROUND_STATUS } from '../../features/reviews/reviewDomain';
-import { Layers, UserPlus, Zap, CheckCircle2, AlertCircle, Users, Calendar, ArrowRight, Play, CheckSquare } from 'lucide-react';
+import { Layers, UserPlus, Zap, CheckCircle2, AlertCircle, Users, Calendar, ArrowRight, Play, CheckSquare, Lock, Unlock, ShieldAlert } from 'lucide-react';
 
 const formatReviewType = (type) => {
   if (type === 'Review1' || type === 0) return 'Review 1';
@@ -9,6 +8,97 @@ const formatReviewType = (type) => {
   if (type === 'Review3' || type === 2) return 'Review 3';
   if (typeof type === 'string' && type.startsWith('Review')) return type.replace('Review', 'Review ');
   return type || '';
+};
+
+const getRoundStatusMeta = (status) => {
+  if (status === 'Open' || status === 1) {
+    return {
+      isOpen: true,
+      badgeBackground: '#DCFCE7',
+      badgeColor: '#16A34A',
+      badgeLabel: '● Đang Mở Đăng Ký',
+      panelBackground: '#ECFDF5',
+      panelBorder: '#6EE7B7',
+      iconBackground: '#D1FAE5',
+      iconColor: '#10B981',
+      headingColor: '#065F46',
+      textColor: '#047857',
+      heading: 'ĐANG MỞ ĐĂNG KÝ (OPEN)',
+      description: '● Giảng viên và Sinh viên có quyền truy cập vào bảng 30 ô để tick chọn hoặc chỉnh sửa lịch rảnh.',
+      Icon: Unlock
+    };
+  }
+  if (status === 'Closed' || status === 2) {
+    return {
+      isOpen: false,
+      badgeBackground: '#FEE2E2',
+      badgeColor: '#DC2626',
+      badgeLabel: '🔒 Đã Khóa Đăng Ký',
+      panelBackground: '#FEF2F2',
+      panelBorder: '#FCA5A5',
+      iconBackground: '#FEE2E2',
+      iconColor: '#EF4444',
+      headingColor: '#991B1B',
+      textColor: '#B91C1C',
+      heading: 'ĐÃ KHÓA ĐĂNG KÝ (CLOSED)',
+      description: '🔒 Đã khóa không cho phép tick chọn thêm hoặc sửa lịch. Bạn có thể mở khóa đăng ký nếu cần cho phép đăng ký lại.',
+      Icon: Lock
+    };
+  }
+  if (status === 'Draft' || status === 0) {
+    return {
+      isOpen: false,
+      badgeBackground: '#FEF3C7',
+      badgeColor: '#D97706',
+      badgeLabel: '📝 Nháp (Chưa Mở)',
+      panelBackground: '#FFFBEB',
+      panelBorder: '#FDE68A',
+      iconBackground: '#FEF3C7',
+      iconColor: '#D97706',
+      headingColor: '#92400E',
+      textColor: '#B45309',
+      heading: 'NHÁP (CHƯA MỞ ĐĂNG KÝ)',
+      description: '📝 Đợt vừa tạo ở dạng Nháp. Vui lòng mở khóa đăng ký để bắt đầu nhận nguyện vọng.',
+      Icon: ShieldAlert
+    };
+  }
+  return {
+    isOpen: false,
+    badgeBackground: '#E0F2FE',
+    badgeColor: '#0284C7',
+    badgeLabel: 'Đã Công Bố',
+    panelBackground: '#E0F2FE',
+    panelBorder: '#7DD3FC',
+    iconBackground: '#BAE6FD',
+    iconColor: '#0284C7',
+    headingColor: '#075985',
+    textColor: '#0369A1',
+    heading: 'ĐÃ CÔNG BỐ',
+    description: 'Lịch review đã được công bố.',
+    Icon: CheckCircle2
+  };
+};
+
+const normalizeRoundStatus = (status) => {
+  if (status === 1 || status === 'Open') return 'Open';
+  if (status === 2 || status === 'Closed') return 'Closed';
+  return status;
+};
+
+const RoundStatusPanel = ({ status }) => {
+  const meta = getRoundStatusMeta(status);
+  const StatusIcon = meta.Icon;
+  return (
+    <div style={{ background: meta.panelBackground, border: `1px solid ${meta.panelBorder}`, borderRadius: '14px', padding: '1.25rem', maxWidth: '680px', margin: '0 auto 2rem', display: 'flex', alignItems: 'center', gap: '1rem', textAlign: 'left', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+      <div style={{ padding: '0.75rem', borderRadius: '12px', background: meta.iconBackground, color: meta.iconColor }}>
+        <StatusIcon size={26} />
+      </div>
+      <div>
+        <h4 style={{ margin: '0 0 0.25rem', fontSize: '1.05rem', fontWeight: 800, color: meta.headingColor }}>Trạng thái: {meta.heading}</h4>
+        <p style={{ margin: 0, fontSize: '0.88rem', color: meta.textColor, lineHeight: 1.5, fontWeight: 550 }}>{meta.description}</p>
+      </div>
+    </div>
+  );
 };
 
 const ReviewManagementPage = () => {
@@ -71,16 +161,20 @@ const ReviewManagementPage = () => {
       return;
     }
     try {
-      const res = await api.get(`/review-scheduling/board?semesterId=${semId}&reviewType=${round.type}&weekStart=${round.weekStartDate}`);
+      const res = await api.get('/review-scheduling/board', {
+        params: {
+          semesterId: Number(semId),
+          reviewType: String(round.type),
+          weekStart: String(round.weekStartDate)
+        }
+      });
       const data = res.data || {};
       const lecturersCount = data.lecturers?.length || 0;
-      const registeredLecturersCount = data.availabilitySubmissions?.filter(
-        (submission) => submission.isSubmitted || submission.submitted
-      ).length || 0;
-      const registeredGroupsCount = round.registrationCount
-        ?? round.registeredGroupCount
-        ?? data.studentRegistrations?.length
-        ?? 0;
+      const registeredLecturersCount = data.lecturers?.filter(l =>
+        data.availabilitySubmissions?.some(s => s.lecturerId === l.id && (s.isSubmitted || s.submitted || s.slotCount > 0)) ||
+        data.availability?.some(a => a.lecturerId === l.id)
+      ).length || data.availabilitySubmissions?.filter(s => s.isSubmitted || s.submitted || s.slotCount > 0).length || 0;
+      const registeredGroupsCount = round.registrationCount ?? round.registeredGroupCount ?? 0;
       const sessions = Array.isArray(data.sessions) ? data.sessions : [];
 
       setBoardData({
@@ -89,7 +183,6 @@ const ReviewManagementPage = () => {
         registeredGroupsCount,
         sessions
       });
-      return { lecturersCount, registeredLecturersCount, registeredGroupsCount, sessions };
     } catch (err) {
       console.error('Lỗi tải dữ liệu bảng review:', err);
       setBoardData({
@@ -98,7 +191,6 @@ const ReviewManagementPage = () => {
         registeredGroupsCount: 0,
         sessions: []
       });
-      return null;
     }
   };
 
@@ -157,10 +249,6 @@ const ReviewManagementPage = () => {
     }
     const start = new Date(formData.startDate);
     const end = new Date(formData.endDate);
-    if (start.getUTCDay() !== 1 || end.getUTCDay() !== 6) {
-      setError('Đợt review phải bắt đầu vào Thứ 2 và kết thúc vào Thứ 7.');
-      return;
-    }
     if (end < start) {
       setError('Đến ngày không được nhỏ hơn Từ ngày.');
       return;
@@ -189,33 +277,43 @@ const ReviewManagementPage = () => {
     }
   };
 
-  const handleRoundStatusChange = async (status) => {
-    if (!selectedRound) {
-      setError('Vui lòng chọn một đợt review trước.');
-      return;
-    }
-
+  const handleLockRegistrationAndProceed = async () => {
+    if (!selectedRound) return;
+    setLoading(true);
     setError('');
     setSuccess('');
-    setLoading(true);
     try {
-      const response = await api.patch(`/review-scheduling/rounds/${selectedRound.id}/status`, { status });
-      const updatedRound = response.data || { ...selectedRound, status };
-      setSelectedRound(updatedRound);
-      setRounds((currentRounds) => currentRounds.map((round) => (
-        round.id === updatedRound.id ? updatedRound : round
-      )));
-      await fetchBoardDetails(updatedRound, updatedRound.semesterId || formData.semesterId);
-
-      if (status === ROUND_STATUS.OPEN) {
-        setSuccess('Đã mở đăng ký. Sinh viên và giảng viên có thể khai báo các slot rảnh.');
-        setActiveStep(2);
-      } else if (status === ROUND_STATUS.CLOSED) {
-        setSuccess('Đã khóa đăng ký. Dữ liệu sẵn sàng để chạy thuật toán phân công.');
-        setActiveStep(3);
+      if (selectedRound.status !== 'Closed' && selectedRound.status !== 2 && selectedRound.status !== 'Published' && selectedRound.status !== 3) {
+        await api.patch(`/review-scheduling/rounds/${selectedRound.id}/status`, { status: 2 }); // Closed
       }
+      const updatedRound = { ...selectedRound, status: 'Closed' };
+      setSelectedRound(updatedRound);
+      await fetchRounds(formData.semesterId);
+      setActiveStep(3);
+      setSuccess('Đã khóa đăng ký và chuyển sang bước Chạy thuật toán phân công!');
     } catch (err) {
-      setError(err.response?.data?.error || 'Không thể cập nhật trạng thái đợt review.');
+      setError(err.response?.data?.error || 'Lỗi khi khóa đăng ký đợt review');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleRoundStatus = async (roundToUpdate, newStatus, e) => {
+    if (e) e.stopPropagation();
+    if (!roundToUpdate) return;
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await api.patch(`/review-scheduling/rounds/${roundToUpdate.id}/status`, { status: newStatus });
+      const updatedRound = res.data || { ...roundToUpdate, status: normalizeRoundStatus(newStatus) };
+      if (selectedRound && selectedRound.id === roundToUpdate.id) {
+        setSelectedRound(updatedRound);
+      }
+      await fetchRounds(formData.semesterId);
+      setSuccess(newStatus === 1 || newStatus === 'Open' ? `Đã MỞ KHÓA đăng ký cho đợt ${formatReviewType(roundToUpdate.type)}! Giảng viên & Sinh viên hiện có thể truy cập chọn khung giờ rảnh.` : `Đã KHÓA đăng ký cho đợt ${formatReviewType(roundToUpdate.type)}! Giảng viên & Sinh viên không thể thay đổi nguyện vọng.`);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Lỗi khi cập nhật trạng thái đợt review');
     } finally {
       setLoading(false);
     }
@@ -226,34 +324,35 @@ const ReviewManagementPage = () => {
       setError('Vui lòng chọn hoặc tạo đợt review trước.');
       return;
     }
-    if (selectedRound.status !== ROUND_STATUS.CLOSED) {
-      setError('Phải khóa đăng ký trước khi chạy thuật toán phân công.');
-      return;
-    }
     setError('');
     setSuccess('');
     setLoading(true);
     try {
-      await api.post('/review-scheduling/random-assign', {
+      if (selectedRound.status !== 'Closed' && selectedRound.status !== 2 && selectedRound.status !== 'Published' && selectedRound.status !== 3) {
+        await api.patch(`/review-scheduling/rounds/${selectedRound.id}/status`, { status: 2 }); // Closed
+        setSelectedRound(prev => prev ? { ...prev, status: 'Closed' } : prev);
+      }
+      const res = await api.post('/review-scheduling/random-assign', {
         semesterId: Number(formData.semesterId),
         reviewType: selectedRound.type,
-        weekStart: selectedRound.weekStartDate
+        weekStart: selectedRound.weekStartDate,
+        reviewersPerSession: 2,
+        roomPrefix: 'REV-'
       });
-      const refreshedBoard = await fetchBoardDetails(selectedRound, formData.semesterId);
-      if (!refreshedBoard) {
-        throw new Error('Đã chạy Auto-Match nhưng không thể tải kết quả để kiểm tra trước khi công bố.');
+      const data = res.data || {};
+      const assignedCount = data.assignedCount !== undefined ? data.assignedCount : (data.sessions?.length || 0);
+      await fetchBoardDetails(selectedRound, formData.semesterId);
+
+      if (assignedCount === 0) {
+        const unassignedReasons = data.unassignedGroups?.map(u => `${u.groupCode}: ${u.reason}`).join(' | ') || 'Chưa đủ giảng viên khai báo rảnh trong cùng 1 slot (cần tối thiểu 2 giảng viên rảnh trong cùng slot và không trùng với GVHD).';
+        setError(`Thuật toán chưa thể xếp lịch được ca nào (0/${data.totalCandidateGroups || boardData.registeredGroupsCount || 3} nhóm). Lý do chi tiết:\n${unassignedReasons}`);
+        return;
       }
-      const capacityViolations = getReviewSlotCapacityViolations(refreshedBoard.sessions);
-      if (capacityViolations.length > 0) {
-        const details = capacityViolations
-          .map((item) => `ngày ${item.dayOfWeek}, ca ${item.slot}: ${item.groupCount} nhóm`)
-          .join('; ');
-        throw new Error(`Kết quả Auto-Match vượt giới hạn ${MAX_GROUPS_PER_REVIEW_SLOT} nhóm/slot (${details}). Lịch chưa được phép công bố.`);
-      }
-      setSuccess('Đã chạy thuật toán xếp lịch, kiểm tra sức chứa và lưu phân công thành công!');
+
+      setSuccess(`Đã chạy thuật toán xếp lịch và lưu phân công vào Database thành công cho ${assignedCount}/${data.totalCandidateGroups || assignedCount} nhóm!`);
       setActiveStep(4);
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Lỗi khi chạy thuật toán phân công. Hãy kiểm tra danh sách giảng viên đăng ký slot rảnh và nguyện vọng nhóm.');
+      setError(err.response?.data?.error || 'Lỗi khi chạy thuật toán phân công. Hãy kiểm tra danh sách giảng viên đăng ký slot rảnh và nguyện vọng nhóm.');
     } finally {
       setLoading(false);
     }
@@ -261,19 +360,6 @@ const ReviewManagementPage = () => {
 
   const handlePublish = async () => {
     if (!selectedRound) return;
-    if (selectedRound.status === ROUND_STATUS.PUBLISHED) {
-      setError('Lịch của đợt review này đã được công bố.');
-      return;
-    }
-    if (selectedRound.status !== ROUND_STATUS.CLOSED) {
-      setError('Chỉ có thể công bố lịch sau khi đã khóa đăng ký và hoàn tất Auto-Match.');
-      return;
-    }
-    const capacityViolations = getReviewSlotCapacityViolations(boardData.sessions);
-    if (capacityViolations.length > 0) {
-      setError(`Không thể công bố vì có ca vượt quá ${MAX_GROUPS_PER_REVIEW_SLOT} nhóm.`);
-      return;
-    }
     setError('');
     setSuccess('');
     setLoading(true);
@@ -283,13 +369,9 @@ const ReviewManagementPage = () => {
         reviewType: selectedRound.type,
         weekStart: selectedRound.weekStartDate,
         subject: `[CPMS] Thông báo Lịch Review Checkpoint (${formatReviewType(selectedRound.type)})`,
-        message: `Kính gửi Quý Giảng viên và Sinh viên,\n\nLịch review checkpoint cho đợt ${formatReviewType(selectedRound.type)} đã được công bố chính thức trên hệ thống CPMS. Vui lòng đăng nhập để xem chi tiết ca review và phòng ban.\n\nTrân trọng,\nPhòng Đào tạo.`
+        message: `Kính gửi Quý Giảng viên và Sinh viên,\n\nLịch review checkpoint cho đợt ${formatReviewType(selectedRound.type)} đã được công bố chính thức trên hệ thống CPMS. Vui lòng đăng nhập để xem chi tiết ca review và phòng ban.\n\nTrân trọng,\nPhòng Đào tạo.`,
+        messageBody: `Kính gửi Quý Giảng viên và Sinh viên,\n\nLịch review checkpoint cho đợt ${formatReviewType(selectedRound.type)} đã được công bố chính thức trên hệ thống CPMS. Vui lòng đăng nhập để xem chi tiết ca review và phòng ban.\n\nTrân trọng,\nPhòng Đào tạo.`
       });
-      const publishedRound = { ...selectedRound, status: ROUND_STATUS.PUBLISHED };
-      setSelectedRound(publishedRound);
-      setRounds((currentRounds) => currentRounds.map((round) => (
-        round.id === publishedRound.id ? publishedRound : round
-      )));
       setSuccess(`Đã công bố lịch thành công! Đã chốt ${res.data?.publishedSessionCount || boardData.sessions.length} ca review vào Database và thông báo cho Giảng viên & Sinh viên.`);
     } catch (err) {
       setError(err.response?.data?.error || 'Lỗi khi publish lịch review.');
@@ -318,11 +400,6 @@ const ReviewManagementPage = () => {
         setTimeout(() => setError(''), 4000);
         return;
       }
-    }
-
-    if (targetStep === 3 && ![ROUND_STATUS.CLOSED, ROUND_STATUS.PUBLISHED].includes(selectedRound?.status)) {
-      setError('Vui lòng mở và khóa đăng ký trước khi chuyển sang bước phân công.');
-      return;
     }
 
     setActiveStep(targetStep);
@@ -358,17 +435,14 @@ const ReviewManagementPage = () => {
           { step: 4, icon: CheckSquare, label: 'Publish' }
         ].map(s => {
           const isActive = activeStep >= s.step;
-          const isAccessible = s.step === 1
-            || (s.step === 2 && rounds.length > 0 && selectedRound)
-            || (s.step === 3 && [ROUND_STATUS.CLOSED, ROUND_STATUS.PUBLISHED].includes(selectedRound?.status))
-            || (s.step === 4 && boardData.sessions.length > 0);
+          const isAccessible = s.step === 1 || (s.step <= 3 && rounds.length > 0 && selectedRound) || (s.step === 4 && boardData.sessions.length > 0);
           return (
-            <div key={s.step} style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: isAccessible ? 'pointer' : 'not-allowed', opacity: isAccessible ? 1 : 0.65 }} onClick={() => handleStepClick(s.step)}>
+            <button type="button" key={s.step} style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: isAccessible ? 'pointer' : 'not-allowed', opacity: isAccessible ? 1 : 0.65, background: 'none', border: 'none', padding: 0 }} onClick={() => handleStepClick(s.step)}>
               <div style={{ width: 44, height: 44, borderRadius: '50%', background: isActive ? '#4F46E5' : '#F1F5F9', border: `2px solid ${isActive ? '#4F46E5' : '#CBD5E1'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: isActive ? 'white' : '#64748B', transition: 'all 0.2s' }}>
                 <s.icon size={20} />
               </div>
               <span style={{ fontSize: '0.85rem', fontWeight: isActive ? 700 : 500, color: isActive ? '#0F172A' : '#64748B' }}>{s.label}</span>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -384,8 +458,9 @@ const ReviewManagementPage = () => {
               <div>
                 <form onSubmit={handleCreateRound}>
                   <div className="form-group" style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Kỳ học (Semester)</label>
+                    <label htmlFor="semester-select" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Kỳ học (Semester)</label>
                     <select
+                      id="semester-select"
                       className="form-select"
                       value={formData.semesterId}
                       onChange={(e) => {
@@ -403,8 +478,8 @@ const ReviewManagementPage = () => {
                     </select>
                   </div>
                   <div className="form-group" style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Loại Review</label>
-                    <select className="form-select" value={formData.reviewType} onChange={e => setFormData({ ...formData, reviewType: e.target.value })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }}>
+                    <label htmlFor="review-type-select" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Loại Review</label>
+                    <select id="review-type-select" className="form-select" value={formData.reviewType} onChange={e => setFormData({ ...formData, reviewType: e.target.value })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }}>
                       <option value="Review1">Review 1</option>
                       <option value="Review2">Review 2</option>
                       <option value="Review3">Review 3</option>
@@ -412,12 +487,12 @@ const ReviewManagementPage = () => {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.75rem' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Từ ngày (Thứ 2)</label>
-                      <input required type="date" className="form-input" value={formData.startDate} onChange={handleStartDateChange} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
+                      <label htmlFor="start-date-round" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Từ ngày (Thứ 2)</label>
+                      <input id="start-date-round" required type="date" className="form-input" value={formData.startDate} onChange={handleStartDateChange} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Đến ngày (Thứ 7)</label>
-                      <input required type="date" className="form-input" value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
+                      <label htmlFor="end-date-round" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Đến ngày (Thứ 7)</label>
+                      <input id="end-date-round" required type="date" className="form-input" value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
                     </div>
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#64748B', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -434,21 +509,63 @@ const ReviewManagementPage = () => {
                     {rounds.map(r => {
                       const isSelected = selectedRound?.id === r.id;
                       const statusMeta = getRoundStatusMeta(r.status);
+                      const isOpen = statusMeta.isOpen;
                       return (
-                        <div key={r.id} onClick={() => setSelectedRound(r)} style={{ padding: '0.85rem', background: isSelected ? '#EEF2FF' : '#F8FAFC', borderRadius: '8px', border: isSelected ? '2px solid #4F46E5' : '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
-                          <div>
-                            <p style={{ fontWeight: 700, fontSize: '0.95rem', color: isSelected ? '#4F46E5' : '#0F172A', margin: 0 }}>Đợt {formatReviewType(r.type)}</p>
-                            <p style={{ fontSize: '0.75rem', color: '#64748B', margin: 0 }}>Từ {r.weekStartDate} đến {r.weekEndDate}</p>
+                        <div key={r.id} style={{ padding: '1rem', background: isSelected ? '#EEF2FF' : '#F8FAFC', borderRadius: '12px', border: isSelected ? '2px solid #4F46E5' : '1px solid #E2E8F0', transition: 'all 0.2s' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.6rem' }}>
+                            <div>
+                              <p style={{ fontWeight: 750, fontSize: '1rem', color: isSelected ? '#4F46E5' : '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                Đợt {formatReviewType(r.type)}
+                              </p>
+                              <p style={{ fontSize: '0.8rem', color: '#64748B', margin: '0.2rem 0 0' }}>Từ {r.weekStartDate} đến {r.weekEndDate}</p>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
+                              <span className="badge" style={{
+                                background: statusMeta.badgeBackground,
+                                color: statusMeta.badgeColor,
+                                fontWeight: 800,
+                                fontSize: '0.75rem',
+                                padding: '0.3rem 0.65rem',
+                                borderRadius: '12px'
+                              }}>
+                                {statusMeta.badgeLabel}
+                              </span>
+                              <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 700 }}>{r.registrationCount || 0} nhóm</span>
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
-                            <span className="badge" style={{ background: statusMeta.background, color: statusMeta.color }}>{statusMeta.label}</span>
-                            <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>{r.registrationCount || 0} nhóm</span>
+
+                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dashed #CBD5E1', justifyContent: 'flex-end' }}>
+                            <button type="button" className="btn btn-secondary" onClick={() => setSelectedRound(r)} disabled={isSelected}>
+                              {isSelected ? 'Đang chọn' : 'Chọn đợt'}
+                            </button>
+                            {!isOpen && (
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={(e) => handleToggleRoundStatus(r, 1, e)}
+                                disabled={loading}
+                                style={{ background: '#10B981', color: 'white', padding: '0.45rem 0.85rem', fontSize: '0.8rem', fontWeight: 750, borderRadius: '8px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }}
+                              >
+                                <Unlock size={14} /> Mở Khóa Đăng Ký
+                              </button>
+                            )}
+                            {isOpen && (
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={(e) => handleToggleRoundStatus(r, 2, e)}
+                                disabled={loading}
+                                style={{ background: '#EF4444', color: 'white', padding: '0.45rem 0.85rem', fontSize: '0.8rem', fontWeight: 750, borderRadius: '8px', border: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }}
+                              >
+                                <Lock size={14} /> Khóa Đăng Ký
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
                     })}
                     {selectedRound && (
-                      <button className="btn btn-secondary" onClick={() => handleStepClick(2)} style={{ marginTop: '0.5rem', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', background: '#F1F5F9', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700 }}>
+                      <button type="button" className="btn btn-secondary" onClick={() => handleStepClick(2)} style={{ marginTop: '0.5rem', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', background: '#F1F5F9', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700 }}>
                         <span>Sang Bước 2 với đợt đang chọn: {formatReviewType(selectedRound.type)}</span>
                         <ArrowRight size={16} />
                       </button>
@@ -463,55 +580,76 @@ const ReviewManagementPage = () => {
         {/* STEP 2: Lecturers & Students */}
         {activeStep === 2 && (
           <div className="animate-fade-in" style={{ textAlign: 'center' }}>
-            {!selectedRound || rounds.length === 0 ? (
+            {(!selectedRound || rounds.length === 0) && (
               <div style={{ padding: '3rem' }}>
                 <AlertCircle size={48} color="#EF4444" style={{ margin: '0 auto 1rem' }} />
                 <h3 style={{ fontSize: '1.25rem', color: '#0F172A', marginBottom: '0.5rem' }}>Chưa tạo hoặc chưa chọn đợt review nào</h3>
                 <p style={{ color: '#64748B', marginBottom: '1.5rem' }}>Vui lòng quay lại Bước 1 để thiết lập đợt review trước khi mở đăng ký.</p>
-                <button className="btn btn-primary" onClick={() => setActiveStep(1)}>Quay lại Bước 1: Tạo đợt</button>
+                <button type="button" className="btn btn-primary" onClick={() => setActiveStep(1)}>Quay lại Bước 1: Tạo đợt</button>
               </div>
-            ) : (
+            )}
+            {selectedRound && rounds.length > 0 && (
               <>
                 <div style={{ display: 'inline-block', background: '#EEF2FF', color: '#4F46E5', padding: '0.4rem 1rem', borderRadius: '20px', fontWeight: 600, fontSize: '0.85rem', marginBottom: '1rem' }}>
                   Đang xử lý đợt: {selectedRound.type} ({selectedRound.weekStartDate} đến {selectedRound.weekEndDate})
                 </div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', color: '#0F172A' }}>Bước 2: Đăng ký slot rảnh</h2>
-                <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>
-                  {selectedRound.status === ROUND_STATUS.DRAFT
-                    ? 'Đợt đang ở bản nháp. Hãy mở đăng ký để sinh viên và giảng viên khai báo slot rảnh.'
-                    : selectedRound.status === ROUND_STATUS.OPEN
-                      ? 'Đăng ký đang mở. Khi đã thu đủ dữ liệu, hãy khóa đăng ký trước khi phân công.'
-                      : 'Đăng ký đã được khóa; dữ liệu không còn chỉnh sửa và đã sẵn sàng phân công.'}
-                </p>
+                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1rem', color: '#0F172A' }}>Bước 2: Mở / Khóa Đăng ký cho Giảng viên & Sinh viên</h2>
+                
+                {/* Status Alert Box */}
+                <RoundStatusPanel status={selectedRound.status} />
 
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '2.5rem' }}>
-                  <div style={{ padding: '1.5rem', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', width: '220px' }}>
+                  <div style={{ padding: '1.5rem', background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0', width: '220px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
                     <Users size={32} color="#4F46E5" style={{ margin: '0 auto 1rem' }} />
                     <p style={{ fontSize: '2rem', fontWeight: 800, margin: 0, color: '#0F172A' }}>{boardData.registeredLecturersCount} / {boardData.lecturersCount}</p>
-                    <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0 }}>Giảng viên đã đăng ký</p>
+                    <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0, fontWeight: 650 }}>Giảng viên đã đăng ký</p>
                   </div>
-                  <div style={{ padding: '1.5rem', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', width: '220px' }}>
+                  <div style={{ padding: '1.5rem', background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0', width: '220px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
                     <Users size={32} color="#F26522" style={{ margin: '0 auto 1rem' }} />
                     <p style={{ fontSize: '2rem', fontWeight: 800, margin: 0, color: '#0F172A' }}>{boardData.registeredGroupsCount}</p>
-                    <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0 }}>Nhóm đã đăng ký</p>
+                    <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0, fontWeight: 650 }}>Nhóm đã đăng ký</p>
                   </div>
                 </div>
 
-                {selectedRound.status === ROUND_STATUS.DRAFT && (
-                  <button className="btn btn-primary" onClick={() => handleRoundStatusChange(ROUND_STATUS.OPEN)} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
-                    {loading ? 'Đang mở đăng ký...' : 'Mở đăng ký'} <ArrowRight size={18} />
+                {/* Control Action Buttons */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                  {(selectedRound.status !== 'Open' && selectedRound.status !== 1) && (
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={(e) => handleToggleRoundStatus(selectedRound, 1, e)}
+                      disabled={loading}
+                      style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', fontWeight: 800, borderRadius: '12px', background: '#10B981', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)', cursor: 'pointer' }}
+                    >
+                      <Unlock size={18} />
+                      <span>Mở Khóa Đăng Ký (Open)</span>
+                    </button>
+                  )}
+
+                  {(selectedRound.status === 'Open' || selectedRound.status === 1) && (
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={(e) => handleToggleRoundStatus(selectedRound, 2, e)}
+                      disabled={loading}
+                      style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', fontWeight: 800, borderRadius: '12px', background: '#EF4444', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)', cursor: 'pointer' }}
+                    >
+                      <Lock size={18} />
+                      <span>Khóa Đăng Ký (Closed)</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleLockRegistrationAndProceed}
+                    disabled={loading}
+                    style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', fontWeight: 800, borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+                  >
+                    <span>Khóa & Chuyển sang Phân công</span>
+                    <ArrowRight size={18} />
                   </button>
-                )}
-                {selectedRound.status === ROUND_STATUS.OPEN && (
-                  <button className="btn btn-danger" onClick={() => handleRoundStatusChange(ROUND_STATUS.CLOSED)} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
-                    {loading ? 'Đang khóa...' : 'Khóa đăng ký & chuyển sang phân công'} <ArrowRight size={18} />
-                  </button>
-                )}
-                {[ROUND_STATUS.CLOSED, ROUND_STATUS.PUBLISHED].includes(selectedRound.status) && (
-                  <button className="btn btn-primary" onClick={() => setActiveStep(3)} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
-                    Tiếp tục sang phân công <ArrowRight size={18} />
-                  </button>
-                )}
+                </div>
               </>
             )}
           </div>
@@ -520,26 +658,27 @@ const ReviewManagementPage = () => {
         {/* STEP 3: Matching */}
         {activeStep === 3 && (
           <div className="animate-fade-in" style={{ textAlign: 'center' }}>
-            {!selectedRound || rounds.length === 0 ? (
+            {(!selectedRound || rounds.length === 0) && (
               <div style={{ padding: '3rem' }}>
                 <AlertCircle size={48} color="#EF4444" style={{ margin: '0 auto 1rem' }} />
                 <h3 style={{ fontSize: '1.25rem', color: '#0F172A', marginBottom: '0.5rem' }}>Chưa có đợt review nào được chọn</h3>
                 <p style={{ color: '#64748B', marginBottom: '1.5rem' }}>Vui lòng thiết lập đợt review ở Bước 1 trước khi chạy thuật toán phân công.</p>
-                <button className="btn btn-primary" onClick={() => setActiveStep(1)}>Quay lại Bước 1</button>
+                <button type="button" className="btn btn-primary" onClick={() => setActiveStep(1)}>Quay lại Bước 1</button>
               </div>
-            ) : (
+            )}
+            {selectedRound && rounds.length > 0 && (
               <>
                 <div style={{ display: 'inline-block', background: '#EEF2FF', color: '#4F46E5', padding: '0.4rem 1rem', borderRadius: '20px', fontWeight: 600, fontSize: '0.85rem', marginBottom: '1rem' }}>
                   Đang xử lý đợt: {selectedRound.type} ({selectedRound.weekStartDate} đến {selectedRound.weekEndDate})
                 </div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', color: '#0F172A' }}>Bước 3: Thuật toán Phân công Lịch Review</h2>
-                <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>Thuật toán sẽ tự động khớp lịch rảnh của giảng viên và nhóm sinh viên để tạo bảng lịch trình tối ưu (tối đa {MAX_GROUPS_PER_REVIEW_SLOT} nhóm/slot).</p>
+                <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>Thuật toán sẽ tự động khớp lịch rảnh của giảng viên và nhóm sinh viên để tạo bảng lịch trình tối ưu (tối đa 3 nhóm/slot).</p>
 
                 <div style={{ background: '#F8FAFC', borderRadius: '12px', border: '1px dashed #CBD5E1', padding: '2.5rem', maxWidth: '540px', margin: '0 auto 2rem' }}>
                   <Zap size={48} color="#D97706" style={{ margin: '0 auto 1rem' }} />
                   <h3 style={{ fontSize: '1.1rem', color: '#0F172A', marginBottom: '0.5rem' }}>Sẵn sàng chạy thuật toán</h3>
                   <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem' }}>Hiện có {boardData.registeredGroupsCount} nhóm chờ phân công và {boardData.registeredLecturersCount} giảng viên đã gửi lịch rảnh cho đợt {selectedRound.type}.</p>
-                  <button className="btn btn-primary" onClick={handleMatch} disabled={loading || selectedRound.status !== ROUND_STATUS.CLOSED} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#4F46E5' }}>
+                  <button type="button" className="btn btn-primary" onClick={handleMatch} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#4F46E5' }}>
                     <Play size={18} fill="white" /> {loading ? 'Đang chạy Auto-Match...' : 'Chạy Auto-Match'}
                   </button>
                 </div>
@@ -551,23 +690,25 @@ const ReviewManagementPage = () => {
         {/* STEP 4: Publish */}
         {activeStep === 4 && (
           <div className="animate-fade-in" style={{ textAlign: 'center' }}>
-            {!selectedRound || rounds.length === 0 ? (
+            {(!selectedRound || rounds.length === 0) && (
               <div style={{ padding: '3rem' }}>
                 <AlertCircle size={48} color="#EF4444" style={{ margin: '0 auto 1rem' }} />
                 <h3 style={{ fontSize: '1.25rem', color: '#0F172A', marginBottom: '0.5rem' }}>Chưa chọn đợt review</h3>
                 <p style={{ color: '#64748B', marginBottom: '1.5rem' }}>Vui lòng thực hiện từ Bước 1.</p>
-                <button className="btn btn-primary" onClick={() => setActiveStep(1)}>Quay lại Bước 1</button>
+                <button type="button" className="btn btn-primary" onClick={() => setActiveStep(1)}>Quay lại Bước 1</button>
               </div>
-            ) : boardData.sessions.length === 0 ? (
+            )}
+            {selectedRound && rounds.length > 0 && boardData.sessions.length === 0 && (
               <div style={{ padding: '3rem' }}>
                 <AlertCircle size={48} color="#F59E0B" style={{ margin: '0 auto 1rem' }} />
                 <h3 style={{ fontSize: '1.25rem', color: '#0F172A', marginBottom: '0.5rem' }}>Chưa có ca review nào được phân công</h3>
                 <p style={{ color: '#64748B', marginBottom: '1.5rem', maxWidth: '500px', margin: '0 auto 1.5rem' }}>
                   Đợt {selectedRound.type} hiện chưa có dữ liệu ca review. Vui lòng quay lại Bước 3 và bấm "Chạy Auto-Match" trước khi công bố lịch.
                 </p>
-                <button className="btn btn-primary" onClick={() => setActiveStep(3)}>Quay lại Bước 3: Phân công</button>
+                <button type="button" className="btn btn-primary" onClick={() => setActiveStep(3)}>Quay lại Bước 3: Phân công</button>
               </div>
-            ) : (
+            )}
+            {selectedRound && rounds.length > 0 && boardData.sessions.length > 0 && (
               <>
                 <div style={{ display: 'inline-block', background: '#EEF2FF', color: '#4F46E5', padding: '0.4rem 1rem', borderRadius: '20px', fontWeight: 600, fontSize: '0.85rem', marginBottom: '1rem' }}>
                   Đang xử lý đợt: {selectedRound.type} ({selectedRound.weekStartDate} đến {selectedRound.weekEndDate})
@@ -588,8 +729,8 @@ const ReviewManagementPage = () => {
                   })()}
                 </div>
 
-                <button className="btn btn-success" onClick={handlePublish} disabled={loading || selectedRound.status === ROUND_STATUS.PUBLISHED} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#10B981', color: 'white' }}>
-                  <CheckSquare size={18} /> {selectedRound.status === ROUND_STATUS.PUBLISHED ? 'Lịch đã được công bố' : loading ? 'Đang công bố...' : 'Công bố Lịch Chính thức'}
+                <button type="button" className="btn btn-success" onClick={handlePublish} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#10B981', color: 'white' }}>
+                  <CheckSquare size={18} /> {loading ? 'Đang công bố...' : 'Công bố Lịch Chính thức'}
                 </button>
               </>
             )}

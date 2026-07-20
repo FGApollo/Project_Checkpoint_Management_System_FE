@@ -76,6 +76,10 @@ const Sidebar = () => {
               <Users size={18} />
               <span>Quản lý Người dùng</span>
             </NavLink>
+            <NavLink to="/admin/semesters" style={navItemStyle}>
+              <BookOpen size={18} />
+              <span>Quản lý Kỳ học</span>
+            </NavLink>
             <NavLink to="/admin/import" style={navItemStyle}>
               <FileSpreadsheet size={18} />
               <span>Nhập liệu Excel (.xlsx)</span>
@@ -136,6 +140,7 @@ const Sidebar = () => {
 
       <div style={{ padding: '0.75rem', borderTop: '1px solid #E2E8F0' }}>
         <button
+          type="button"
           onClick={logout}
           style={{
             display: 'flex',

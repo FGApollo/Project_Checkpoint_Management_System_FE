@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import api from '../../services/api';
-import { FileSpreadsheet, UploadCloud, CheckCircle2, AlertTriangle, Layers, Users, BookOpen, Mail, ArrowRight, ShieldAlert } from 'lucide-react';
+import { FileSpreadsheet, UploadCloud, CheckCircle2, Layers, Users, BookOpen, Mail, ArrowRight, ShieldAlert } from 'lucide-react';
 
 const ExcelImportPage = () => {
   const [file, setFile] = useState(null);
@@ -23,7 +23,7 @@ const ExcelImportPage = () => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+    if (e.dataTransfer.files?.[0]) {
       const dropped = e.dataTransfer.files[0];
       if (dropped.name.endsWith('.xlsx')) {
         setFile(dropped);
@@ -35,7 +35,7 @@ const ExcelImportPage = () => {
   };
 
   const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
+    if (e.target.files?.[0]) {
       const selected = e.target.files[0];
       if (selected.name.endsWith('.xlsx')) {
         setFile(selected);
@@ -67,7 +67,11 @@ const ExcelImportPage = () => {
       });
       setResult(response.data);
     } catch (err) {
-      setError(err.response?.data?.error || 'Import failed due to strict Excel validation rules (malformed rows, formula errors, or duplicate identity codes).');
+      if (err.response?.status === 401) {
+        setError('Phiên đăng nhập đã hết hạn hoặc không hợp lệ (Lỗi 401 Unauthorized). Vui lòng nhấn nút "Đăng xuất" ở góc trên bên phải và đăng nhập lại tài khoản Admin (Admin@gmail.com / Abcd@1234) để tiếp tục.');
+      } else {
+        setError(err.response?.data?.error || 'Import failed due to strict Excel validation rules (malformed rows, formula errors, or duplicate identity codes).');
+      }
     } finally {
       setLoading(false);
     }
@@ -100,7 +104,11 @@ const ExcelImportPage = () => {
             </div>
             <div>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0F172A' }}>Nhập liệu Excel Thành công!</h2>
-              <p style={{ color: '#475569', fontSize: '0.875rem' }}>Tất cả dữ liệu đã vượt qua kiểm tra toàn vẹn và được lưu vào hệ thống cơ sở dữ liệu.</p>
+              <p style={{ color: '#475569', fontSize: '0.875rem' }}>
+                {result.groupsCreated === 0 && result.topicsCreated === 0 && result.studentsCreated === 0
+                  ? 'Tất cả các nhóm và sinh viên trong file Excel này đã tồn tại trong hệ thống từ trước. Hệ thống đã đồng bộ/cập nhật thông tin mà không tạo trùng lặp mới.'
+                  : 'Tất cả dữ liệu đã vượt qua kiểm tra toàn vẹn và được lưu vào hệ thống cơ sở dữ liệu.'}
+              </p>
             </div>
           </div>
 
@@ -140,7 +148,8 @@ const ExcelImportPage = () => {
 
       <div className="glass-card" style={{ padding: '2.5rem', textAlign: 'center', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
         <form onSubmit={handleSubmit}>
-          <div
+          <label
+            htmlFor="fileUploadInput"
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
@@ -154,7 +163,6 @@ const ExcelImportPage = () => {
               cursor: 'pointer',
               marginBottom: '1.5rem'
             }}
-            onClick={() => document.getElementById('fileUploadInput').click()}
           >
             <input
               id="fileUploadInput"
@@ -183,7 +191,7 @@ const ExcelImportPage = () => {
             <p style={{ color: '#64748B', fontSize: '0.875rem', marginTop: '0.5rem' }}>
               {file ? `Dung lượng: ${(file.size / 1024).toFixed(1)} KB — Sẵn sàng xử lý` : 'hoặc nhấp chuột vào khung này để chọn tệp từ máy tính'}
             </p>
-          </div>
+          </label>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
             {file && (

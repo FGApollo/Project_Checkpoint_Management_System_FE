@@ -1,22 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { LogOut, User, Calendar, ShieldCheck, Bell } from 'lucide-react';
 import api from '../../services/api';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
+  const location = useLocation();
   const [activeSemester, setActiveSemester] = useState(null);
 
   useEffect(() => {
     if (user) {
-      api.get('/semesters?pageSize=100')
-        .then((res) => {
-          const semesters = Array.isArray(res.data) ? res.data : res.data?.items || [];
-          setActiveSemester(semesters.find((semester) => semester.isActive) || semesters[0] || null);
-        })
-        .catch(() => setActiveSemester(null));
+      api.get('/semesters/resolve')
+        .then((res) => setActiveSemester(res.data))
+        .catch(() => {});
     }
   }, [user]);
+
+  if (!user || location.pathname === '/login') {
+    return null;
+  }
 
   const getRoleBadgeText = (role) => {
     switch (role) {
@@ -29,10 +32,15 @@ const Navbar = () => {
     }
   };
 
-  const getPanelLabel = (role) => {
-    if (role === 'Lecturer') return 'LECTURER PANEL';
-    if (role === 'Student') return 'STUDENT PANEL';
-    return 'MODERATOR PANEL';
+  const getPortalSubTitle = (role) => {
+    switch (role) {
+      case 'SystemAdministrator': return 'SYSTEM ADMIN PANEL';
+      case 'TrainingDepartment':
+      case 'Moderator': return 'MODERATOR PANEL';
+      case 'Lecturer': return 'LECTURER PORTAL';
+      case 'Student': return 'STUDENT PORTAL';
+      default: return 'MANAGEMENT PORTAL';
+    }
   };
 
   const getRoleBadgeColor = (role) => {
@@ -82,7 +90,7 @@ const Navbar = () => {
               Capstone Portal
             </h1>
             <p style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 500 }}>
-              {getPanelLabel(user?.role)}
+              {getPortalSubTitle(user.role)}
             </p>
           </div>
         </div>
@@ -108,7 +116,7 @@ const Navbar = () => {
 
       {user && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button style={{
+          <button type="button" style={{
             background: 'none',
             border: 'none',
             cursor: 'pointer',
@@ -158,6 +166,7 @@ const Navbar = () => {
           </div>
 
           <button
+            type="button"
             onClick={logout}
             title="Đăng xuất"
             style={{

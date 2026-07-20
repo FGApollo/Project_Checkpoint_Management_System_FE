@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Award, Lock, User, KeyRound, ShieldAlert, Sparkles, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Award, Lock, User, ShieldAlert, Sparkles, CheckCircle2, ArrowRight } from 'lucide-react';
 
 const LoginPage = () => {
   const { login, bootstrapAdmin, error: authError } = useAuth();
@@ -54,7 +54,7 @@ const LoginPage = () => {
     setBsSuccess('');
     setLoading(true);
     try {
-      const user = await bootstrapAdmin(bsUsername, bsEmail, bsPassword);
+      await bootstrapAdmin(bsUsername, bsEmail, bsPassword);
       setBsSuccess('Khởi tạo tài khoản Quản trị viên Gốc thành công! Đang tự động đăng nhập...');
       setTimeout(() => navigate('/admin/dashboard'), 1200);
     } catch (err) {
@@ -154,10 +154,11 @@ const LoginPage = () => {
           {!showBootstrap ? (
             <form onSubmit={handleLogin}>
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Tên đăng nhập / Mã GV / Email</label>
+                <label htmlFor="login-username" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Tên đăng nhập / Mã GV / Email</label>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                   <User size={18} color="#64748B" style={{ position: 'absolute', left: '0.875rem' }} />
                   <input
+                    id="login-username"
                     type="text"
                     className="form-input"
                     value={username}
@@ -170,10 +171,11 @@ const LoginPage = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mật khẩu</label>
+                <label htmlFor="login-password" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mật khẩu</label>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                   <Lock size={18} color="#64748B" style={{ position: 'absolute', left: '0.875rem' }} />
                   <input
+                    id="login-password"
                     type="password"
                     className="form-input"
                     value={password}
@@ -205,8 +207,9 @@ const LoginPage = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Tên Quản trị viên</label>
+                <label htmlFor="bs-username" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Tên Quản trị viên</label>
                 <input
+                  id="bs-username"
                   type="text"
                   className="form-input"
                   value={bsUsername}
@@ -217,8 +220,9 @@ const LoginPage = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Email Quản trị viên</label>
+                <label htmlFor="bs-email" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Email Quản trị viên</label>
                 <input
+                  id="bs-email"
                   type="email"
                   className="form-input"
                   value={bsEmail}
@@ -229,8 +233,9 @@ const LoginPage = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mật khẩu</label>
+                <label htmlFor="bs-password" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mật khẩu</label>
                 <input
+                  id="bs-password"
                   type="password"
                   className="form-input"
                   value={bsPassword}
