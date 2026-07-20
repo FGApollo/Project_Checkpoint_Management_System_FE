@@ -203,9 +203,8 @@ const SemesterManagementPage = () => {
                           type="button"
                           className={`btn ${sem.isActive ? 'btn-danger' : 'btn-success'}`}
                           onClick={() => handleToggleStatus(sem)}
-                          aria-disabled={activationBlocked}
                           title={activationBlocked ? getActivationBlockedMessage(sem) : undefined}
-                          style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', fontWeight: 600, opacity: activationBlocked ? 0.65 : 1 }}
+                          style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', fontWeight: 600 }}
                         >
                           {sem.isActive ? (
                             <>
