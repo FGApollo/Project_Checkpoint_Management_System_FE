@@ -5,7 +5,7 @@ import { Award, Lock, User, ShieldAlert, Sparkles, CheckCircle2, ArrowRight } fr
 
 const GOOGLE_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
-  || '824713228964-3qmq6f1nfgda2majhsdfm81n4p648fo0.apps.googleusercontent.com';
+  || '675096303664-kghujhgk2d7og8s85e0f3kioknh4ip2o.apps.googleusercontent.com';
 
 const getDashboardPath = (role) => {
   if (role === 'SystemAdministrator' || role === 'TrainingDepartment' || role === 'Moderator') return '/admin/dashboard';
