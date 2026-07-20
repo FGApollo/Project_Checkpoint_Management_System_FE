@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LogOut, User, Calendar, ShieldCheck, Bell } from 'lucide-react';
+import { LogOut, User, Calendar, ShieldCheck, Bell, Wifi } from 'lucide-react';
 import api from '../../services/api';
+import presenceService from '../../services/presence';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [activeSemester, setActiveSemester] = useState(null);
+  const [onlineMembers, setOnlineMembers] = useState([]);
 
   useEffect(() => {
     if (user) {
@@ -15,6 +17,13 @@ const Navbar = () => {
         .then((res) => setActiveSemester(res.data))
         .catch(() => {});
     }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+    const unsubscribe = presenceService.subscribe(setOnlineMembers);
+    presenceService.start();
+    return () => { unsubscribe(); presenceService.stop(); };
   }, [user]);
 
   if (!user || location.pathname === '/login') {
@@ -138,6 +147,11 @@ const Navbar = () => {
           </button>
 
           <div style={{ width: '1px', height: '28px', background: '#E2E8F0' }} />
+
+          <div title="Người dùng đang hoạt động" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#10B981', fontSize: '0.75rem', fontWeight: 700 }}>
+            <Wifi size={15} />
+            <span>{onlineMembers.length} online</span>
+          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <div style={{
