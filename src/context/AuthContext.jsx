@@ -65,24 +65,33 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
   }, [initAuth]);
 
-  const login = async (username, password) => {
+  const persistAuthentication = useCallback((tokenResponse) => {
+    const { accessToken, refreshToken } = tokenResponse;
+    if (!accessToken) {
+      throw new Error('Máy chủ không trả về access token hợp lệ.');
+    }
+
+    localStorage.setItem('cpms_access_token', accessToken);
+    if (refreshToken) {
+      localStorage.setItem('cpms_refresh_token', refreshToken);
+    }
+
+    const parsedUser = parseJwt(accessToken);
+    if (!parsedUser) {
+      throw new Error('Không thể đọc thông tin tài khoản từ access token.');
+    }
+    const userData = { ...parsedUser, fullName: parsedUser.username };
+    localStorage.setItem('cpms_user', JSON.stringify(userData));
+    setUser(userData);
+    return userData;
+  }, []);
+
+  const login = useCallback(async (username, password) => {
     setLoading(true);
     setError(null);
     try {
       const response = await api.post('/auth/login', { username, password });
-      const { accessToken, refreshToken } = response.data;
-
-      localStorage.setItem('cpms_access_token', accessToken);
-      if (refreshToken) {
-        localStorage.setItem('cpms_refresh_token', refreshToken);
-      }
-
-      const parsedUser = parseJwt(accessToken);
-      const userData = { ...parsedUser, fullName: parsedUser.username };
-      localStorage.setItem('cpms_user', JSON.stringify(userData));
-      setUser(userData);
-      
-      return userData;
+      return persistAuthentication(response.data);
     } catch (err) {
       const msg = err.response?.data?.error || 'Đăng nhập thất bại. Vui lòng kiểm tra lại tên đăng nhập hoặc mật khẩu.';
       setError(msg);
@@ -90,9 +99,26 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [persistAuthentication]);
 
-  const bootstrapAdmin = async (username, email, password) => {
+  const googleLogin = useCallback(async (idToken) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.post('/auth/google', { idToken });
+      return persistAuthentication(response.data);
+    } catch (err) {
+      const msg = err.response?.status === 401
+        ? 'Email Google chưa được liên kết với tài khoản CPMS đang hoạt động.'
+        : (err.response?.data?.error || 'Đăng nhập Google thất bại. Vui lòng thử lại.');
+      setError(msg);
+      throw new Error(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [persistAuthentication]);
+
+  const bootstrapAdmin = useCallback(async (username, email, password) => {
     setLoading(true);
     setError(null);
     try {
@@ -106,9 +132,9 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [login]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await signalRService.stopConnection();
     } catch (e) {
@@ -118,11 +144,11 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('cpms_refresh_token');
     localStorage.removeItem('cpms_user');
     setUser(null);
-  };
+  }, []);
 
   const contextValue = React.useMemo(
-    () => ({ user, loading, error, login, logout, bootstrapAdmin, setUser }),
-    [user, loading, error]
+    () => ({ user, loading, error, login, googleLogin, logout, bootstrapAdmin, setUser }),
+    [user, loading, error, login, googleLogin, logout, bootstrapAdmin]
   );
 
   return (

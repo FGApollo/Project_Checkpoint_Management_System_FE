@@ -1,11 +1,23 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Award, Lock, User, ShieldAlert, Sparkles, CheckCircle2, ArrowRight } from 'lucide-react';
 
+const GOOGLE_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
+  || '824713228964-3qmq6f1nfgda2majhsdfm81n4p648fo0.apps.googleusercontent.com';
+
+const getDashboardPath = (role) => {
+  if (role === 'SystemAdministrator' || role === 'TrainingDepartment' || role === 'Moderator') return '/admin/dashboard';
+  if (role === 'Lecturer') return '/lecturer/dashboard';
+  if (role === 'Student') return '/student/dashboard';
+  return '/';
+};
+
 const LoginPage = () => {
-  const { login, bootstrapAdmin, error: authError } = useAuth();
+  const { login, googleLogin, bootstrapAdmin, error: authError } = useAuth();
   const navigate = useNavigate();
+  const googleButtonRef = useRef(null);
 
   const [username, setUsername] = useState('test.training');
   const [password, setPassword] = useState('Test@123456');
@@ -19,22 +31,70 @@ const LoginPage = () => {
   const [bsPassword, setBsPassword] = useState('123456');
   const [bsSuccess, setBsSuccess] = useState('');
 
+  const handleGoogleCredential = useCallback(async (credentialResponse) => {
+    if (!credentialResponse?.credential) {
+      setErrorMsg('Google không trả về thông tin xác thực hợp lệ.');
+      return;
+    }
+    setErrorMsg('');
+    setLoading(true);
+    try {
+      const user = await googleLogin(credentialResponse.credential);
+      navigate(getDashboardPath(user.role));
+    } catch (err) {
+      setErrorMsg(err.message || 'Đăng nhập Google thất bại.');
+    } finally {
+      setLoading(false);
+    }
+  }, [googleLogin, navigate]);
+
+  useEffect(() => {
+    if (showBootstrap) return undefined;
+
+    const renderGoogleButton = () => {
+      if (!window.google?.accounts?.id || !googleButtonRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCredential,
+      });
+      googleButtonRef.current.replaceChildren();
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        text: 'signin_with',
+        shape: 'rectangular',
+        width: 400,
+        locale: 'vi',
+      });
+    };
+    const handleScriptError = () => setErrorMsg('Không thể tải dịch vụ đăng nhập Google.');
+
+    let script = document.querySelector(`script[src="${GOOGLE_SCRIPT_URL}"]`);
+    if (!script) {
+      script = document.createElement('script');
+      script.src = GOOGLE_SCRIPT_URL;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+    script.addEventListener('load', renderGoogleButton);
+    script.addEventListener('error', handleScriptError);
+    if (window.google?.accounts?.id) renderGoogleButton();
+
+    return () => {
+      script.removeEventListener('load', renderGoogleButton);
+      script.removeEventListener('error', handleScriptError);
+    };
+  }, [handleGoogleCredential, showBootstrap]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setLoading(true);
     try {
       const user = await login(username, password);
-      // Navigate to appropriate role dashboard
-      if (user.role === 'SystemAdministrator' || user.role === 'TrainingDepartment' || user.role === 'Moderator') {
-        navigate('/admin/dashboard');
-      } else if (user.role === 'Lecturer') {
-        navigate('/lecturer/dashboard');
-      } else if (user.role === 'Student') {
-        navigate('/student/dashboard');
-      } else {
-        navigate('/');
-      }
+      navigate(getDashboardPath(user.role));
     } catch (err) {
       setErrorMsg(err.message || 'Đăng nhập thất bại.');
     } finally {
@@ -263,6 +323,20 @@ const LoginPage = () => {
                 Quay lại Đăng nhập tiêu chuẩn
               </button>
             </form>
+          )}
+
+          {!showBootstrap && (
+            <div style={{ marginTop: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', color: '#94A3B8', fontSize: '0.75rem' }}>
+                <span style={{ height: '1px', background: '#E2E8F0', flex: 1 }} />
+                <span>hoặc</span>
+                <span style={{ height: '1px', background: '#E2E8F0', flex: 1 }} />
+              </div>
+              <div ref={googleButtonRef} style={{ display: 'flex', justifyContent: 'center', minHeight: '44px' }} />
+              <p style={{ color: '#64748B', fontSize: '0.72rem', textAlign: 'center', marginTop: '0.65rem', lineHeight: 1.4 }}>
+                Email Google phải trùng với email của tài khoản CPMS đã được tạo.
+              </p>
+            </div>
           )}
 
           {/* Quick Local Test Switcher */}
