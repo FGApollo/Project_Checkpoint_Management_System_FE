@@ -389,10 +389,20 @@ const ReviewManagementPage = () => {
         reviewType: selectedRound.type,
         weekStart: selectedRound.weekStartDate,
         subject: `[CPMS] Thông báo Lịch Review Checkpoint (${formatReviewType(selectedRound.type)})`,
-        message: `Kính gửi Quý Giảng viên và Sinh viên,\n\nLịch review checkpoint cho đợt ${formatReviewType(selectedRound.type)} đã được công bố chính thức trên hệ thống CPMS. Vui lòng đăng nhập để xem chi tiết ca review và phòng ban.\n\nTrân trọng,\nPhòng Đào tạo.`,
-        messageBody: `Kính gửi Quý Giảng viên và Sinh viên,\n\nLịch review checkpoint cho đợt ${formatReviewType(selectedRound.type)} đã được công bố chính thức trên hệ thống CPMS. Vui lòng đăng nhập để xem chi tiết ca review và phòng ban.\n\nTrân trọng,\nPhòng Đào tạo.`
+        message: `Kính gửi Quý Giảng viên và Sinh viên,\n\nLịch review checkpoint cho đợt ${formatReviewType(selectedRound.type)} đã được công bố chính thức trên hệ thống CPMS. Vui lòng đăng nhập để xem chi tiết ca review và phòng.\n\nTrân trọng,\nPhòng Đào tạo.`
       });
-      setSuccess(`Đã công bố lịch thành công! Đã chốt ${res.data?.publishedSessionCount || boardData.sessions.length} ca review vào Database và thông báo cho Giảng viên & Sinh viên.`);
+      const publishedCount = res.data?.publishedSessionCount ?? boardData.sessions.length;
+      const queuedEmailCount = res.data?.queuedEmailCount ?? 0;
+      const sentEmailCount = res.data?.sentEmailCount ?? 0;
+      const failedEmailCount = res.data?.failedEmailCount ?? 0;
+      setSuccess(
+        queuedEmailCount > 0
+          ? `Đã công bố ${publishedCount} ca review. ${queuedEmailCount} email lịch cho Giảng viên & Sinh viên đang được gửi nền; bạn có thể tiếp tục sử dụng hệ thống.`
+          : `Đã công bố ${publishedCount} ca review và gửi thành công ${sentEmailCount} email lịch cho Giảng viên & Sinh viên.`
+      );
+      if (failedEmailCount > 0) {
+        setError(`Lịch đã được công bố nhưng có ${failedEmailCount} email gửi thất bại. Vui lòng kiểm tra cấu hình SMTP và nhật ký gửi mail.`);
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Lỗi khi publish lịch review.');
     } finally {
@@ -751,7 +761,7 @@ const ReviewManagementPage = () => {
                     const assignedLecturersCount = new Set(boardData.sessions.flatMap(s => s.reviewerIds || [])).size;
                     return (
                       <p style={{ color: '#047857', margin: 0, fontSize: '0.9rem', lineHeight: 1.5 }}>
-                        Đã phân {assignedGroupsCount} nhóm vào {sessionsCount} ca review với {assignedLecturersCount} giảng viên tham gia chấm điểm.
+                        Đã phân {assignedGroupsCount} nhóm vào {sessionsCount} ca review với {assignedLecturersCount} giảng viên tham gia nhận xét.
                       </p>
                     );
                   })()}

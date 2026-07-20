@@ -8,7 +8,6 @@ import {
   Clock, 
   AlertCircle, 
   RefreshCw, 
-  Mail, 
   Eye, 
   Calendar, 
   CheckSquare, 
@@ -36,23 +35,22 @@ const getRoundBadgeColors = (isSelected, status) => {
   return { background: '#F1F5F9', color: '#64748B' };
 };
 
-const ScoringStatus = ({ item }) => {
-  if (item.scoringStatus === 'COMPLETED') {
-    const failed = item.result === 'Fail';
+const FeedbackStatus = ({ item }) => {
+  if (item.feedbackStatus === 'COMPLETED') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: failed ? '#EF4444' : '#10B981', fontWeight: 700, fontSize: '0.825rem' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#10B981', fontWeight: 700, fontSize: '0.825rem' }}>
           <CheckCircle2 size={15} />
-          {failed ? 'Không đạt (Fail)' : 'Đạt yêu cầu (Pass)'}
+          Đã hoàn thành Review
         </span>
-        <span style={{ fontSize: '0.725rem', color: '#64748B' }}>Đã có nhận xét & đánh giá</span>
+        <span style={{ fontSize: '0.725rem', color: '#64748B' }}>Đã ghi nhận nhận xét của giảng viên</span>
       </div>
     );
   }
-  if (item.scoringStatus === 'OVERDUE_SUBMISSION') {
+  if (item.feedbackStatus === 'OVERDUE_SUBMISSION') {
     return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#EF4444', fontWeight: 600, fontSize: '0.8rem' }}><ShieldAlert size={15} />Chờ SV nộp bài</span>;
   }
-  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#F59E0B', fontWeight: 600, fontSize: '0.8rem' }}><Clock size={15} />Đang chờ chấm điểm</span>;
+  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#F59E0B', fontWeight: 600, fontSize: '0.8rem' }}><Clock size={15} />Đang chờ giảng viên nhận xét</span>;
 };
 
 const ReviewTrackingPage = () => {
@@ -65,7 +63,6 @@ const ReviewTrackingPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   
   const [trackingData, setTrackingData] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -141,10 +138,7 @@ const ReviewTrackingPage = () => {
     reviewers: item.reviewerIds ? item.reviewerIds.map(id => `Giảng viên #${id}`) : [],
     studentSubmitted: item.status !== 'Scheduled' && item.status !== 'Assigned',
     submissionTime: item.sessionDate ? item.sessionDate.split('T')[0] : 'N/A',
-    scoringStatus: item.status === 'Completed' ? 'COMPLETED' : 'PENDING',
-    result: item.status === 'Completed' ? 'Pass' : null,
-    reviewer1Result: item.status === 'Completed' ? 'Pass' : null,
-    reviewer2Result: item.status === 'Completed' ? 'Pass' : null,
+    feedbackStatus: item.status === 'Completed' ? 'COMPLETED' : 'PENDING',
     comments: item.notes || ''
   });
 
@@ -207,16 +201,11 @@ const ReviewTrackingPage = () => {
     }
   };
 
-  const handleRemindReviewer = (item) => {
-    setSuccess(`Đã gửi Email nhắc nhở chấm điểm tới giảng viên phản biện của nhóm ${item.groupCode}!`);
-    setTimeout(() => setSuccess(''), 5000);
-  };
-
   const filteredList = trackingData.filter(item => {
     const matchesRound = selectedRound === 'ALL' || typeof selectedRound !== 'object'
       ? true 
       : (item.round === selectedRound.name || item.round === selectedRound.type || item.round?.includes(selectedRound.type));
-    const matchesStatus = statusFilter === 'ALL' || item.scoringStatus === statusFilter;
+    const matchesStatus = statusFilter === 'ALL' || item.feedbackStatus === statusFilter;
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = !searchTerm || 
       item.groupCode?.toLowerCase().includes(searchLower) ||
@@ -229,7 +218,7 @@ const ReviewTrackingPage = () => {
   // Calculate stats
   const totalCount = filteredList.length;
   const submittedCount = filteredList.filter(i => i.studentSubmitted).length;
-  const completedScoringCount = filteredList.filter(i => i.scoringStatus === 'COMPLETED').length;
+  const completedFeedbackCount = filteredList.filter(i => i.feedbackStatus === 'COMPLETED').length;
 
   return (
     <div className="page-container animate-fade-in">
@@ -242,7 +231,7 @@ const ReviewTrackingPage = () => {
             <h1 className="page-title" style={{ color: '#0F172A', margin: 0 }}>Theo dõi Review & Phản biện</h1>
           </div>
           <p className="page-subtitle" style={{ color: '#475569', margin: 0 }}>
-            Giám sát thời gian thực việc nộp báo cáo checkpoint của sinh viên và trạng thái chấm điểm từ giảng viên phản biện.
+            Giám sát việc nộp báo cáo checkpoint và trạng thái nhận xét của giảng viên sau từng buổi Review.
           </p>
         </div>
 
@@ -257,13 +246,6 @@ const ReviewTrackingPage = () => {
           <span>Làm mới dữ liệu</span>
         </button>
       </div>
-
-      {success && (
-        <div style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10B981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-          <CheckCircle2 size={18} />
-          <span>{success}</span>
-        </div>
-      )}
 
       {error && (
         <div style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
@@ -309,9 +291,9 @@ const ReviewTrackingPage = () => {
         <div className="glass-card" style={{ padding: '1.25rem', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
             <div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>GV đã chấm điểm</span>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: completedScoringCount === totalCount && totalCount > 0 ? '#10B981' : '#F59E0B', marginTop: '0.25rem' }}>
-                {completedScoringCount} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#64748B' }}>/ {totalCount}</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Review đã có nhận xét</span>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: completedFeedbackCount === totalCount && totalCount > 0 ? '#10B981' : '#F59E0B', marginTop: '0.25rem' }}>
+                {completedFeedbackCount} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#64748B' }}>/ {totalCount}</span>
               </div>
             </div>
             <div style={{ padding: '0.5rem', borderRadius: '8px', background: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B' }}>
@@ -319,7 +301,7 @@ const ReviewTrackingPage = () => {
             </div>
           </div>
           <div style={{ fontSize: '0.8rem', color: '#64748B' }}>
-            Đang chấm: <strong style={{ color: '#F59E0B' }}>{totalCount - completedScoringCount} ca</strong>
+            Đang chờ nhận xét: <strong style={{ color: '#F59E0B' }}>{totalCount - completedFeedbackCount} ca</strong>
           </div>
         </div>
       </div>
@@ -502,8 +484,8 @@ const ReviewTrackingPage = () => {
               style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', padding: '0.5rem 0.85rem', fontWeight: 600, borderRadius: '8px' }}
             >
               <option value="ALL">Tất cả trạng thái</option>
-              <option value="COMPLETED">Đã có kết quả review</option>
-              <option value="PENDING">Đang chờ đánh giá</option>
+              <option value="COMPLETED">Đã hoàn thành và có nhận xét</option>
+              <option value="PENDING">Đang chờ nhận xét</option>
               <option value="OVERDUE_SUBMISSION">SV chưa nộp bài</option>
             </select>
           </div>
@@ -520,7 +502,7 @@ const ReviewTrackingPage = () => {
                 <th>NHÓM SINH VIÊN</th>
                 <th>GIẢNG VIÊN PHẢN BIỆN</th>
                 <th>BÁO CÁO CHECKPOINT</th>
-                <th>KẾT QUẢ ĐÁNH GIÁ</th>
+                <th>TRẠNG THÁI NHẬN XÉT</th>
                 <th style={{ textAlign: 'right' }}>THAO TÁC</th>
               </tr>
             </thead>
@@ -608,7 +590,7 @@ const ReviewTrackingPage = () => {
                     </td>
 
                     <td>
-                      <ScoringStatus item={item} />
+                      <FeedbackStatus item={item} />
                     </td>
 
                     <td style={{ textAlign: 'right' }}>
@@ -627,18 +609,6 @@ const ReviewTrackingPage = () => {
                           <span>Chi tiết</span>
                         </button>
 
-                        {item.scoringStatus !== 'COMPLETED' && (
-                          <button
-                            type="button"
-                            className="btn"
-                            onClick={() => handleRemindReviewer(item)}
-                            style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', background: 'rgba(79, 70, 229, 0.1)', color: '#4F46E5', border: '1px solid rgba(79, 70, 229, 0.3)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-                            title="Gửi email nhắc nhở chấm điểm"
-                          >
-                            <Mail size={14} />
-                            <span>Nhắc GV</span>
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -683,20 +653,10 @@ const ReviewTrackingPage = () => {
                   <div>
                     <span style={{ fontSize: '0.75rem', color: '#64748B' }}>Giảng viên Phản biện 1:</span>
                     <div style={{ fontWeight: 700, color: '#0F172A' }}>{selectedItem.reviewers[0] || 'N/A'}</div>
-                    {selectedItem.reviewer1Result && (
-                      <div style={{ marginTop: '0.25rem', fontSize: '0.85rem', color: selectedItem.reviewer1Result === 'Fail' ? '#EF4444' : '#10B981', fontWeight: 700 }}>
-                        Đánh giá: {selectedItem.reviewer1Result === 'Fail' ? 'Không đạt (Fail)' : 'Đạt yêu cầu (Pass)'}
-                      </div>
-                    )}
                   </div>
                   <div>
                     <span style={{ fontSize: '0.75rem', color: '#64748B' }}>Giảng viên Phản biện 2:</span>
                     <div style={{ fontWeight: 700, color: '#0F172A' }}>{selectedItem.reviewers[1] || 'N/A'}</div>
-                    {selectedItem.reviewer2Result && (
-                      <div style={{ marginTop: '0.25rem', fontSize: '0.85rem', color: selectedItem.reviewer2Result === 'Fail' ? '#EF4444' : '#10B981', fontWeight: 700 }}>
-                        Đánh giá: {selectedItem.reviewer2Result === 'Fail' ? 'Không đạt (Fail)' : 'Đạt yêu cầu (Pass)'}
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -717,11 +677,9 @@ const ReviewTrackingPage = () => {
                     {selectedItem.studentSubmitted ? `Đã nộp (${selectedItem.submissionTime})` : 'Chưa nộp bài'}
                   </span>
                 </div>
-                {selectedItem.result && (
-                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: selectedItem.result === 'Fail' ? '#EF4444' : '#10B981' }}>
-                    Kết quả: {selectedItem.result === 'Fail' ? 'Không đạt yêu cầu (Fail)' : 'Đạt yêu cầu (Pass)'}
-                  </div>
-                )}
+                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: selectedItem.feedbackStatus === 'COMPLETED' ? '#10B981' : '#F59E0B' }}>
+                  {selectedItem.feedbackStatus === 'COMPLETED' ? 'Review đã hoàn thành' : 'Đang chờ giảng viên nhận xét'}
+                </div>
               </div>
             </div>
 

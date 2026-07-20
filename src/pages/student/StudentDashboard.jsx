@@ -115,7 +115,7 @@ const StudentDashboard = () => {
             Xem tình trạng điểm danh, nhận xét chi tiết từ giảng viên review qua các vòng Review 1, 2, 3 và tải về phiếu đánh giá chính thức.
           </p>
           <Link to="/student/results" className="btn btn-primary" style={{ justifyContent: 'space-between' }}>
-            <span>Xem Kết quả Đánh giá</span>
+            <span>Xem Nhận xét Review</span>
             <ArrowRight size={16} />
           </Link>
         </div>

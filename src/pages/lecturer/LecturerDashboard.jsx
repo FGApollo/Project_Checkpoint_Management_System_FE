@@ -108,8 +108,8 @@ const LecturerDashboard = () => {
               <CheckSquare size={22} color="#16A34A" />
             </div>
             <div>
-              <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0F172A' }}>Chấm điểm Review</p>
-              <p style={{ fontSize: '0.75rem', color: '#64748B' }}>Điểm danh, nhận xét, đánh giá</p>
+              <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0F172A' }}>Hoàn thành Review</p>
+              <p style={{ fontSize: '0.75rem', color: '#64748B' }}>Điểm danh và gửi nhận xét cho sinh viên</p>
             </div>
             <ArrowRight size={16} color="#94A3B8" style={{ marginLeft: 'auto' }} />
           </div>

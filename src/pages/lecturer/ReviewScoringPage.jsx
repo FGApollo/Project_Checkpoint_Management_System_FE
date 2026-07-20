@@ -134,7 +134,7 @@ const ReviewScoringPage = () => {
         resultText: null,
         items: []
       });
-      setSuccess('Đã lưu bản nháp nhận xét & đánh giá thành công!');
+      setSuccess('Đã lưu bản nháp nhận xét thành công!');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save review draft.');
     }
