@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../services/api';
 import { Layers, UserPlus, Zap, CheckCircle2, AlertCircle, Users, Calendar, ArrowRight, Play, CheckSquare, Lock, Unlock, ShieldAlert } from 'lucide-react';
+import { REVIEW_TYPES, getAvailableReviewTypes, getDuplicateReviewTypes, getExistingReviewTypes } from '../../features/reviews/reviewRoundTypes';
 
 const formatReviewType = (type) => {
   if (type === 'Review1' || type === 0) return 'Review 1';
@@ -111,6 +112,9 @@ const ReviewManagementPage = () => {
   const [success, setSuccess] = useState('');
 
   const [semesters, setSemesters] = useState([]);
+  const existingReviewTypes = useMemo(() => getExistingReviewTypes(rounds), [rounds]);
+  const availableReviewTypes = useMemo(() => getAvailableReviewTypes(rounds), [rounds]);
+  const duplicateReviewTypes = useMemo(() => getDuplicateReviewTypes(rounds), [rounds]);
 
   // Step 1 Form
   const [formData, setFormData] = useState({
@@ -227,6 +231,12 @@ const ReviewManagementPage = () => {
     }
   }, [selectedRound, formData.semesterId]);
 
+  useEffect(() => {
+    if (availableReviewTypes.length > 0 && existingReviewTypes.has(formData.reviewType)) {
+      setFormData((current) => ({ ...current, reviewType: availableReviewTypes[0] }));
+    }
+  }, [availableReviewTypes, existingReviewTypes, formData.reviewType]);
+
   const handleStartDateChange = (e) => {
     const startVal = e.target.value;
     let endVal = formData.endDate;
@@ -242,6 +252,16 @@ const ReviewManagementPage = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (existingReviewTypes.has(formData.reviewType)) {
+      setError(`Học kỳ này đã có ${formatReviewType(formData.reviewType)}. Mỗi học kỳ chỉ được có một Review 1, một Review 2 và một Review 3.`);
+      return;
+    }
+
+    if (availableReviewTypes.length === 0) {
+      setError('Học kỳ này đã đủ ba đợt Review 1, Review 2 và Review 3.');
+      return;
+    }
 
     if (!formData.startDate || !formData.endDate) {
       setError('Vui lòng chọn Từ ngày và Đến ngày.');
@@ -424,6 +444,12 @@ const ReviewManagementPage = () => {
           <CheckCircle2 size={18} /><span>{success}</span>
         </div>
       )}
+      {duplicateReviewTypes.length > 0 && (
+        <div role="alert" style={{ background: '#FFF7ED', color: '#9A3412', border: '1px solid #FDBA74', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+          <AlertCircle size={18} />
+          <span>Dữ liệu bất thường: {duplicateReviewTypes.map(formatReviewType).join(', ')} đang bị trùng trong cùng học kỳ. Vui lòng đồng bộ lại dữ liệu backend.</span>
+        </div>
+      )}
 
       {/* Stepper */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', position: 'relative' }}>
@@ -479,10 +505,12 @@ const ReviewManagementPage = () => {
                   </div>
                   <div className="form-group" style={{ marginBottom: '1rem' }}>
                     <label htmlFor="review-type-select" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Loại Review</label>
-                    <select id="review-type-select" className="form-select" value={formData.reviewType} onChange={e => setFormData({ ...formData, reviewType: e.target.value })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }}>
-                      <option value="Review1">Review 1</option>
-                      <option value="Review2">Review 2</option>
-                      <option value="Review3">Review 3</option>
+                    <select id="review-type-select" className="form-select" value={formData.reviewType} onChange={e => setFormData({ ...formData, reviewType: e.target.value })} disabled={availableReviewTypes.length === 0} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }}>
+                      {REVIEW_TYPES.map((type) => (
+                        <option key={type} value={type} disabled={existingReviewTypes.has(type)}>
+                          {formatReviewType(type)}{existingReviewTypes.has(type) ? ' (đã tồn tại)' : ''}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.75rem' }}>
@@ -499,7 +527,7 @@ const ReviewManagementPage = () => {
                     <Calendar size={14} color="#F26522" />
                     <span>* Khi chọn Từ ngày, Đến ngày sẽ tự động cộng 5 ngày. Ràng buộc 1 đợt có độ dài đúng 6 ngày từ Thứ 2 đến Thứ 7.</span>
                   </div>
-                  <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Tạo Đợt Review & Tiếp tục <ArrowRight size={16} /></button>
+                  <button type="submit" className="btn btn-primary" disabled={availableReviewTypes.length === 0} style={{ width: '100%' }}>Tạo Đợt Review & Tiếp tục <ArrowRight size={16} /></button>
                 </form>
               </div>
               <div style={{ borderLeft: '1px solid #E2E8F0', paddingLeft: '2rem' }}>
