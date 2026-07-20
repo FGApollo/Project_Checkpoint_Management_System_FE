@@ -148,9 +148,9 @@ const Navbar = () => {
 
           <div style={{ width: '1px', height: '28px', background: '#E2E8F0' }} />
 
-          <div title="Người dùng đang hoạt động" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#10B981', fontSize: '0.75rem', fontWeight: 700 }}>
+          <div title={onlineMembers.map((member) => `${member.displayName} (${member.role})`).join(', ') || 'Chưa có người dùng khác đang hoạt động'} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#10B981', fontSize: '0.75rem', fontWeight: 700, maxWidth: '220px' }}>
             <Wifi size={15} />
-            <span>{onlineMembers.length} online</span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{onlineMembers.length} online{onlineMembers.length > 0 ? ` · ${onlineMembers.slice(0, 2).map((member) => member.displayName).join(', ')}` : ''}</span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
