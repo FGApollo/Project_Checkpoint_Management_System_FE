@@ -35,29 +35,18 @@ const getAvailabilityList = (data) => {
 };
 
 const loadReviewRounds = async (semesterId) => {
-  const reviewResponse = await api.get(`/student-review/rounds?semesterId=${semesterId}`).catch(() => ({ data: [] }));
-  const reviewRounds = Array.isArray(reviewResponse.data) ? reviewResponse.data : [];
-  if (reviewRounds.length > 0) return reviewRounds;
-  const fallbackResponse = await api.get(`/review-scheduling/rounds?semesterId=${semesterId}`).catch(() => ({ data: [] }));
-  return Array.isArray(fallbackResponse.data) ? fallbackResponse.data : [];
+  const response = await api.get(`/student-review/rounds?semesterId=${semesterId}`);
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 const loadSlotData = async (roundId) => {
-  try {
-    const response = await api.get(`/student-review/slots?roundId=${roundId}`);
-    const data = response.data || {};
-    return { data, registrations: getAvailabilityList(data) };
-  } catch (error) {
-    console.error('Failed to load slots, trying fallback:', error);
-    const fallback = await api.get(`/review-scheduling/student-registrations?roundId=${roundId}`).catch(() => ({ data: [] }));
-    return { data: {}, registrations: Array.isArray(fallback.data) ? fallback.data : [] };
-  }
+  const response = await api.get(`/student-review/slots?roundId=${roundId}`);
+  const data = response.data || {};
+  return { data, registrations: getAvailabilityList(data) };
 };
 
 const loadStudentSchedule = async () => {
-  const response = await api.get('/student-review/schedule').catch(() =>
-    api.get('/review-sessions/my').catch(() => ({ data: [] }))
-  );
+  const response = await api.get('/student-review/schedule');
   return Array.isArray(response.data) ? response.data : [];
 };
 

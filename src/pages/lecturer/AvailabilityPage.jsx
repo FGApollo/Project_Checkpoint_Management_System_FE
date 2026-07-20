@@ -80,7 +80,7 @@ const AvailabilityPage = () => {
     const targetSem = semId !== undefined ? semId : semesterId;
     setLoading(true);
     try {
-      const res = await api.get(`/review-scheduling/rounds?semesterId=${targetSem}`).catch(() => ({ data: [] }));
+      const res = await api.get(`/review-scheduling/rounds?semesterId=${targetSem}`);
       const list = Array.isArray(res.data) ? res.data : (res.data?.items || []);
       setRounds(list);
       if (list.length > 0 && (!selectedRoundId || !list.some(r => r.id === selectedRoundId))) {

@@ -95,11 +95,13 @@ const ReviewTrackingPage = () => {
     const fetchRoundsForSemester = async () => {
       setLoading(true);
       try {
-        const revRoundsRes = await api.get(`/review-scheduling/rounds?semesterId=${selectedSemesterId}`).catch(() => ({ data: [] }));
+        const revRoundsRes = await api.get(`/review-scheduling/rounds?semesterId=${selectedSemesterId}`);
         
         const revRounds = Array.isArray(revRoundsRes.data) ? revRoundsRes.data : [];
         
         const mappedRevRounds = revRounds.map(r => {
+          const weekStart = r.weekStartDate || r.startDate;
+          if (!weekStart) throw new Error(`Đợt review #${r.id} thiếu ngày bắt đầu tuần.`);
           const labels = getReviewRoundLabels(r.type, r.id);
             
           return {
@@ -108,7 +110,7 @@ const ReviewTrackingPage = () => {
             category: 'REVIEW',
             type: labels.type,
             name: r.name || `Đợt ${labels.display}`,
-            weekStart: r.weekStartDate || r.startDate || '2026-06-15',
+            weekStart,
             weekEnd: r.weekEndDate || r.endDate || '',
             status: r.status || 'Open',
             groupCount: r.registeredGroupCount || 0
@@ -161,8 +163,8 @@ const ReviewTrackingPage = () => {
           return;
         }
 
-        const boardPromises = reviewRoundsToFetch.map(r => 
-          api.get(`/review-scheduling/board?semesterId=${selectedSemesterId}&reviewType=${r.type}&weekStart=${r.weekStartDate || r.weekStart || '2026-06-15'}`).catch(() => ({ data: { sessions: [] } }))
+        const boardPromises = reviewRoundsToFetch.map(r =>
+          api.get(`/review-scheduling/board?semesterId=${selectedSemesterId}&reviewType=${r.type}&weekStart=${r.weekStart}`)
         );
 
         const results = await Promise.all(boardPromises);
@@ -173,14 +175,15 @@ const ReviewTrackingPage = () => {
           mappedSessions.push(...boardSessions.map(item => mapBoardItem(item, roundName)));
         }
       } else {
-        const boardRes = await api.get(`/review-scheduling/board?semesterId=${selectedSemesterId}&reviewType=${selectedRound.type}&weekStart=${selectedRound.weekStartDate || selectedRound.weekStart || '2026-06-15'}`).catch(() => ({ data: { sessions: [] } }));
+        if (!selectedRound.weekStart) throw new Error('Đợt review đã chọn thiếu ngày bắt đầu tuần.');
+        const boardRes = await api.get(`/review-scheduling/board?semesterId=${selectedSemesterId}&reviewType=${selectedRound.type}&weekStart=${selectedRound.weekStart}`);
         const boardSessions = Array.isArray(boardRes.data?.sessions) ? boardRes.data.sessions : [];
         mappedSessions = boardSessions.map(item => mapBoardItem(item, selectedRound.name));
       }
 
       setTrackingData(mappedSessions);
     } catch (err) {
-      setError(err.response?.data?.error || 'Không thể tải dữ liệu theo dõi từ Database.');
+      setError(err.response?.data?.error || err.message || 'Không thể tải dữ liệu theo dõi từ Database.');
       setTrackingData([]);
     } finally {
       setLoading(false);
