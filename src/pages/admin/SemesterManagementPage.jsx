@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { Plus, CheckCircle, AlertCircle, RefreshCw, CalendarDays, Lock, Unlock, Trash2 } from 'lucide-react';
+import { getActivationBlockedMessage, isDateWithinSemester } from '../../features/semesters/semesterDates';
 
 const SemesterManagementPage = () => {
   const [semesters, setSemesters] = useState([]);
@@ -46,6 +47,12 @@ const SemesterManagementPage = () => {
   }, [page, pageSize]);
 
   const handleToggleStatus = async (semester) => {
+    setError('');
+    setSuccess('');
+    if (!semester.isActive && !isDateWithinSemester(semester)) {
+      setError(getActivationBlockedMessage(semester));
+      return;
+    }
     try {
       await api.patch(`/semesters/${semester.id}/status`);
       setSuccess(`Trạng thái của kỳ học ${semester.name} đã được cập nhật!`);
@@ -75,6 +82,11 @@ const SemesterManagementPage = () => {
     const yearSuffix = formData.academicYear.toString().slice(-2);
     const code = `${formData.season}${yearSuffix}`;
     const name = `${seasonMap[formData.season]} ${formData.academicYear}`;
+
+    if (formData.isActive && !isDateWithinSemester(formData)) {
+      setError('Không thể kích hoạt kỳ học vì ngày hiện tại không nằm trong thời gian bắt đầu và kết thúc đã chọn.');
+      return;
+    }
     
     const payload = {
       code,
@@ -166,7 +178,9 @@ const SemesterManagementPage = () => {
                 <tr><td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: '#64748B' }}>Chưa có kỳ học nào.</td></tr>
               )}
               {!loading && semesters.length > 0 && (
-                semesters.map((sem) => (
+                semesters.map((sem) => {
+                  const activationBlocked = !sem.isActive && !isDateWithinSemester(sem);
+                  return (
                   <tr key={sem.id}>
                     <td style={{ fontWeight: 600, color: '#0F172A' }}>#{sem.id}</td>
                     <td><span style={{ fontWeight: 700, color: '#0F172A' }}>{sem.code}</span></td>
@@ -189,7 +203,9 @@ const SemesterManagementPage = () => {
                           type="button"
                           className={`btn ${sem.isActive ? 'btn-danger' : 'btn-success'}`}
                           onClick={() => handleToggleStatus(sem)}
-                          style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', fontWeight: 600 }}
+                          aria-disabled={activationBlocked}
+                          title={activationBlocked ? getActivationBlockedMessage(sem) : undefined}
+                          style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', fontWeight: 600, opacity: activationBlocked ? 0.65 : 1 }}
                         >
                           {sem.isActive ? (
                             <>
@@ -213,7 +229,8 @@ const SemesterManagementPage = () => {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
