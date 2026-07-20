@@ -48,3 +48,17 @@ test('lecturer can request AI review suggestions without score fields', async ()
   assert.match(lecturerPage, /improvementSummary/);
   assert.doesNotMatch(lecturerPage, /scoreValue|evalResult|resultText:\s*evalResult/);
 });
+
+test('students upload project documents and assigned lecturers can view them', async () => {
+  const [studentPage, lecturerPage, documentService] = await Promise.all([
+    readSource('../src/pages/student/StudentDashboard.jsx'),
+    readSource('../src/pages/lecturer/ReviewScoringPage.jsx'),
+    readSource('../src/services/documents.js'),
+  ]);
+  assert.match(studentPage, /uploadProjectDocument/);
+  assert.match(studentPage, /\.pdf,\.docx,\.zip,\.txt/);
+  assert.match(lecturerPage, /Tài liệu đồ án của nhóm/);
+  assert.match(documentService, /FormData/);
+  assert.match(documentService, /\/documents\/group\//);
+  assert.match(documentService, /responseType: 'blob'/);
+});

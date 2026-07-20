@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { BookOpen, User, Calendar, CheckSquare, Award, ArrowRight, Layers } from 'lucide-react';
+import { BookOpen, User, Calendar, CheckSquare, Award, ArrowRight, Layers, Upload, FileText, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { listProjectDocuments, uploadProjectDocument, downloadProjectDocument } from '../../services/documents';
 
 const StudentDashboard = () => {
   const { user } = useAuth();
@@ -10,6 +11,12 @@ const StudentDashboard = () => {
   const [mySchedules, setMySchedules] = useState([]);
   const [mySubmissions, setMySubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const groupId = user?.groupId || user?.group?.id;
+  const [documents, setDocuments] = useState([]);
+  const [documentType, setDocumentType] = useState('Final');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [documentBusy, setDocumentBusy] = useState(false);
+  const [documentMessage, setDocumentMessage] = useState('');
 
   useEffect(() => {
     const fetchStudentData = async () => {
@@ -29,6 +36,29 @@ const StudentDashboard = () => {
     };
     fetchStudentData();
   }, []);
+
+  useEffect(() => {
+    if (!groupId) return;
+    listProjectDocuments(groupId).then(({ data }) => setDocuments(Array.isArray(data) ? data : [])).catch(() => setDocuments([]));
+  }, [groupId]);
+
+  const handleUpload = async (event) => {
+    event.preventDefault();
+    if (!selectedFile || !groupId) return;
+    setDocumentBusy(true); setDocumentMessage('');
+    try {
+      await uploadProjectDocument(groupId, documentType, selectedFile);
+      const { data } = await listProjectDocuments(groupId);
+      setDocuments(Array.isArray(data) ? data : []); setSelectedFile(null); event.target.reset(); setDocumentMessage('Đã tải tài liệu lên thành công.');
+    } catch (error) { setDocumentMessage(error.response?.data?.error || 'Không thể tải tài liệu lên.'); }
+    finally { setDocumentBusy(false); }
+  };
+
+  const handleDownload = async (document) => {
+    const response = await downloadProjectDocument(document.id);
+    const url = URL.createObjectURL(response.data); const anchor = window.document.createElement('a');
+    anchor.href = url; anchor.download = document.fileName; anchor.click(); URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="page-container animate-fade-in">
@@ -119,6 +149,18 @@ const StudentDashboard = () => {
             <ArrowRight size={16} />
           </Link>
         </div>
+      </div>
+
+      <div className="glass-card" style={{ padding: '1.75rem', marginBottom: '2rem', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
+        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center', color: '#0F172A' }}><FileText size={20} color="#F26522" /> Tài liệu đồ án</h3>
+        <p style={{ color: '#64748B', fontSize: '0.85rem' }}>Tải bản PDF/DOCX/ZIP/TXT để giảng viên xem trước buổi review. Tối đa 50 MB mỗi tệp.</p>
+        {groupId ? <form onSubmit={handleUpload} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', margin: '1rem 0' }}>
+          <select value={documentType} onChange={(event) => setDocumentType(event.target.value)} className="form-input" style={{ width: 'auto' }}><option value="Proposal">Đề cương</option><option value="Progress">Giữa kỳ</option><option value="Final">Bản cuối</option></select>
+          <input type="file" accept=".pdf,.docx,.zip,.txt" onChange={(event) => setSelectedFile(event.target.files?.[0] || null)} />
+          <button className="btn btn-primary" type="submit" disabled={!selectedFile || documentBusy}><Upload size={16} /> {documentBusy ? 'Đang tải...' : 'Tải tài liệu'}</button>
+        </form> : <p style={{ color: '#B45309' }}>Tài khoản chưa được gán vào nhóm.</p>}
+        {documentMessage && <p style={{ color: documentMessage.startsWith('Đã') ? '#059669' : '#DC2626', fontSize: '0.9rem' }}>{documentMessage}</p>}
+        {documents.length === 0 ? <p style={{ color: '#64748B', padding: '1rem 0' }}>Chưa có tài liệu nào.</p> : documents.map((document) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E2E8F0', padding: '0.75rem 0' }}><span><strong>{document.fileName}</strong><small style={{ display: 'block', color: '#64748B' }}>{document.docType} · phiên bản {document.versionNo}</small></span><button className="btn btn-secondary" type="button" onClick={() => handleDownload(document)}><Download size={15} /> Xem/Tải</button></div>)}
       </div>
 
       {/* Published Schedules Table */}

@@ -1,5 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import api from '../../services/api';
+import { listProjectDocuments, downloadProjectDocument } from '../../services/documents';
 import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
 
 const getTabButtonProps = (activeTab, tab) => {
@@ -28,6 +29,7 @@ const ReviewScoringPage = () => {
   const [aiProjectContent, setAiProjectContent] = useState('');
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [documents, setDocuments] = useState([]);
 
   const fetchMySessions = useCallback(async () => {
     setLoading(true);
@@ -77,6 +79,7 @@ const ReviewScoringPage = () => {
     if (selectedSession) {
       setAiProjectContent(selectedSession.projectContent || selectedSession.description || '');
       setAiSuggestion(null);
+      listProjectDocuments(sess.groupId).then(({ data }) => setDocuments(Array.isArray(data) ? data : [])).catch(() => setDocuments([]));
       fetchSessionDetails(selectedSession);
     }
   }, [selectedSession, fetchSessionDetails]);
@@ -319,6 +322,11 @@ const ReviewScoringPage = () => {
                     <span style={{ fontWeight: 600 }}>Phiếu Nhận xét (.xlsx)</span>
                   </button>
                 </div>
+              </div>
+
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', marginBottom: '1.25rem' }}>
+                <strong style={{ color: '#0F172A' }}>Tài liệu đồ án của nhóm</strong>
+                {documents.length === 0 ? <p style={{ margin: '0.5rem 0 0', color: '#64748B', fontSize: '0.85rem' }}>Nhóm chưa tải tài liệu.</p> : documents.map((document) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.6rem' }}><span style={{ fontSize: '0.9rem' }}>{document.fileName} <small style={{ color: '#64748B' }}>({document.docType}, v{document.versionNo})</small></span><button type="button" className="btn btn-secondary" onClick={async () => { const response = await downloadProjectDocument(document.id); const url = URL.createObjectURL(response.data); window.open(url, '_blank', 'noopener,noreferrer'); }}><Download size={14} /> Xem</button></div>)}
               </div>
 
               {/* Sub-Tabs */}
