@@ -6,8 +6,9 @@ const readSource = (relativePath) =>
   readFile(new URL(relativePath, import.meta.url), 'utf8');
 
 test('review feedback UI does not expose scores or pass/fail verdicts', async () => {
-  const [studentPage, lecturerPage, trackingPage, lecturerDashboard] = await Promise.all([
+  const [studentPage, studentDashboard, lecturerPage, trackingPage, lecturerDashboard] = await Promise.all([
     readSource('../src/pages/student/ReviewResultsPage.jsx'),
+    readSource('../src/pages/student/StudentDashboard.jsx'),
     readSource('../src/pages/lecturer/ReviewScoringPage.jsx'),
     readSource('../src/pages/admin/ReviewTrackingPage.jsx'),
     readSource('../src/pages/lecturer/LecturerDashboard.jsx'),
@@ -18,6 +19,9 @@ test('review feedback UI does not expose scores or pass/fail verdicts', async ()
   assert.doesNotMatch(lecturerPage, /evalResult|resultText:\s*evalResult|Nộp Điểm|Chấm điểm/);
   assert.doesNotMatch(trackingPage, /scoringStatus|reviewer1Result|reviewer2Result|item\.result|Đạt yêu cầu \(Pass\)|Không đạt \(Fail\)|chấm điểm/i);
   assert.doesNotMatch(lecturerDashboard, /Chấm điểm Review/);
+  assert.doesNotMatch(studentDashboard, /Kết quả Chấm|Nhóm #\$\{sc\.groupId\}/);
+  assert.match(studentDashboard, /sc\.sessionId \|\| sc\.id/);
+  assert.match(studentDashboard, /groupInfo\?\.groupCode/);
 });
 
 test('publishing a review schedule reports real email delivery counts', async () => {

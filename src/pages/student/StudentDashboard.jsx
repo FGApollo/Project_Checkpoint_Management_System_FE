@@ -8,10 +8,11 @@ import { listProjectDocuments, uploadProjectDocument, downloadProjectDocument } 
 const StudentDashboard = () => {
   const { user } = useAuth();
   const [activeSemester, setActiveSemester] = useState(null);
+  const [groupInfo, setGroupInfo] = useState(null);
   const [mySchedules, setMySchedules] = useState([]);
   const [mySubmissions, setMySubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const groupId = user?.groupId || user?.group?.id;
+  const groupId = user?.groupId || user?.group?.id || groupInfo?.groupId;
   const [documents, setDocuments] = useState([]);
   const [documentType, setDocumentType] = useState('Final');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -24,7 +25,14 @@ const StudentDashboard = () => {
       try {
         const semRes = await api.get('/semesters?pageSize=100').catch(() => ({ data: [] }));
         const semesters = Array.isArray(semRes.data) ? semRes.data : semRes.data?.items || [];
-        setActiveSemester(semesters.find((semester) => semester.isActive) || semesters[0] || null);
+        const semester = semesters.find((item) => item.isActive) || semesters[0] || null;
+        setActiveSemester(semester);
+
+        if (semester?.id) {
+          const roundsRes = await api.get(`/student-review/rounds?semesterId=${semester.id}`).catch(() => ({ data: [] }));
+          const rounds = Array.isArray(roundsRes.data) ? roundsRes.data : [];
+          setGroupInfo(rounds.find((round) => round.groupId) || null);
+        }
 
         const schedRes = await api.get('/student-review/schedule').catch(() => ({ data: [] }));
         setMySchedules(Array.isArray(schedRes.data) ? schedRes.data : []);
@@ -68,7 +76,7 @@ const StudentDashboard = () => {
       <div className="page-header">
         <div>
           <h1 className="page-title" style={{ color: '#0F172A' }}>Khu vực Làm việc Sinh viên & Nhóm Checkpoint</h1>
-          <p className="page-subtitle" style={{ color: '#475569' }}>Xin chào, {user?.fullName || user?.username}. Theo dõi lịch review, đăng ký ca checkpoint và xem đánh giá chính thức từ hội đồng.</p>
+          <p className="page-subtitle" style={{ color: '#475569' }}>Xin chào, {user?.fullName || user?.username}. Theo dõi lịch review, đăng ký ca checkpoint và xem nhận xét từ giảng viên.</p>
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -78,7 +86,7 @@ const StudentDashboard = () => {
           </Link>
           <Link to="/student/results" className="btn btn-primary">
             <CheckSquare size={16} />
-            <span>Kết quả & Đánh giá</span>
+            <span>Nhận xét Review</span>
           </Link>
         </div>
       </div>
@@ -143,7 +151,7 @@ const StudentDashboard = () => {
             </div>
             <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981' }}>{mySubmissions.length} Nhận xét</span>
           </div>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem', color: '#0F172A' }}>Kết quả Chấm & Nhận xét từ Giảng viên</h3>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem', color: '#0F172A' }}>Nhận xét Review từ Giảng viên</h3>
           <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem', flex: 1, lineHeight: 1.5 }}>
             Xem tình trạng điểm danh, nhận xét chi tiết từ giảng viên review qua các vòng Review 1, 2, 3 và tải về phiếu đánh giá chính thức.
           </p>
@@ -197,13 +205,13 @@ const StudentDashboard = () => {
               </thead>
               <tbody>
                 {mySchedules.map((sc) => (
-                  <tr key={sc.id ?? `${sc.groupId}-${sc.sessionDate}-${sc.slot}`}>
-                    <td style={{ fontWeight: 600, color: '#0F172A' }}>#{sc.id || 'N/A'}</td>
-                    <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522' }}>{sc.groupCode || `Nhóm #${sc.groupId}`}</span></td>
+                  <tr key={sc.sessionId ?? sc.id ?? `${sc.sessionDate}-${sc.slot}`}>
+                    <td style={{ fontWeight: 600, color: '#0F172A' }}>#{sc.sessionId || sc.id || 'N/A'}</td>
+                    <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522' }}>{sc.groupCode || groupInfo?.groupCode || 'Nhóm của bạn'}</span></td>
                     <td style={{ color: '#475569' }}>{sc.sessionDate || sc.dayOfWeek} — Ca {sc.slot}</td>
                     <td style={{ fontWeight: 700, color: '#0F172A' }}>{sc.room || 'TBD'}</td>
-                    <td style={{ color: '#475569' }}>{sc.reviewType || 'Chấm Checkpoint'}</td>
-                    <td><span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981' }}>{sc.status || 'Đã công bố'}</span></td>
+                    <td style={{ color: '#475569' }}>{sc.type || sc.reviewType || 'Review Checkpoint'}</td>
+                    <td><span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981' }}>{sc.groupStatus || sc.status || 'Đã công bố'}</span></td>
                   </tr>
                 ))}
               </tbody>
