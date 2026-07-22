@@ -4,14 +4,7 @@ import api from '../../services/api';
 import { Clock, CheckSquare, Calendar, Users, ArrowRight, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageSkeleton } from '../../components/common/Skeleton';
-
-const SLOT_LABELS = {
-  1: 'Slot 1 (07:30 – 09:00)',
-  2: 'Slot 2 (09:10 – 10:40)',
-  3: 'Slot 3 (10:50 – 12:20)',
-  4: 'Slot 4 (12:50 – 14:20)',
-  5: 'Slot 5 (14:30 – 16:00)',
-};
+import { getReviewSlotLabel } from '../../features/reviews/reviewSlots';
 
 const LecturerDashboard = () => {
   const { user } = useAuth();
@@ -166,7 +159,7 @@ const LecturerDashboard = () => {
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, color: '#0F172A', fontSize: '0.9rem' }}>
-                      {SLOT_LABELS[review.slot] || `Slot ${review.slot || '?'}`}
+                      {getReviewSlotLabel(review.slot)}
                     </span>
                     <span style={{ color: '#94A3B8' }}>|</span>
                     <span style={{ fontSize: '0.85rem', color: '#475569' }}>

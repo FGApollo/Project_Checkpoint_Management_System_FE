@@ -19,6 +19,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import { TableSkeletonRows } from '../../components/common/Skeleton';
+import { getReviewSlotTime } from '../../features/reviews/reviewSlots';
 
 const getReviewRoundLabels = (type, id) => {
   if (typeof type === 'number') {
@@ -81,16 +82,7 @@ const FeedbackStatus = ({ item }) => {
   return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#F59E0B', fontWeight: 600, fontSize: '0.8rem' }}><Clock size={15} />Đang chờ nhận xét ({item.submittedFeedbackCount}/{item.expectedFeedbackCount})</span>;
 };
 
-const getSlotTime = (slotNum) => {
-  switch (slotNum) {
-    case 1: return '07:30 – 09:00';
-    case 2: return '09:10 – 10:40';
-    case 3: return '10:50 – 12:20';
-    case 4: return '12:50 – 14:20';
-    case 5: return '14:30 – 16:00';
-    default: return '07:30 – 09:00';
-  }
-};
+const getSlotTime = getReviewSlotTime;
 
 const ReviewTrackingPage = () => {
   const [semesters, setSemesters] = useState([]);

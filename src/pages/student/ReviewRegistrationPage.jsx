@@ -3,6 +3,7 @@ import api from '../../services/api';
 import { useAuth } from '../../context/authContextValue.js';
 import { Calendar, CheckCircle2, AlertCircle, RefreshCw, Send, BookOpen, Layers, ArrowRight, ArrowLeft, Sparkles, ShieldCheck, Users } from 'lucide-react';
 import { PageSkeleton } from '../../components/common/Skeleton';
+import { REVIEW_LUNCH_BREAK, REVIEW_SLOTS } from '../../features/reviews/reviewSlots';
 
 const DAYS_OF_WEEK = [
   { id: 1, name: 'Thứ 2' },
@@ -13,13 +14,7 @@ const DAYS_OF_WEEK = [
   { id: 6, name: 'Thứ 7' },
 ];
 
-const SLOTS = [
-  { id: 1, name: 'Slot 1', time: '07:30 – 09:00' },
-  { id: 2, name: 'Slot 2', time: '09:10 – 10:40' },
-  { id: 3, name: 'Slot 3', time: '10:50 – 12:20' },
-  { id: 4, name: 'Slot 4', time: '12:50 – 14:20' },
-  { id: 5, name: 'Slot 5', time: '14:30 – 16:00' },
-];
+const SLOTS = REVIEW_SLOTS;
 
 const formatReviewType = (type) => {
   if (type === 'Review1' || type === 0) return 'Review 1';
@@ -679,6 +674,9 @@ const ReviewRegistrationPage = () => {
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0.3rem 0 0', fontWeight: 500 }}>
                   Trưởng nhóm chọn các slot mà cả nhóm có thể tham gia review, sau đó bấm <strong>Lưu đăng ký</strong>.
+                </p>
+                <p style={{ fontSize: '0.82rem', color: '#B45309', margin: '0.35rem 0 0', fontWeight: 700 }}>
+                  {REVIEW_LUNCH_BREAK.label}
                 </p>
               </div>
               <span className="badge" style={{ background: 'rgba(242, 101, 34, 0.15)', color: '#F26522', fontWeight: 800, fontSize: '0.9rem', padding: '0.45rem 1rem', borderRadius: '12px' }}>

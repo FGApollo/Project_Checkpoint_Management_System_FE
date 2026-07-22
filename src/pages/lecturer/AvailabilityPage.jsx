@@ -1,7 +1,8 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import api from '../../services/api';
-import { CheckCircle2, AlertCircle, RefreshCw, Save, Send, Check, ArrowLeft, ArrowRight, BookOpen, Sparkles, Calendar, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, AlertCircle, RefreshCw, Save, Send, Check, ArrowLeft, ArrowRight, BookOpen, Sparkles, Calendar, ShieldCheck, Pencil, X } from 'lucide-react';
 import { PageSkeleton } from '../../components/common/Skeleton';
+import { REVIEW_LUNCH_BREAK, REVIEW_SLOTS } from '../../features/reviews/reviewSlots';
 
 const DAYS_OF_WEEK = [
   { id: 1, name: 'Thứ 2' },
@@ -12,13 +13,7 @@ const DAYS_OF_WEEK = [
   { id: 6, name: 'Thứ 7' },
 ];
 
-const SLOTS = [
-  { id: 1, name: 'Slot 1', time: '07:30 – 09:00' },
-  { id: 2, name: 'Slot 2', time: '09:10 – 10:40' },
-  { id: 3, name: 'Slot 3', time: '10:50 – 12:20' },
-  { id: 4, name: 'Slot 4', time: '12:50 – 14:20' },
-  { id: 5, name: 'Slot 5', time: '14:30 – 16:00' },
-];
+const SLOTS = REVIEW_SLOTS;
 
 const formatReviewType = (type) => {
   if (type === 'Review1' || type === 0) return 'Review 1';
@@ -75,6 +70,7 @@ const AvailabilityPage = () => {
   const [semesterId, setSemesterId] = useState(1);
   const [selectedSlots, setSelectedSlots] = useState([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isEditingSubmitted, setIsEditingSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -123,10 +119,12 @@ const AvailabilityPage = () => {
       const data = response.data || {};
       setSelectedSlots(Array.isArray(data.slots) ? data.slots : []);
       setIsSubmitted(Boolean(data.isSubmitted || data.status === 'Submitted'));
+      setIsEditingSubmitted(false);
     } catch (err) {
       console.error('Failed to load availability:', err);
       setSelectedSlots([]);
       setIsSubmitted(false);
+      setIsEditingSubmitted(false);
     } finally {
       setLoading(false);
     }
@@ -159,7 +157,7 @@ const AvailabilityPage = () => {
   }, [fetchAvailability, selectedRoundId]);
 
   const toggleSlot = (dayId, slotId) => {
-    if (isSubmitted || !canEditAvailability) return;
+    if (!canModifyAvailability) return;
     setError('');
     setSuccess('');
     const exists = selectedSlots.some((s) => s.dayOfWeek === dayId && s.slot === slotId);
@@ -175,7 +173,7 @@ const AvailabilityPage = () => {
   };
 
   const handleSaveDraft = async () => {
-    if (!selectedRoundId || !canEditAvailability) return;
+    if (!selectedRoundId || !canModifyAvailability) return;
     setLoading(true);
     setError('');
     setSuccess('');
@@ -185,6 +183,7 @@ const AvailabilityPage = () => {
       });
       setSuccess('Đã lưu bản nháp. Bạn có thể chỉnh sửa trước khi nộp chính thức.');
       setIsSubmitted(false);
+      setIsEditingSubmitted(false);
     } catch (err) {
       setError(getApiErrorMessage(err, 'Lỗi khi lưu nháp.'));
     } finally {
@@ -193,7 +192,7 @@ const AvailabilityPage = () => {
   };
 
   const handleSubmitFinal = async () => {
-    if (!selectedRoundId || !canEditAvailability) return;
+    if (!selectedRoundId || !canModifyAvailability) return;
     setLoading(true);
     setError('');
     setSuccess('');
@@ -202,8 +201,9 @@ const AvailabilityPage = () => {
         slots: selectedSlots
       });
       await api.post(`/review-availability/week/submit?roundId=${selectedRoundId}`);
-      setSuccess('Đã nộp chính thức! Lịch tuần này hiện đã khóa chỉnh sửa.');
+      setSuccess('Đã nộp chính thức! Bạn vẫn có thể chỉnh sửa và nộp lại khi đợt đăng ký còn mở.');
       setIsSubmitted(true);
+      setIsEditingSubmitted(false);
     } catch (err) {
       setError(getApiErrorMessage(err, 'Lỗi khi nộp chính thức.'));
     } finally {
@@ -211,8 +211,19 @@ const AvailabilityPage = () => {
     }
   };
 
+  const handleStartEditing = () => {
+    if (!isSubmitted || !canEditAvailability) return;
+    setIsEditingSubmitted(true);
+    setError('');
+    setSuccess('Bạn đang chỉnh sửa đăng ký đã nộp. Hãy bấm “Nộp lại” để cập nhật bản chính thức.');
+  };
+
+  const handleCancelEditing = () => {
+    fetchAvailability();
+  };
+
   const selectAllDay = (dayId) => {
-    if (isSubmitted || !canEditAvailability) return;
+    if (!canModifyAvailability) return;
     const allSelected = SLOTS.every((s) => isSlotSelected(dayId, s.id));
     if (allSelected) {
       setSelectedSlots(selectedSlots.filter((s) => s.dayOfWeek !== dayId));
@@ -225,6 +236,7 @@ const AvailabilityPage = () => {
 
   const currentRound = rounds.find(r => r.id === Number(selectedRoundId)) || rounds[0];
   const canEditAvailability = isAvailabilityRoundOpen(currentRound);
+  const canModifyAvailability = canEditAvailability && (!isSubmitted || isEditingSubmitted);
   const submissionMeta = getSubmissionMeta(isSubmitted);
 
   if (loading && rounds.length === 0) return <PageSkeleton cards={3} rows={6} />;
@@ -464,6 +476,18 @@ const AvailabilityPage = () => {
                 <RefreshCw size={16} color="#4F46E5" />
                 <span>Tải lại</span>
               </button>
+              {isSubmitted && canEditAvailability && !isEditingSubmitted && (
+                <button type="button" className="btn btn-primary" onClick={handleStartEditing} disabled={loading} style={{ background: '#4F46E5', border: 'none', color: '#FFFFFF', fontWeight: 750, padding: '0.65rem 1.1rem', borderRadius: '12px' }}>
+                  <Pencil size={16} />
+                  <span>Chỉnh sửa đăng ký</span>
+                </button>
+              )}
+              {isEditingSubmitted && (
+                <button type="button" className="btn btn-secondary" onClick={handleCancelEditing} disabled={loading} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#475569', fontWeight: 700, padding: '0.65rem 1.1rem', borderRadius: '12px' }}>
+                  <X size={16} />
+                  <span>Hủy chỉnh sửa</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -484,6 +508,12 @@ const AvailabilityPage = () => {
             </div>
           )}
 
+          {isSubmitted && canEditAvailability && !isEditingSubmitted && (
+            <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+              <CheckCircle2 size={18} /> Đăng ký đã được nộp. Bạn có thể chỉnh sửa và nộp lại trong thời gian đợt review còn mở.
+            </div>
+          )}
+
           {/* Action Tools Card right above 30-slot grid */}
           <div className="glass-card" style={{ padding: '1.25rem 1.75rem', marginBottom: '1.75rem', display: 'flex', flexWrap: 'wrap', gap: '1.25rem', alignItems: 'center', justifyContent: 'space-between', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -497,20 +527,20 @@ const AvailabilityPage = () => {
               <button
                 type="button"
                 onClick={handleSaveDraft}
-                disabled={loading || isSubmitted || !canEditAvailability}
+                disabled={loading || !canModifyAvailability}
                 className="btn btn-secondary"
-                style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#334155', opacity: (isSubmitted || !canEditAvailability) ? 0.5 : 1, fontWeight: 700, padding: '0.65rem 1.25rem', borderRadius: '10px' }}
+                style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#334155', opacity: canModifyAvailability ? 1 : 0.5, fontWeight: 700, padding: '0.65rem 1.25rem', borderRadius: '10px' }}
               >
                 <Save size={16} /> <span>Lưu nháp</span>
               </button>
               <button
                 type="button"
                 onClick={handleSubmitFinal}
-                disabled={loading || isSubmitted || !canEditAvailability || selectedSlots.length === 0}
+                disabled={loading || !canModifyAvailability || selectedSlots.length === 0}
                 className="btn btn-primary"
-                style={{ background: 'linear-gradient(135deg, #4F46E5, #4338CA)', border: 'none', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)', opacity: (isSubmitted || !canEditAvailability || selectedSlots.length === 0) ? 0.5 : 1, fontWeight: 800, padding: '0.65rem 1.5rem', borderRadius: '10px' }}
+                style={{ background: 'linear-gradient(135deg, #4F46E5, #4338CA)', border: 'none', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)', opacity: (!canModifyAvailability || selectedSlots.length === 0) ? 0.5 : 1, fontWeight: 800, padding: '0.65rem 1.5rem', borderRadius: '10px' }}
               >
-                <Send size={16} /> <span>Nộp chính thức</span>
+                <Send size={16} /> <span>{isEditingSubmitted ? 'Nộp lại' : 'Nộp chính thức'}</span>
               </button>
             </div>
           </div>
@@ -533,6 +563,9 @@ const AvailabilityPage = () => {
                 <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0.3rem 0 0', fontWeight: 500 }}>
                   Giảng viên chọn các slot có thể tham gia để hệ thống tự động phân công lịch review phù hợp.
                 </p>
+                <p style={{ fontSize: '0.82rem', color: '#B45309', margin: '0.35rem 0 0', fontWeight: 700 }}>
+                  {REVIEW_LUNCH_BREAK.label}
+                </p>
               </div>
             </div>
 
@@ -549,9 +582,9 @@ const AvailabilityPage = () => {
                         <button
                           type="button"
                           onClick={() => selectAllDay(day.id)}
-                          disabled={isSubmitted || !canEditAvailability}
+                          disabled={!canModifyAvailability}
                           style={{
-                            marginTop: '0.3rem', fontSize: '0.72rem', color: '#4F46E5', background: 'none', border: 'none', cursor: (isSubmitted || !canEditAvailability) ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: (isSubmitted || !canEditAvailability) ? 0.4 : 1,
+                            marginTop: '0.3rem', fontSize: '0.72rem', color: '#4F46E5', background: 'none', border: 'none', cursor: canModifyAvailability ? 'pointer' : 'not-allowed', fontWeight: 700, opacity: canModifyAvailability ? 1 : 0.4,
                           }}
                         >
                           {SLOTS.every((s) => isSlotSelected(day.id, s.id)) ? 'Bỏ tất cả' : '+ Chọn tất cả'}
@@ -574,19 +607,19 @@ const AvailabilityPage = () => {
                             <button
                               type="button"
                               onClick={() => toggleSlot(day.id, slot.id)}
-                              disabled={isSubmitted || !canEditAvailability}
+                              disabled={!canModifyAvailability}
                               style={{
                                 width: '100%',
                                 height: '48px',
                                 borderRadius: '10px',
                                 border: selected ? '2px solid #4F46E5' : '1px solid #E2E8F0',
                                 background: selected ? '#EEF2FF' : '#FFFFFF',
-                                cursor: (isSubmitted || !canEditAvailability) ? 'not-allowed' : 'pointer',
+                                cursor: canModifyAvailability ? 'pointer' : 'not-allowed',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 transition: 'all 0.15s ease',
-                                opacity: (isSubmitted || !canEditAvailability) ? 0.6 : 1,
+                                opacity: canModifyAvailability ? 1 : 0.6,
                                 boxShadow: selected ? '0 2px 6px rgba(79, 70, 229, 0.15)' : 'none'
                               }}
                             >
@@ -614,20 +647,20 @@ const AvailabilityPage = () => {
             <button
               type="button"
               onClick={handleSaveDraft}
-              disabled={loading || isSubmitted || !canEditAvailability}
+              disabled={loading || !canModifyAvailability}
               className="btn btn-secondary"
-              style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#334155', opacity: (isSubmitted || !canEditAvailability) ? 0.5 : 1, fontWeight: 700, padding: '0.8rem 1.5rem', borderRadius: '12px' }}
+              style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#334155', opacity: canModifyAvailability ? 1 : 0.5, fontWeight: 700, padding: '0.8rem 1.5rem', borderRadius: '12px' }}
             >
               <Save size={18} /> <span>Lưu nháp</span>
             </button>
             <button
               type="button"
               onClick={handleSubmitFinal}
-              disabled={loading || isSubmitted || !canEditAvailability || selectedSlots.length === 0}
+              disabled={loading || !canModifyAvailability || selectedSlots.length === 0}
               className="btn btn-primary"
-              style={{ background: 'linear-gradient(135deg, #4F46E5, #4338CA)', border: 'none', boxShadow: '0 4px 14px rgba(79, 70, 229, 0.28)', opacity: (isSubmitted || !canEditAvailability || selectedSlots.length === 0) ? 0.5 : 1, fontWeight: 800, padding: '0.8rem 2rem', borderRadius: '12px' }}
+              style={{ background: 'linear-gradient(135deg, #4F46E5, #4338CA)', border: 'none', boxShadow: '0 4px 14px rgba(79, 70, 229, 0.28)', opacity: (!canModifyAvailability || selectedSlots.length === 0) ? 0.5 : 1, fontWeight: 800, padding: '0.8rem 2rem', borderRadius: '12px' }}
             >
-              <Send size={18} /> <span>Nộp chính thức ({selectedSlots.length} ô)</span>
+              <Send size={18} /> <span>{isEditingSubmitted ? 'Nộp lại' : 'Nộp chính thức'} ({selectedSlots.length} slot)</span>
             </button>
           </div>
         </div>
