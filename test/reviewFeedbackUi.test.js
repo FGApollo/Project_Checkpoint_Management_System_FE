@@ -112,6 +112,9 @@ test('progress comments use a scoped realtime channel and an optimistic conversa
   assert.match(lecturerPage, /mergeProgressComment\(response\.data\)/);
   assert.match(lecturerPage, /Đang cập nhật trực tiếp/);
   assert.match(lecturerPage, /aria-live="polite"/);
+  assert.match(lecturerPage, /width: '100%', boxSizing: 'border-box', minHeight: 104/);
+  assert.match(lecturerPage, /disabled=\{!canSendComment\}/);
+  assert.match(lecturerPage, /id="rev-comment-shortcut"/);
 });
 
 test('lecturer navigation separates attendance from the direct defense room', async () => {

@@ -76,6 +76,7 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
   const todaySessions = filterReviewSessions(sessions, 'today');
   const upcomingSessions = filterReviewSessions(sessions, 'upcoming');
   const filteredSessions = filterReviewSessions(sessions, sessionFilter);
+  const canSendComment = newComment.trim().length > 0 && !commentSending;
   const sessionDateGroups = new Map();
   filteredSessions.forEach((session) => {
     const dateKey = getReviewDateKey(session.sessionDate) || 'unknown';
@@ -734,32 +735,38 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
                     })}
                   </div>
 
-                  <form onSubmit={handleAddComment} style={{ padding: '1rem 1.25rem 1.15rem', borderTop: '1px solid #E2E8F0', background: '#FFFFFF' }}>
-                    <label htmlFor="rev-new-comment" className="form-label" style={{ color: '#334155', fontWeight: 700, display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                  <form onSubmit={handleAddComment} style={{ padding: '1.15rem 1.25rem 1.25rem', borderTop: '1px solid #E2E8F0', background: '#FFFFFF' }}>
+                    <label htmlFor="rev-new-comment" className="form-label" style={{ color: '#334155', fontWeight: 700, display: 'flex', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.55rem' }}>
                       <span>Thêm nhận xét tiến độ</span>
                       <span style={{ color: newComment.length > 1900 ? '#DC2626' : '#94A3B8', fontSize: '0.72rem', fontWeight: 600 }}>{newComment.length}/2000</span>
                     </label>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem' }}>
-                      <textarea
-                        id="rev-new-comment"
-                        className="form-input"
-                        rows="3"
-                        maxLength={2000}
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        onKeyDown={(event) => {
-                          if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') event.currentTarget.form?.requestSubmit();
-                        }}
-                        placeholder="Góp ý về kiến trúc, lỗi cần khắc phục hoặc tiến độ checkpoint..."
-                        style={{ minHeight: 88, resize: 'vertical', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', lineHeight: 1.5 }}
-                        required
-                      />
-                      <button type="submit" className="btn btn-primary" disabled={commentSending || !newComment.trim()} style={{ minWidth: 132, justifyContent: 'center', height: 44, marginBottom: 1 }}>
+                    <textarea
+                      id="rev-new-comment"
+                      className="form-input"
+                      rows="3"
+                      maxLength={2000}
+                      value={newComment}
+                      aria-describedby="rev-comment-shortcut"
+                      onChange={(e) => setNewComment(e.target.value)}
+                      onKeyDown={(event) => {
+                        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') event.currentTarget.form?.requestSubmit();
+                      }}
+                      placeholder="Góp ý về kiến trúc, lỗi cần khắc phục hoặc tiến độ checkpoint..."
+                      style={{ display: 'block', width: '100%', boxSizing: 'border-box', minHeight: 104, resize: 'vertical', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', lineHeight: 1.55 }}
+                      required
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+                      <p id="rev-comment-shortcut" style={{ margin: 0, fontSize: '0.72rem', color: '#64748B' }}>Nhấn Ctrl + Enter để gửi nhanh.</p>
+                      <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={!canSendComment}
+                        style={{ minWidth: 148, justifyContent: 'center', height: 42, color: canSendComment ? '#FFFFFF' : '#94A3B8', background: canSendComment ? 'linear-gradient(135deg, #F26522, #FF7A00)' : '#E2E8F0', boxShadow: canSendComment ? '0 4px 12px rgba(242, 101, 34, 0.2)' : 'none' }}
+                      >
                         {commentSending ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
                         <span>{commentSending ? 'Đang gửi...' : 'Gửi nhận xét'}</span>
                       </button>
                     </div>
-                    <p style={{ margin: '0.45rem 0 0', fontSize: '0.7rem', color: '#94A3B8' }}>Nhấn Ctrl + Enter để gửi nhanh.</p>
                   </form>
                 </section>
               )}
