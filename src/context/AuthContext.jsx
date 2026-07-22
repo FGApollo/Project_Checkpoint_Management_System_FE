@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
-import signalRService from '../services/signalr';
 
 const AuthContext = createContext(null);
 
@@ -58,7 +57,6 @@ export const AuthProvider = ({ children }) => {
 
     const handleUnauthorized = () => {
       setUser(null);
-      signalRService.stopConnection();
     };
 
     window.addEventListener('auth:unauthorized', handleUnauthorized);
@@ -135,11 +133,6 @@ export const AuthProvider = ({ children }) => {
   }, [login]);
 
   const logout = useCallback(async () => {
-    try {
-      await signalRService.stopConnection();
-    } catch (e) {
-      console.error(e);
-    }
     localStorage.removeItem('cpms_access_token');
     localStorage.removeItem('cpms_refresh_token');
     localStorage.removeItem('cpms_user');

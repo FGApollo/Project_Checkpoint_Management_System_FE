@@ -1,7 +1,9 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
 import { listProjectDocuments, downloadProjectDocument, generateProjectDocumentSuggestions, listDocumentComments, createDocumentComment } from '../../services/documents';
-import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
+import reviewProgressService from '../../services/reviewProgress';
+import { useAuth } from '../../context/AuthContext';
+import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { PageSkeleton, PanelSkeleton } from '../../components/common/Skeleton';
 
 const getTabButtonProps = (activeTab, tab) => {
@@ -19,7 +21,20 @@ const formatSessionDate = (value) => value
   ? new Date(value).toLocaleDateString('vi-VN')
   : 'Chưa xác định';
 
+const formatCommentTime = (value) => value
+  ? new Intl.DateTimeFormat('vi-VN', {
+    hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
+  }).format(new Date(value))
+  : '';
+const getInitials = (value = '') => value
+  .trim()
+  .split(/\s+/)
+  .slice(-2)
+  .map((part) => part[0]?.toUpperCase())
+  .join('') || 'GV';
+
 const ReviewScoringPage = () => {
+  const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
   const [activeTab, setActiveTab] = useState('attendance'); // 'attendance' | 'comments' | 'evaluation'
@@ -31,6 +46,9 @@ const ReviewScoringPage = () => {
   const [attendanceList, setAttendanceList] = useState([]);
   const [commentsList, setCommentsList] = useState([]);
   const [newComment, setNewComment] = useState('');
+  const [commentSending, setCommentSending] = useState(false);
+  const [progressConnection, setProgressConnection] = useState('offline');
+  const commentsViewportRef = useRef(null);
 
   // Final reviewer feedback
   const [evalNotes, setEvalNotes] = useState('');
@@ -43,6 +61,17 @@ const ReviewScoringPage = () => {
   const [commentReference, setCommentReference] = useState('');
   const [inlineCommentText, setInlineCommentText] = useState('');
   const [inlineCommentBusy, setInlineCommentBusy] = useState(false);
+
+  const mergeProgressComment = useCallback((incoming) => {
+    if (!incoming?.id) return;
+    setCommentsList((current) => {
+      const next = current.some((comment) => comment.id === incoming.id)
+        ? current.map((comment) => comment.id === incoming.id ? incoming : comment)
+        : [...current, incoming];
+      return next.sort((left, right) =>
+        new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime());
+    });
+  }, []);
 
   const fetchMySessions = useCallback(async () => {
     setLoading(true);
@@ -67,6 +96,8 @@ const ReviewScoringPage = () => {
   useEffect(() => {
     fetchMySessions();
   }, [fetchMySessions]);
+
+  useEffect(() => () => { reviewProgressService.stop(); }, []);
 
   const fetchSessionDetails = useCallback(async (sess) => {
     if (!sess) return;
@@ -107,6 +138,30 @@ const ReviewScoringPage = () => {
       fetchSessionDetails(selectedSession);
     }
   }, [selectedSession, fetchSessionDetails]);
+
+  useEffect(() => {
+    if (!selectedSession) return undefined;
+    const sessionId = getSessionId(selectedSession);
+    const groupId = selectedSession.groupId;
+    if (!sessionId || !groupId) return undefined;
+
+    setCommentsList([]);
+    const unsubscribeComment = reviewProgressService.subscribe(mergeProgressComment);
+    const unsubscribeStatus = reviewProgressService.subscribeStatus(setProgressConnection);
+    reviewProgressService.join(sessionId, groupId).catch(() => setProgressConnection('offline'));
+
+    return () => {
+      unsubscribeComment();
+      unsubscribeStatus();
+      reviewProgressService.leave(sessionId, groupId);
+    };
+  }, [selectedSession, mergeProgressComment]);
+
+  useEffect(() => {
+    if (activeTab !== 'comments') return;
+    const viewport = commentsViewportRef.current;
+    if (viewport) viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+  }, [activeTab, commentsList.length]);
 
   const handleGenerateAiSuggestion = async () => {
     if (!selectedSession) return;
@@ -210,16 +265,19 @@ const ReviewScoringPage = () => {
     if (!selectedSession || !newComment.trim()) return;
     setError('');
     setSuccess('');
+    setCommentSending(true);
     try {
-      await api.post(`/review-attendance/${getSessionId(selectedSession)}/comments`, {
+      const response = await api.post(`/review-attendance/${getSessionId(selectedSession)}/comments`, {
         groupId: Number(selectedSession.groupId),
-        content: newComment
+        content: newComment.trim()
       });
+      mergeProgressComment(response.data);
       setNewComment('');
-      setSuccess('Checkpoint comment posted to group.');
-      fetchSessionDetails(selectedSession);
+      setSuccess('Nhận xét tiến độ đã được gửi tới các giảng viên trong ca review.');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to submit comment.');
+    } finally {
+      setCommentSending(false);
     }
   };
 
@@ -505,47 +563,92 @@ const ReviewScoringPage = () => {
 
               {/* COMMENTS PANEL */}
               {activeTab === 'comments' && (
-                <div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', color: '#0F172A' }}>Trao đổi & Nhận xét Tiến độ</h3>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem', maxHeight: '300px', overflowY: 'auto' }}>
-                    {commentsList.length === 0 ? (
-                      <div style={{ padding: '2rem', textAlign: 'center', background: '#F8FAFC', borderRadius: 'var(--radius-md)', color: '#64748B', border: '1px solid #CBD5E1' }}>
-                        Chưa có nhận xét nào được gửi. Hãy nhập góp ý chuyên môn cho nhóm bên dưới!
+                <section style={{ border: '1px solid #E2E8F0', borderRadius: '1rem', overflow: 'hidden', background: '#FFFFFF' }}>
+                  <header style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', borderBottom: '1px solid #E2E8F0', background: 'linear-gradient(135deg, #FFF7ED 0%, #FFFFFF 72%)', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <span style={{ width: 40, height: 40, borderRadius: 12, display: 'grid', placeItems: 'center', background: '#F26522', color: '#FFFFFF', boxShadow: '0 8px 20px rgba(242, 101, 34, 0.22)' }}>
+                        <MessageSquare size={20} />
+                      </span>
+                      <div>
+                        <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: '#0F172A' }}>Trao đổi tiến độ</h3>
+                        <p style={{ fontSize: '0.78rem', color: '#64748B', margin: '0.15rem 0 0' }}>
+                          Nhận xét được cập nhật trực tiếp cho các giảng viên trong ca review này.
+                        </p>
                       </div>
-                    ) : (
-                      commentsList.map((comm) => (
-                        <div key={comm.id ?? comm.createdAt ?? `${comm.authorName}-${comm.commentText ?? comm.content}`} className="glass-panel" style={{ padding: '1rem', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-                            <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#F26522' }}>{comm.authorName || 'Giảng viên'}</span>
-                            <span style={{ fontSize: '0.7rem', color: '#64748B' }}>{new Date(comm.createdAt || Date.now()).toLocaleString()}</span>
-                          </div>
-                          <p style={{ fontSize: '0.85rem', margin: 0, color: '#0F172A' }}>{comm.commentText || comm.content}</p>
+                    </div>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', borderRadius: 999, padding: '0.4rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, color: progressConnection === 'connected' ? '#047857' : progressConnection === 'connecting' ? '#B45309' : '#64748B', background: progressConnection === 'connected' ? '#D1FAE5' : progressConnection === 'connecting' ? '#FEF3C7' : '#F1F5F9', border: `1px solid ${progressConnection === 'connected' ? '#A7F3D0' : progressConnection === 'connecting' ? '#FDE68A' : '#E2E8F0'}` }}>
+                      {progressConnection === 'connected' ? <Wifi size={14} /> : progressConnection === 'connecting' ? <Loader2 size={14} className="spin" /> : <WifiOff size={14} />}
+                      {progressConnection === 'connected' ? 'Đang cập nhật trực tiếp' : progressConnection === 'connecting' ? 'Đang kết nối' : 'Đang dùng dữ liệu API'}
+                    </span>
+                  </header>
+
+                  <div
+                    ref={commentsViewportRef}
+                    aria-live="polite"
+                    style={{ height: 'min(42vh, 420px)', minHeight: 280, overflowY: 'auto', padding: '1.25rem', background: '#F8FAFC', scrollBehavior: 'smooth' }}
+                  >
+                    {commentsList.length === 0 ? (
+                      <div style={{ height: '100%', minHeight: 230, display: 'grid', placeItems: 'center', textAlign: 'center', color: '#64748B' }}>
+                        <div>
+                          <span style={{ width: 56, height: 56, margin: '0 auto 0.75rem', borderRadius: 18, display: 'grid', placeItems: 'center', color: '#F26522', background: '#FFEDD5' }}>
+                            <MessageSquare size={26} />
+                          </span>
+                          <strong style={{ display: 'block', color: '#334155', marginBottom: '0.3rem' }}>Chưa có trao đổi tiến độ</strong>
+                          <span style={{ fontSize: '0.85rem' }}>Gửi nhận xét đầu tiên để các giảng viên cùng theo dõi.</span>
                         </div>
-                      ))
-                    )}
+                      </div>
+                    ) : commentsList.map((comm) => {
+                      const isOwn = Number(comm.authorUserId) === Number(user?.id);
+                      const authorName = comm.authorName || 'Giảng viên';
+                      return (
+                        <article key={comm.id ?? `${comm.createdAt}-${authorName}`} style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start', gap: '0.65rem', marginBottom: '1rem' }}>
+                          {!isOwn && (
+                            <span aria-hidden="true" style={{ width: 34, height: 34, flex: '0 0 34px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: '#E0E7FF', color: '#4338CA', fontSize: '0.72rem', fontWeight: 800 }}>
+                              {getInitials(authorName)}
+                            </span>
+                          )}
+                          <div style={{ width: 'fit-content', maxWidth: 'min(76%, 680px)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: isOwn ? 'flex-end' : 'flex-start', gap: '0.55rem', marginBottom: '0.3rem', padding: '0 0.2rem' }}>
+                              <strong style={{ color: isOwn ? '#C2410C' : '#334155', fontSize: '0.78rem' }}>{isOwn ? 'Bạn' : authorName}</strong>
+                              <time style={{ color: '#94A3B8', fontSize: '0.7rem' }}>{formatCommentTime(comm.createdAt)}</time>
+                            </div>
+                            <div style={{ padding: '0.8rem 1rem', borderRadius: isOwn ? '1rem 0.25rem 1rem 1rem' : '0.25rem 1rem 1rem 1rem', background: isOwn ? 'linear-gradient(135deg, #F26522, #FF7A00)' : '#FFFFFF', color: isOwn ? '#FFFFFF' : '#0F172A', border: isOwn ? 'none' : '1px solid #E2E8F0', boxShadow: '0 5px 16px rgba(15, 23, 42, 0.06)', fontSize: '0.88rem', lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                              {comm.commentText || comm.content}
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
 
-                  <form onSubmit={handleAddComment}>
-                    <div className="form-group">
-                      <label htmlFor="rev-new-comment" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Thêm Nhận xét mới</label>
+                  <form onSubmit={handleAddComment} style={{ padding: '1rem 1.25rem 1.15rem', borderTop: '1px solid #E2E8F0', background: '#FFFFFF' }}>
+                    <label htmlFor="rev-new-comment" className="form-label" style={{ color: '#334155', fontWeight: 700, display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                      <span>Thêm nhận xét tiến độ</span>
+                      <span style={{ color: newComment.length > 1900 ? '#DC2626' : '#94A3B8', fontSize: '0.72rem', fontWeight: 600 }}>{newComment.length}/2000</span>
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem' }}>
                       <textarea
                         id="rev-new-comment"
                         className="form-input"
                         rows="3"
+                        maxLength={2000}
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Chi tiết góp ý về kiến trúc, các lỗi cần khắc phục, tiến độ checkpoint..."
-                        style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
+                        onKeyDown={(event) => {
+                          if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') event.currentTarget.form?.requestSubmit();
+                        }}
+                        placeholder="Góp ý về kiến trúc, lỗi cần khắc phục hoặc tiến độ checkpoint..."
+                        style={{ minHeight: 88, resize: 'vertical', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', lineHeight: 1.5 }}
                         required
                       />
+                      <button type="submit" className="btn btn-primary" disabled={commentSending || !newComment.trim()} style={{ minWidth: 132, justifyContent: 'center', height: 44, marginBottom: 1 }}>
+                        {commentSending ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
+                        <span>{commentSending ? 'Đang gửi...' : 'Gửi nhận xét'}</span>
+                      </button>
                     </div>
-                    <button type="submit" className="btn btn-primary">
-                      <Send size={16} />
-                      <span>Gửi Nhận xét</span>
-                    </button>
+                    <p style={{ margin: '0.45rem 0 0', fontSize: '0.7rem', color: '#94A3B8' }}>Nhấn Ctrl + Enter để gửi nhanh.</p>
                   </form>
-                </div>
+                </section>
               )}
 
               {/* EVALUATION PANEL */}

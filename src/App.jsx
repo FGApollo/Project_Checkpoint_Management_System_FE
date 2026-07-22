@@ -19,7 +19,6 @@ import ReviewTrackingPage from './pages/admin/ReviewTrackingPage';
 import LecturerDashboard from './pages/lecturer/LecturerDashboard';
 import AvailabilityPage from './pages/lecturer/AvailabilityPage';
 import ReviewScoringPage from './pages/lecturer/ReviewScoringPage';
-import DefenseRoomPage from './pages/lecturer/DefenseRoomPage';
 
 
 // Student Pages
@@ -168,16 +167,6 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/lecturer/defenses"
-          element={
-            <ProtectedRoute allowedRoles={['Lecturer']}>
-              <DefenseRoomPage />
-            </ProtectedRoute>
-          }
-        />
-
-
         {/* STUDENT ROUTES */}
         <Route
           path="/student/dashboard"

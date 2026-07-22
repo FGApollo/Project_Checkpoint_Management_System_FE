@@ -28,6 +28,10 @@ export const PRESENCE_HUB_URL = removeTrailingSlashes(
   import.meta.env.VITE_PRESENCE_HUB_URL || `${API_ORIGIN}/hubs/presence`
 );
 
+export const REVIEW_PROGRESS_HUB_URL = removeTrailingSlashes(
+  import.meta.env.VITE_REVIEW_PROGRESS_HUB_URL || `${API_ORIGIN}/hubs/review-progress`
+);
+
 export const getBackendUrl = (path = '') => {
   if (/^https?:\/\//i.test(path)) {
     return path;

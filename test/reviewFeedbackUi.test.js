@@ -19,6 +19,12 @@ test('review feedback UI does not expose scores or pass/fail verdicts', async ()
   assert.match(studentPage, /entry\.fullName \|\| entry\.studentName/);
   assert.doesNotMatch(lecturerPage, /evalResult|resultText:\s*evalResult|Nộp Điểm|Chấm điểm/);
   assert.doesNotMatch(trackingPage, /scoringStatus|reviewer1Result|reviewer2Result|item\.result|Đạt yêu cầu \(Pass\)|Không đạt \(Fail\)|chấm điểm/i);
+  assert.match(trackingPage, /item\.groupStatus === 'Completed'/);
+  assert.match(trackingPage, /FEEDBACK_RECEIVED/);
+  assert.match(trackingPage, /item\.reviewerFeedback/);
+  assert.match(trackingPage, /feedback\.reviewerName/);
+  assert.match(trackingPage, /feedback\.comment/);
+  assert.doesNotMatch(trackingPage, /comments: item\.notes/);
   assert.doesNotMatch(lecturerDashboard, /Chấm điểm Review/);
   assert.doesNotMatch(studentDashboard, /Kết quả Chấm|Nhóm #\$\{sc\.groupId\}/);
   assert.match(studentDashboard, /sc\.sessionId \|\| sc\.id/);
@@ -86,20 +92,31 @@ test('lecturer review uses the deployed session contract and completes the group
   assert.doesNotMatch(lecturerPage, /listProjectDocuments\(sess\.groupId\)/);
 });
 
-test('lecturer defense room is routed, database-backed, and production-safe', async () => {
-  const [app, sidebar, defensePage, defenseManagementPage] = await Promise.all([
+test('progress comments use a scoped SignalR room and an optimistic realtime conversation UI', async () => {
+  const [lecturerPage, realtimeService, environment] = await Promise.all([
+    readSource('../src/pages/lecturer/ReviewScoringPage.jsx'),
+    readSource('../src/services/reviewProgress.js'),
+    readSource('../src/config/environment.js'),
+  ]);
+
+  assert.match(environment, /REVIEW_PROGRESS_HUB_URL/);
+  assert.match(realtimeService, /withAutomaticReconnect/);
+  assert.match(realtimeService, /JoinReviewProgress/);
+  assert.match(realtimeService, /reviewProgressCommentAdded/);
+  assert.match(lecturerPage, /reviewProgressService\.join/);
+  assert.match(lecturerPage, /mergeProgressComment\(response\.data\)/);
+  assert.match(lecturerPage, /Đang cập nhật trực tiếp/);
+  assert.match(lecturerPage, /aria-live="polite"/);
+});
+
+test('lecturer navigation does not expose the duplicate live defense room', async () => {
+  const [app, sidebar] = await Promise.all([
     readSource('../src/App.jsx'),
     readSource('../src/components/common/Sidebar.jsx'),
-    readSource('../src/pages/lecturer/DefenseRoomPage.jsx'),
-    readSource('../src/pages/admin/DefenseManagementPage.jsx'),
   ]);
-  assert.match(app, /path="\/lecturer\/defenses"/);
-  assert.match(sidebar, /to="\/lecturer\/defenses"/);
-  assert.match(defensePage, /defense-management\/my-board-sessions/);
-  assert.match(defenseManagementPage, /api\.get\('\/defense-sessions'\)/);
-  assert.match(defensePage, /getBackendUrl/);
-  assert.doesNotMatch(defensePage, /http:\/\/localhost:5122/);
-  assert.doesNotMatch(defensePage, /SE190001|Nguyen Van A/);
+
+  assert.doesNotMatch(app, /DefenseRoomPage|\/lecturer\/defenses/);
+  assert.doesNotMatch(sidebar, /Phòng bảo vệ trực tiếp|\/lecturer\/defenses/);
 });
 
 test('admin can inspect semester groups and export all review reports', async () => {
@@ -126,4 +143,5 @@ test('review detail opens at the top and lets admin download submitted documents
   assert.match(trackingPage, /\), document\.body\)/);
   assert.match(trackingPage, /alignItems: 'flex-start'/);
   assert.match(trackingPage, /TẢI VỀ|Tải về/);
+  assert.match(trackingPage, /A corrupt\/missing legacy document must not hide the whole review board/);
 });

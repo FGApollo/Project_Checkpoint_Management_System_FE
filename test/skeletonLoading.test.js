@@ -16,7 +16,6 @@ test('all API-backed pages render shared skeletons during initial loading', asyn
     '../src/pages/lecturer/LecturerDashboard.jsx',
     '../src/pages/lecturer/AvailabilityPage.jsx',
     '../src/pages/lecturer/ReviewScoringPage.jsx',
-    '../src/pages/lecturer/DefenseRoomPage.jsx',
     '../src/pages/student/StudentDashboard.jsx',
     '../src/pages/student/ReviewRegistrationPage.jsx',
     '../src/pages/student/ReviewResultsPage.jsx',
@@ -53,10 +52,9 @@ test('skeleton UI is accessible and respects reduced motion', async () => {
 });
 
 test('API requests have a finite deadline so skeletons cannot wait forever', async () => {
-  const [apiModule, apiSource, signalRSource] = await Promise.all([
+  const [apiModule, apiSource] = await Promise.all([
     import('../src/services/api.js'),
     readSource('../src/services/api.js'),
-    readSource('../src/services/signalr.js'),
   ]);
 
   assert.ok(
@@ -72,17 +70,6 @@ test('API requests have a finite deadline so skeletons cannot wait forever', asy
     /axios\.post\([\s\S]*?\{\s*timeout:\s*API_REQUEST_TIMEOUT_MS\s*\},?\s*\)/,
     'Token refresh must use the same finite deadline',
   );
-  assert.match(
-    signalRSource,
-    /timeout:\s*REALTIME_REQUEST_TIMEOUT_MS/,
-    'SignalR negotiation must have a finite deadline',
-  );
-  assert.match(
-    signalRSource,
-    /withDeadline\(\s*this\.connection\.invoke/,
-    'SignalR hub invocations used by loading screens must have a finite deadline',
-  );
-
   const { createServer } = await import('node:http');
   const server = createServer(() => {});
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
