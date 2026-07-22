@@ -16,6 +16,7 @@ test('review feedback UI does not expose scores or pass/fail verdicts', async ()
 
   assert.doesNotMatch(studentPage, /sub\.score|selectedSubmission\.result|getResultBadge/);
   assert.doesNotMatch(studentPage, /Điểm:\s*<strong>|KẾT QUẢ REVIEW|ĐẠT YÊU CẦU|KHÔNG ĐẠT/);
+  assert.match(studentPage, /entry\.fullName \|\| entry\.studentName/);
   assert.doesNotMatch(lecturerPage, /evalResult|resultText:\s*evalResult|Nộp Điểm|Chấm điểm/);
   assert.doesNotMatch(trackingPage, /scoringStatus|reviewer1Result|reviewer2Result|item\.result|Đạt yêu cầu \(Pass\)|Không đạt \(Fail\)|chấm điểm/i);
   assert.doesNotMatch(lecturerDashboard, /Chấm điểm Review/);

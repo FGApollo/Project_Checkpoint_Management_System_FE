@@ -202,7 +202,7 @@ const ReviewResultsPage = () => {
                     ) : attendance.map((entry) => (
                       <tr key={entry.studentId ?? entry.id ?? entry.studentCode}>
                         <td style={{ fontWeight: 700 }}>{entry.studentCode || `SV #${entry.studentId}`}</td>
-                        <td>{entry.studentName || 'Sinh viên'}</td>
+                        <td>{entry.fullName || entry.studentName || 'Sinh viên'}</td>
                         <td><span className={`badge ${entry.isPresent !== false ? 'badge-success' : 'badge-danger'}`}>{entry.isPresent !== false ? 'Có mặt' : 'Vắng mặt'}</span></td>
                       </tr>
                     ))}
