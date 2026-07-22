@@ -8,3 +8,5 @@ export const uploadProjectDocument = (groupId, file, onUploadProgress) => {
 };
 export const downloadProjectDocument = (id) => api.get(`/documents/${id}/download`, { responseType: 'blob' });
 export const generateProjectDocumentSuggestions = (id) => api.post(`/documents/${id}/suggestions`);
+export const listDocumentComments = (id) => api.get(`/documents/${id}/comments`);
+export const createDocumentComment = (id, data) => api.post(`/documents/${id}/comments`, data);

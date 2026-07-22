@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { BookOpen, User, Users, Wifi, WifiOff, Crown, Calendar, CheckSquare, Award, ArrowRight, Layers, Upload, FileText, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { listProjectDocuments, uploadProjectDocument, downloadProjectDocument } from '../../services/documents';
+import { listProjectDocuments, uploadProjectDocument, downloadProjectDocument, listDocumentComments } from '../../services/documents';
 import { PageSkeleton } from '../../components/common/Skeleton';
 import presenceService from '../../services/presence';
 
@@ -23,6 +23,7 @@ const StudentDashboard = () => {
   const [documentBusy, setDocumentBusy] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [documentMessage, setDocumentMessage] = useState('');
+  const [documentComments, setDocumentComments] = useState({});
 
   useEffect(() => {
     const fetchStudentData = async () => {
@@ -86,6 +87,15 @@ const StudentDashboard = () => {
     const url = URL.createObjectURL(response.data);
     window.open(url, '_blank', 'noopener,noreferrer');
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+
+  const loadDocumentComments = async (documentId) => {
+    try {
+      const { data } = await listDocumentComments(documentId);
+      setDocumentComments((current) => ({ ...current, [documentId]: Array.isArray(data) ? data : [] }));
+    } catch (error) {
+      setDocumentMessage(error.response?.data?.error || 'Không thể tải nhận xét của tài liệu.');
+    }
   };
 
   if (loading) return <PageSkeleton cards={3} rows={5} />;
@@ -236,7 +246,7 @@ const StudentDashboard = () => {
         {documentBusy && <div aria-live="polite" style={{ color: '#475569', fontSize: '0.85rem' }}>Đã tải {uploadProgress}%</div>}
         {documentMessage && <p style={{ color: documentMessage.startsWith('Đã') ? '#059669' : '#DC2626', fontSize: '0.9rem' }}>{documentMessage}</p>}
         <h4 style={{ margin: '1.25rem 0 0.35rem', color: '#0F172A' }}>Lịch sử tải lên</h4>
-        {documents.length === 0 ? <p style={{ color: '#64748B', padding: '1rem 0' }}>Chưa có tài liệu nào.</p> : documents.map((document, index) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', borderTop: '1px solid #E2E8F0', padding: '0.75rem 0' }}><span style={{ minWidth: 0 }}><strong style={{ overflowWrap: 'anywhere' }}>{document.fileName}</strong><small style={{ display: 'block', color: '#64748B', marginTop: '0.2rem' }}>Lần tải #{documents.length - index} · {document.uploadedByName || `Sinh viên #${document.uploadedById}`} · {new Date(document.uploadedAt).toLocaleString('vi-VN')} · {(document.fileSize / 1024 / 1024).toFixed(2)} MB</small></span><button className="btn btn-secondary" type="button" onClick={() => handleDownload(document)} style={{ flexShrink: 0 }}><Eye size={15} /> Xem file</button></div>)}
+        {documents.length === 0 ? <p style={{ color: '#64748B', padding: '1rem 0' }}>Chưa có tài liệu nào.</p> : documents.map((document, index) => <div key={document.id} style={{ borderTop: '1px solid #E2E8F0', padding: '0.75rem 0' }}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}><span style={{ minWidth: 0 }}><strong style={{ overflowWrap: 'anywhere' }}>{document.fileName}</strong><small style={{ display: 'block', color: '#64748B', marginTop: '0.2rem' }}>Lần tải #{documents.length - index} · {document.uploadedByName || `Sinh viên #${document.uploadedById}`} · {new Date(document.uploadedAt).toLocaleString('vi-VN')} · {(document.fileSize / 1024 / 1024).toFixed(2)} MB</small></span><span style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}><button className="btn btn-secondary" type="button" onClick={() => handleDownload(document)}><Eye size={15} /> Xem file</button><button className="btn btn-secondary" type="button" onClick={() => loadDocumentComments(document.id)}>Nhận xét</button></span></div>{documentComments[document.id] && <div style={{ marginTop: '0.65rem', padding: '0.65rem', background: '#F8FAFC', borderRadius: '0.5rem' }}>{documentComments[document.id].length === 0 ? <small style={{ color: '#64748B' }}>Chưa có nhận xét theo vị trí.</small> : documentComments[document.id].map((comment) => <div key={comment.id} style={{ padding: '0.4rem 0', borderBottom: '1px solid #E2E8F0' }}><strong style={{ color: '#4F46E5', fontSize: '0.78rem' }}>{comment.reference || `Dòng ${comment.paragraphIndex || '?'}`}</strong><p style={{ margin: '0.2rem 0', fontSize: '0.82rem', color: '#0F172A', whiteSpace: 'pre-wrap' }}>{comment.content}</p><small style={{ color: '#64748B' }}>{comment.authorName} · {new Date(comment.createdAt).toLocaleString('vi-VN')}</small></div>)}</div>}</div>)}
       </div>
 
       {/* Published Schedules Table */}

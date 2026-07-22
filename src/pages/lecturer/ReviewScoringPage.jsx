@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import api from '../../services/api';
-import { listProjectDocuments, downloadProjectDocument, generateProjectDocumentSuggestions } from '../../services/documents';
+import { listProjectDocuments, downloadProjectDocument, generateProjectDocumentSuggestions, listDocumentComments, createDocumentComment } from '../../services/documents';
 import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
 import { PageSkeleton, PanelSkeleton } from '../../components/common/Skeleton';
 
@@ -38,6 +38,11 @@ const ReviewScoringPage = () => {
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [documents, setDocuments] = useState([]);
+  const [commentViewer, setCommentViewer] = useState(null);
+  const [inlineComments, setInlineComments] = useState([]);
+  const [commentReference, setCommentReference] = useState('');
+  const [inlineCommentText, setInlineCommentText] = useState('');
+  const [inlineCommentBusy, setInlineCommentBusy] = useState(false);
 
   const fetchMySessions = useCallback(async () => {
     setLoading(true);
@@ -131,6 +136,48 @@ const ReviewScoringPage = () => {
       setSuccess(`AI đã đọc ${document.fileName} và tạo gợi ý. Giảng viên cần kiểm tra trước khi sử dụng.`);
     } catch (err) { setError(err.response?.data?.error || 'Không thể phân tích tài liệu bằng AI lúc này.'); }
     finally { setAiLoading(false); }
+  };
+
+  const openCommentViewer = async (document) => {
+    setError('');
+    try {
+      const [fileResponse, commentResponse] = await Promise.all([
+        downloadProjectDocument(document.id),
+        listDocumentComments(document.id),
+      ]);
+      const url = URL.createObjectURL(fileResponse.data);
+      setCommentViewer({ document, url });
+      setInlineComments(Array.isArray(commentResponse.data) ? commentResponse.data : []);
+      setCommentReference('');
+      setInlineCommentText('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Không thể mở tài liệu và nhận xét.');
+    }
+  };
+
+  const closeCommentViewer = () => {
+    if (commentViewer?.url) URL.revokeObjectURL(commentViewer.url);
+    setCommentViewer(null);
+    setInlineComments([]);
+  };
+
+  const handleCreateInlineComment = async (event) => {
+    event.preventDefault();
+    if (!commentViewer || !inlineCommentText.trim()) return;
+    setInlineCommentBusy(true);
+    try {
+      const response = await createDocumentComment(commentViewer.document.id, {
+        content: inlineCommentText.trim(),
+        reference: commentReference.trim() || null,
+      });
+      setInlineComments((current) => [...current, response.data]);
+      setInlineCommentText('');
+      setCommentReference('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Không thể lưu nhận xét theo vị trí.');
+    } finally {
+      setInlineCommentBusy(false);
+    }
   };
 
   const handleSaveAttendance = async () => {
@@ -365,7 +412,7 @@ const ReviewScoringPage = () => {
 
               <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', marginBottom: '1.25rem' }}>
                 <strong style={{ color: '#0F172A' }}>Lịch sử tài liệu của nhóm</strong>
-                {documents.length === 0 ? <p style={{ margin: '0.5rem 0 0', color: '#64748B', fontSize: '0.85rem' }}>Nhóm chưa tải tài liệu.</p> : documents.map((document, index) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', paddingTop: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid #E2E8F0' }}><span style={{ fontSize: '0.9rem', overflowWrap: 'anywhere', minWidth: 0 }}><strong>{document.fileName}</strong><small style={{ color: '#64748B', display: 'block', marginTop: '0.2rem' }}>Lần tải #{documents.length - index} · {document.uploadedByName || `Sinh viên #${document.uploadedById}`} · {new Date(document.uploadedAt).toLocaleString('vi-VN')} · {(document.fileSize / 1024 / 1024).toFixed(2)} MB</small></span><span style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}><button type="button" className="btn btn-secondary" onClick={async () => { const response = await downloadProjectDocument(document.id); const url = URL.createObjectURL(response.data); window.open(url, '_blank', 'noopener,noreferrer'); window.setTimeout(() => URL.revokeObjectURL(url), 60000); }}><Download size={14} /> Xem file</button><button type="button" className="btn btn-primary" disabled={aiLoading || document.fileName.toLowerCase().endsWith('.zip')} onClick={() => handleAnalyzeDocument(document)}><Sparkles size={14} /> AI phân tích</button></span></div>)}
+                {documents.length === 0 ? <p style={{ margin: '0.5rem 0 0', color: '#64748B', fontSize: '0.85rem' }}>Nhóm chưa tải tài liệu.</p> : documents.map((document, index) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', paddingTop: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid #E2E8F0' }}><span style={{ fontSize: '0.9rem', overflowWrap: 'anywhere', minWidth: 0 }}><strong>{document.fileName}</strong><small style={{ color: '#64748B', display: 'block', marginTop: '0.2rem' }}>Lần tải #{documents.length - index} · {document.uploadedByName || `Sinh viên #${document.uploadedById}`} · {new Date(document.uploadedAt).toLocaleString('vi-VN')} · {(document.fileSize / 1024 / 1024).toFixed(2)} MB</small></span><span style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}><button type="button" className="btn btn-secondary" onClick={() => openCommentViewer(document)}><FileText size={14} /> Mở & nhận xét</button><button type="button" className="btn btn-primary" disabled={aiLoading || document.fileName.toLowerCase().endsWith('.zip')} onClick={() => handleAnalyzeDocument(document)}><Sparkles size={14} /> AI phân tích</button></span></div>)}
               </div>
 
               {/* Sub-Tabs */}
@@ -567,6 +614,34 @@ const ReviewScoringPage = () => {
           )}
         </div>
       </div>
+
+      {commentViewer && (
+        <div role="dialog" aria-modal="true" aria-label="Mở tài liệu và nhận xét theo vị trí" style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(15, 23, 42, 0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ width: 'min(1200px, 100%)', height: 'min(850px, 95vh)', background: '#FFFFFF', borderRadius: '1rem', overflow: 'hidden', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', boxShadow: '0 24px 70px rgba(15, 23, 42, 0.35)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <div style={{ padding: '0.8rem 1rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center' }}>
+                <strong style={{ overflowWrap: 'anywhere' }}>{commentViewer.document.fileName}</strong>
+                <button type="button" className="btn btn-secondary" onClick={closeCommentViewer}>Đóng</button>
+              </div>
+              <iframe title={`Xem ${commentViewer.document.fileName}`} src={commentViewer.url} style={{ width: '100%', flex: 1, border: 0, background: '#F8FAFC' }} />
+            </div>
+            <aside style={{ borderLeft: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <div style={{ padding: '1rem', borderBottom: '1px solid #E2E8F0' }}>
+                <strong>Nhận xét theo vị trí</strong>
+                <p style={{ color: '#64748B', fontSize: '0.78rem', lineHeight: 1.45, margin: '0.4rem 0 0' }}>Ghi tham chiếu như “Trang 2, dòng 14” hoặc “Mục 3.1, đoạn 2” để sinh viên tìm đúng nội dung.</p>
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem' }}>
+                {inlineComments.length === 0 ? <p style={{ color: '#64748B', fontSize: '0.85rem' }}>Chưa có nhận xét gắn vị trí.</p> : inlineComments.map((comment) => <article key={comment.id} style={{ padding: '0.75rem', border: '1px solid #E2E8F0', borderRadius: '0.65rem', marginBottom: '0.65rem', background: '#F8FAFC' }}><strong style={{ fontSize: '0.78rem', color: '#4F46E5' }}>{comment.reference || `Dòng ${comment.paragraphIndex || '?'}`}</strong><p style={{ margin: '0.4rem 0', color: '#0F172A', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>{comment.content}</p><small style={{ color: '#64748B' }}>{comment.authorName} · {new Date(comment.createdAt).toLocaleString('vi-VN')}</small></article>)}
+              </div>
+              <form onSubmit={handleCreateInlineComment} style={{ borderTop: '1px solid #E2E8F0', padding: '0.75rem' }}>
+                <input className="form-input" value={commentReference} onChange={(event) => setCommentReference(event.target.value)} placeholder="Vị trí: trang/dòng/mục" maxLength={200} />
+                <textarea className="form-input" value={inlineCommentText} onChange={(event) => setInlineCommentText(event.target.value)} placeholder="Nhập nhận xét cho vị trí này..." rows={4} maxLength={4000} required style={{ marginTop: '0.5rem' }} />
+                <button type="submit" className="btn btn-primary" disabled={inlineCommentBusy || !inlineCommentText.trim()} style={{ width: '100%', marginTop: '0.5rem' }}>{inlineCommentBusy ? 'Đang lưu...' : 'Lưu nhận xét'}</button>
+              </form>
+            </aside>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
