@@ -168,6 +168,14 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/lecturer/attendance"
+          element={
+            <ProtectedRoute allowedRoles={['Lecturer']}>
+              <ReviewScoringPage attendanceOnly />
+            </ProtectedRoute>
+          }
+        />
         {/* STUDENT ROUTES */}
         <Route
           path="/student/dashboard"

@@ -3,7 +3,7 @@ import api from '../../services/api';
 import { listProjectDocuments, downloadProjectDocument, generateProjectDocumentSuggestions, listDocumentComments, createDocumentComment } from '../../services/documents';
 import reviewProgressService from '../../services/reviewProgress';
 import { useAuth } from '../../context/authContextValue.js';
-import { CheckSquare, CalendarDays, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { CheckSquare, CalendarDays, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { PageSkeleton, PanelSkeleton } from '../../components/common/Skeleton';
 import { filterReviewSessions, getReviewDateKey, getReviewReminder, REVIEW_TIME_ZONE } from '../../features/reviews/reviewSessionDates.js';
 
@@ -44,12 +44,12 @@ const getInitials = (value = '') => value
   .map((part) => part[0]?.toUpperCase())
   .join('') || 'GV';
 
-const ReviewScoringPage = () => {
+const ReviewScoringPage = ({ attendanceOnly = false }) => {
   const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
   const [sessionFilter, setSessionFilter] = useState('today');
-  const [activeTab, setActiveTab] = useState('evaluation'); // 'attendance' | 'comments' | 'evaluation'
+  const [activeTab, setActiveTab] = useState(attendanceOnly ? 'attendance' : 'evaluation');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -408,8 +408,12 @@ const ReviewScoringPage = () => {
     <div className="page-container animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title" style={{ color: '#0F172A' }}>Phòng Bảo vệ Trực tiếp</h1>
-          <p className="page-subtitle" style={{ color: '#475569' }}>Theo dõi phiên bảo vệ, xác nhận sinh viên tham dự và gửi nhận xét chuyên môn cho nhóm.</p>
+          <h1 className="page-title" style={{ color: '#0F172A' }}>{attendanceOnly ? 'Điểm danh Sinh viên' : 'Phòng Bảo vệ Trực tiếp'}</h1>
+          <p className="page-subtitle" style={{ color: '#475569' }}>
+            {attendanceOnly
+              ? 'Chọn phiên bảo vệ và xác nhận trạng thái tham dự của từng sinh viên trong nhóm.'
+              : 'Theo dõi phiên bảo vệ, trao đổi và gửi nhận xét chuyên môn cho nhóm.'}
+          </p>
         </div>
 
         <button type="button" className="btn btn-secondary" onClick={fetchMySessions} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
@@ -562,7 +566,9 @@ const ReviewScoringPage = () => {
         <div className="glass-card" style={{ padding: '1.75rem', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
           {!selectedSession ? (
             <div style={{ padding: '4rem', textAlign: 'center', color: '#64748B' }}>
-              Vui lòng chọn một phiên bảo vệ từ danh sách bên trái để ghi nhận xét.
+              {attendanceOnly
+                ? 'Vui lòng chọn một phiên bảo vệ từ danh sách bên trái để điểm danh sinh viên.'
+                : 'Vui lòng chọn một phiên bảo vệ từ danh sách bên trái để ghi nhận xét.'}
             </div>
           ) : (
             <div>
@@ -576,21 +582,21 @@ const ReviewScoringPage = () => {
                   </p>
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {!attendanceOnly && <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button type="button" className="btn btn-secondary" onClick={handleDownloadReport} title="Xuất Phiếu Nhận xét (.xlsx)" style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A' }}>
                     <Download size={16} color="#10B981" />
                     <span style={{ fontWeight: 600 }}>Phiếu Nhận xét (.xlsx)</span>
                   </button>
-                </div>
+                </div>}
               </div>
 
-              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', marginBottom: '1.25rem' }}>
+              {!attendanceOnly && <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', marginBottom: '1.25rem' }}>
                 <strong style={{ color: '#0F172A' }}>Lịch sử tài liệu của nhóm</strong>
                 {documents.length === 0 ? <p style={{ margin: '0.5rem 0 0', color: '#64748B', fontSize: '0.85rem' }}>Nhóm chưa tải tài liệu.</p> : documents.map((document, index) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', paddingTop: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid #E2E8F0' }}><span style={{ fontSize: '0.9rem', overflowWrap: 'anywhere', minWidth: 0 }}><strong>{document.fileName}</strong><small style={{ color: '#64748B', display: 'block', marginTop: '0.2rem' }}>Lần tải #{documents.length - index} · {document.uploadedByName || `Sinh viên #${document.uploadedById}`} · {new Date(document.uploadedAt).toLocaleString('vi-VN')} · {(document.fileSize / 1024 / 1024).toFixed(2)} MB</small></span><span style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}><button type="button" className="btn btn-secondary" onClick={() => openCommentViewer(document)}><FileText size={14} /> Mở & nhận xét</button><button type="button" className="btn btn-primary" disabled={aiLoading || document.fileName.toLowerCase().endsWith('.zip')} onClick={() => handleAnalyzeDocument(document)}><Sparkles size={14} /> AI phân tích</button></span></div>)}
-              </div>
+              </div>}
 
               {/* Session work areas */}
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+              {!attendanceOnly && <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   className={getTabButtonProps(activeTab, 'evaluation').className}
@@ -602,15 +608,6 @@ const ReviewScoringPage = () => {
                 </button>
                 <button
                   type="button"
-                  className={getTabButtonProps(activeTab, 'attendance').className}
-                  onClick={() => setActiveTab('attendance')}
-                  style={getTabButtonProps(activeTab, 'attendance').style}
-                >
-                  <Users size={16} />
-                  <span>Điểm danh Sinh viên</span>
-                </button>
-                <button
-                  type="button"
                   className={getTabButtonProps(activeTab, 'comments').className}
                   onClick={() => setActiveTab('comments')}
                   style={getTabButtonProps(activeTab, 'comments').style}
@@ -618,7 +615,7 @@ const ReviewScoringPage = () => {
                   <MessageSquare size={16} />
                   <span>Trao đổi trong Phiên</span>
                 </button>
-              </div>
+              </div>}
 
               {/* ATTENDANCE PANEL */}
               {activeTab === 'attendance' && (

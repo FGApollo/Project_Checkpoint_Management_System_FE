@@ -20,7 +20,7 @@ test('review feedback UI does not expose scores or pass/fail verdicts', async ()
   assert.match(studentPage, /entry\.fullName \|\| entry\.studentName/);
   assert.doesNotMatch(lecturerPage, /evalResult|resultText:\s*evalResult|Nộp Điểm|Chấm điểm|Phiếu Chấm|ChamBaoVe|ChamNguoi|0\.0 đến 10\.0/i);
   assert.match(lecturerPage, /Phòng Bảo vệ Trực tiếp/);
-  assert.match(lecturerPage, /useState\('evaluation'\)/);
+  assert.match(lecturerPage, /attendanceOnly \? 'attendance' : 'evaluation'/);
   assert.match(lecturerPage, /Nhận xét sau Phiên Bảo vệ/);
   assert.doesNotMatch(lecturerPage, /SignalR Live Room|Live Room|Đang dùng dữ liệu API/i);
   assert.doesNotMatch(trackingPage, /scoringStatus|reviewer1Result|reviewer2Result|item\.result|Đạt yêu cầu \(Pass\)|Không đạt \(Fail\)|chấm điểm/i);
@@ -114,15 +114,23 @@ test('progress comments use a scoped realtime channel and an optimistic conversa
   assert.match(lecturerPage, /aria-live="polite"/);
 });
 
-test('lecturer navigation exposes one direct defense room backed by the review workflow', async () => {
-  const [app, sidebar] = await Promise.all([
+test('lecturer navigation separates attendance from the direct defense room', async () => {
+  const [app, sidebar, lecturerPage] = await Promise.all([
     readSource('../src/App.jsx'),
     readSource('../src/components/common/Sidebar.jsx'),
+    readSource('../src/pages/lecturer/ReviewScoringPage.jsx'),
   ]);
 
   assert.doesNotMatch(app, /DefenseRoomPage|\/lecturer\/defenses/);
   assert.match(sidebar, /to="\/lecturer\/reviews"/);
   assert.match(sidebar, /Phòng Bảo vệ Trực tiếp/);
+  assert.match(app, /path="\/lecturer\/attendance"/);
+  assert.match(app, /<ReviewScoringPage attendanceOnly \/>/);
+  assert.match(sidebar, /to="\/lecturer\/attendance"/);
+  assert.match(sidebar, /Điểm danh Sinh viên/);
+  assert.match(app, /path="\/lecturer\/reviews"/);
+  assert.match(app, /<ReviewScoringPage \/>/);
+  assert.doesNotMatch(lecturerPage, /setActiveTab\('attendance'\)/);
   assert.doesNotMatch(sidebar, /SignalR Live Room|Live Room|\/lecturer\/defenses/);
 });
 
