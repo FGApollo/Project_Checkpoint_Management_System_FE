@@ -131,10 +131,30 @@ test('lecturer navigation separates attendance from the direct defense room', as
   assert.match(app, /<ReviewScoringPage attendanceOnly \/>/);
   assert.match(sidebar, /to="\/lecturer\/attendance"/);
   assert.match(sidebar, /Điểm danh Sinh viên/);
+  assert.ok(sidebar.indexOf('to="/lecturer/attendance"') < sidebar.indexOf('to="/lecturer/reviews"'));
   assert.match(app, /path="\/lecturer\/reviews"/);
   assert.match(app, /<ReviewScoringPage \/>/);
   assert.doesNotMatch(lecturerPage, /setActiveTab\('attendance'\)/);
+  assert.match(lecturerPage, /setActiveTab\(attendanceOnly \? 'attendance' : 'evaluation'\)/);
+  assert.match(lecturerPage, /\}, \[attendanceOnly\]\);/);
   assert.doesNotMatch(sidebar, /SignalR Live Room|Live Room|\/lecturer\/defenses/);
+});
+
+test('review submissions support multiple official comments per lecturer', async () => {
+  const [lecturerPage, reviewManagementPage] = await Promise.all([
+    readSource('../src/pages/lecturer/ReviewScoringPage.jsx'),
+    readSource('../src/pages/admin/ReviewManagementPage.jsx'),
+  ]);
+
+  assert.match(lecturerPage, /const \[evalComments, setEvalComments\] = useState\(\[''\]\)/);
+  assert.match(lecturerPage, /reviewerComments: normalizedEvalComments/);
+  assert.match(lecturerPage, /evalComments\.map\(\(comment, index\)/);
+  assert.match(lecturerPage, /Thêm nhận xét/);
+  assert.match(lecturerPage, /removeEvaluationComment\(index\)/);
+  assert.match(lecturerPage, /Hội đồng: \$\{selectedSession\.reviewerCount\} giảng viên/);
+  assert.match(reviewManagementPage, /const \[reviewersPerSession, setReviewersPerSession\] = useState\(4\)/);
+  assert.match(reviewManagementPage, /reviewersPerSession,/);
+  assert.doesNotMatch(reviewManagementPage, /reviewersPerSession: 2/);
 });
 
 test('admin can inspect semester groups and export all review reports', async () => {

@@ -113,6 +113,7 @@ const RoundStatusPanel = ({ status }) => {
 
 const ReviewManagementPage = () => {
   const [activeStep, setActiveStep] = useState(1); // 1: Rounds, 2: Lecturers, 3: Match, 4: Publish
+  const [reviewersPerSession, setReviewersPerSession] = useState(4);
 
   const [rounds, setRounds] = useState([]);
   const [selectedRound, setSelectedRound] = useState(null);
@@ -393,9 +394,9 @@ const ReviewManagementPage = () => {
       setError('Đợt review đã công bố nên không thể chạy lại phân công.');
       return;
     }
-    if (boardData.registeredLecturersCount < 2) {
+    if (boardData.registeredLecturersCount < reviewersPerSession) {
       setSuccess('');
-      setError(`Cần ít nhất 2 giảng viên nộp đăng ký slot chính thức trước khi chạy phân công. Hiện có ${boardData.registeredLecturersCount} giảng viên đã nộp${boardData.draftLecturersCount > 0 ? ` và ${boardData.draftLecturersCount} giảng viên mới lưu nháp` : ''}.`);
+      setError(`Cần ít nhất ${reviewersPerSession} giảng viên nộp đăng ký slot chính thức trước khi chạy phân công. Hiện có ${boardData.registeredLecturersCount} giảng viên đã nộp${boardData.draftLecturersCount > 0 ? ` và ${boardData.draftLecturersCount} giảng viên mới lưu nháp` : ''}.`);
       return;
     }
     setError('');
@@ -410,7 +411,7 @@ const ReviewManagementPage = () => {
         semesterId: Number(formData.semesterId),
         reviewType: selectedRound.type,
         weekStart: selectedRound.weekStartDate,
-        reviewersPerSession: 2,
+        reviewersPerSession,
         roomPrefix: 'REV'
       });
       const data = res.data || {};
@@ -418,7 +419,7 @@ const ReviewManagementPage = () => {
       await fetchBoardDetails(selectedRound, formData.semesterId);
 
       if (assignedCount === 0) {
-        const unassignedReasons = data.unassignedGroups?.map(u => `${u.groupCode}: ${u.reason}`).join(' | ') || 'Chưa đủ giảng viên đăng ký cùng một slot (cần tối thiểu 2 giảng viên trong cùng slot và không trùng với GVHD).';
+        const unassignedReasons = data.unassignedGroups?.map(u => `${u.groupCode}: ${u.reason}`).join(' | ') || `Chưa đủ giảng viên đăng ký cùng một slot (cần ${reviewersPerSession} giảng viên trong cùng slot và không trùng với GVHD).`;
         setError(`Thuật toán chưa thể xếp lịch được ca nào (0/${data.totalCandidateGroups || boardData.registeredGroupsCount || 3} nhóm). Lý do chi tiết:\n${unassignedReasons}`);
         return;
       }
@@ -790,16 +791,27 @@ const ReviewManagementPage = () => {
                   <>
                     <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>Thuật toán sẽ tự động khớp các slot giảng viên và nhóm sinh viên đã đăng ký để tạo lịch tối ưu (tối đa 3 nhóm/slot).</p>
 
-                    <div style={{ background: '#F8FAFC', borderRadius: '12px', border: `1px dashed ${boardData.registeredLecturersCount >= 2 ? '#CBD5E1' : '#F59E0B'}`, padding: '2.5rem', maxWidth: '540px', margin: '0 auto 2rem' }}>
-                      {boardData.registeredLecturersCount >= 2 ? <Zap size={48} color="#D97706" style={{ margin: '0 auto 1rem' }} /> : <AlertCircle size={48} color="#D97706" style={{ margin: '0 auto 1rem' }} />}
-                      <h3 style={{ fontSize: '1.1rem', color: '#0F172A', marginBottom: '0.5rem' }}>{boardData.registeredLecturersCount >= 2 ? 'Sẵn sàng chạy thuật toán' : 'Chưa đủ đăng ký slot'}</h3>
+                    <div style={{ background: '#F8FAFC', borderRadius: '12px', border: `1px dashed ${boardData.registeredLecturersCount >= reviewersPerSession ? '#CBD5E1' : '#F59E0B'}`, padding: '2.5rem', maxWidth: '540px', margin: '0 auto 2rem' }}>
+                      {boardData.registeredLecturersCount >= reviewersPerSession ? <Zap size={48} color="#D97706" style={{ margin: '0 auto 1rem' }} /> : <AlertCircle size={48} color="#D97706" style={{ margin: '0 auto 1rem' }} />}
+                      <h3 style={{ fontSize: '1.1rem', color: '#0F172A', marginBottom: '0.5rem' }}>{boardData.registeredLecturersCount >= reviewersPerSession ? 'Sẵn sàng chạy thuật toán' : 'Chưa đủ đăng ký slot'}</h3>
+                      <label style={{ display: 'block', maxWidth: '260px', margin: '1rem auto', textAlign: 'left', color: '#334155', fontSize: '0.85rem', fontWeight: 700 }}>
+                        Số giảng viên trong mỗi ca
+                        <input
+                          type="number"
+                          min="2"
+                          step="1"
+                          value={reviewersPerSession}
+                          onChange={(event) => setReviewersPerSession(Math.max(2, Number.parseInt(event.target.value, 10) || 2))}
+                          style={{ width: '100%', marginTop: '0.4rem', padding: '0.7rem 0.8rem', border: '1px solid #CBD5E1', borderRadius: '8px', background: '#FFFFFF' }}
+                        />
+                      </label>
                       <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-                        {boardData.registeredLecturersCount >= 2
-                          ? `Hiện có ${boardData.registeredGroupsCount} nhóm chờ phân công và ${boardData.registeredLecturersCount} giảng viên đã nộp đăng ký slot chính thức cho đợt ${selectedRound.type}.`
-                          : `Cần ít nhất 2 giảng viên nộp đăng ký slot chính thức. Hiện có ${boardData.registeredLecturersCount} giảng viên đã nộp${boardData.draftLecturersCount > 0 ? `; ${boardData.draftLecturersCount} giảng viên mới lưu nháp` : ''}. Hãy mở lại đăng ký và yêu cầu giảng viên bấm “Nộp chính thức”.`}
+                        {boardData.registeredLecturersCount >= reviewersPerSession
+                          ? `Hiện có ${boardData.registeredGroupsCount} nhóm chờ phân công và ${boardData.registeredLecturersCount} giảng viên đã nộp đăng ký. Mỗi ca sẽ có ${reviewersPerSession} giảng viên.`
+                          : `Cần ít nhất ${reviewersPerSession} giảng viên nộp đăng ký slot chính thức. Hiện có ${boardData.registeredLecturersCount} giảng viên đã nộp${boardData.draftLecturersCount > 0 ? `; ${boardData.draftLecturersCount} giảng viên mới lưu nháp` : ''}. Hãy mở lại đăng ký và yêu cầu giảng viên bấm “Nộp chính thức”.`}
                       </p>
-                      <button type="button" className="btn btn-primary" onClick={handleMatch} disabled={loading || boardData.registeredLecturersCount < 2} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#4F46E5', opacity: boardData.registeredLecturersCount < 2 ? 0.5 : 1, cursor: boardData.registeredLecturersCount < 2 ? 'not-allowed' : 'pointer' }}>
-                        <Play size={18} fill="white" /> {loading ? 'Đang chạy Auto-Match...' : boardData.registeredLecturersCount < 2 ? 'Chưa thể Auto-Match' : 'Chạy Auto-Match'}
+                      <button type="button" className="btn btn-primary" onClick={handleMatch} disabled={loading || boardData.registeredLecturersCount < reviewersPerSession} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#4F46E5', opacity: boardData.registeredLecturersCount < reviewersPerSession ? 0.5 : 1, cursor: boardData.registeredLecturersCount < reviewersPerSession ? 'not-allowed' : 'pointer' }}>
+                        <Play size={18} fill="white" /> {loading ? 'Đang chạy Auto-Match...' : boardData.registeredLecturersCount < reviewersPerSession ? 'Chưa thể Auto-Match' : 'Chạy Auto-Match'}
                       </button>
                     </div>
                   </>

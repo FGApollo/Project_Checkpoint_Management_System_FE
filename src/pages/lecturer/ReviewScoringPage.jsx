@@ -3,7 +3,7 @@ import api from '../../services/api';
 import { listProjectDocuments, downloadProjectDocument, generateProjectDocumentSuggestions, listDocumentComments, createDocumentComment } from '../../services/documents';
 import reviewProgressService from '../../services/reviewProgress';
 import { useAuth } from '../../context/authContextValue.js';
-import { CheckSquare, CalendarDays, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { CheckSquare, CalendarDays, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles, Wifi, WifiOff, Loader2, Plus, Trash2 } from 'lucide-react';
 import { PageSkeleton, PanelSkeleton } from '../../components/common/Skeleton';
 import { filterReviewSessions, getReviewDateKey, getReviewReminder, REVIEW_TIME_ZONE } from '../../features/reviews/reviewSessionDates.js';
 
@@ -63,7 +63,7 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
   const commentsViewportRef = useRef(null);
 
   // Final reviewer feedback
-  const [evalNotes, setEvalNotes] = useState('');
+  const [evalComments, setEvalComments] = useState(['']);
   const [aiProjectContent, setAiProjectContent] = useState('');
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -77,6 +77,7 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
   const upcomingSessions = filterReviewSessions(sessions, 'upcoming');
   const filteredSessions = filterReviewSessions(sessions, sessionFilter);
   const canSendComment = newComment.trim().length > 0 && !commentSending;
+  const normalizedEvalComments = evalComments.map((comment) => comment.trim()).filter(Boolean);
   const sessionDateGroups = new Map();
   filteredSessions.forEach((session) => {
     const dateKey = getReviewDateKey(session.sessionDate) || 'unknown';
@@ -133,6 +134,12 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
     fetchMySessions();
   }, [fetchMySessions]);
 
+  useEffect(() => {
+    setActiveTab(attendanceOnly ? 'attendance' : 'evaluation');
+    setError('');
+    setSuccess('');
+  }, [attendanceOnly]);
+
   useEffect(() => () => { reviewProgressService.stop(); }, []);
 
   const fetchSessionDetails = useCallback(async (sess) => {
@@ -156,7 +163,10 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
         const subId = sess.submissionId || sessionId;
         const res = await api.get(`/review-submissions/${subId}`);
         if (res.data) {
-          setEvalNotes(res.data.reviewerComment || '');
+          const loadedComments = Array.isArray(res.data.reviewerComments)
+            ? res.data.reviewerComments.filter((comment) => typeof comment === 'string')
+            : [];
+          setEvalComments(loadedComments.length > 0 ? loadedComments : [res.data.reviewerComment || '']);
         }
       }
     } catch (err) {
@@ -170,10 +180,14 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
     if (selectedSession) {
       setAiProjectContent(selectedSession.projectContent || selectedSession.description || '');
       setAiSuggestion(null);
-      listProjectDocuments(selectedSession.groupId).then(({ data }) => setDocuments(Array.isArray(data) ? data : [])).catch(() => setDocuments([]));
+      if (!attendanceOnly) {
+        listProjectDocuments(selectedSession.groupId).then(({ data }) => setDocuments(Array.isArray(data) ? data : [])).catch(() => setDocuments([]));
+      } else {
+        setDocuments([]);
+      }
       fetchSessionDetails(selectedSession);
     }
-  }, [selectedSession, fetchSessionDetails]);
+  }, [selectedSession, fetchSessionDetails, attendanceOnly]);
 
   useEffect(() => {
     if (!selectedSession) return undefined;
@@ -202,7 +216,7 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
   const handleGenerateAiSuggestion = async () => {
     if (!selectedSession) return;
     const projectName = selectedSession.projectName || selectedSession.groupCode || `Nhóm #${selectedSession.groupId}`;
-    const projectContent = aiProjectContent.trim() || evalNotes.trim();
+    const projectContent = aiProjectContent.trim() || normalizedEvalComments.join('\n');
     if (!projectContent) {
       setError('Hãy nhập mô tả/nội dung dự án để AI có dữ liệu tham khảo.');
       return;
@@ -327,7 +341,8 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
         workProductVersion: null,
         workProductSize: null,
         effortHours: null,
-        reviewerComment: evalNotes,
+        reviewerComment: normalizedEvalComments.join('\n'),
+        reviewerComments: normalizedEvalComments,
         suggestion: null,
         resultText: null,
         items: []
@@ -340,8 +355,8 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
 
   const handleSubmitEvaluationFinal = async () => {
     if (!selectedSession) return;
-    if (!evalNotes.trim()) {
-      setError('Vui lòng nhập nhận xét chính thức trước khi kết thúc phiên bảo vệ.');
+    if (normalizedEvalComments.length === 0) {
+      setError('Vui lòng nhập ít nhất một nhận xét chính thức trước khi kết thúc phiên bảo vệ.');
       return;
     }
     const subId = selectedSession.submissionId || getSessionId(selectedSession);
@@ -352,7 +367,8 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
         workProductVersion: null,
         workProductSize: null,
         effortHours: null,
-        reviewerComment: evalNotes,
+        reviewerComment: normalizedEvalComments.join('\n'),
+        reviewerComments: normalizedEvalComments,
         suggestion: null,
         resultText: null,
         items: []
@@ -372,6 +388,21 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
     } catch (err) {
       setError(err.response?.data?.error || 'Không thể gửi nhận xét chính thức cho phiên bảo vệ.');
     }
+  };
+
+  const updateEvaluationComment = (index, value) => {
+    setEvalComments((current) => current.map((comment, commentIndex) =>
+      commentIndex === index ? value : comment));
+  };
+
+  const addEvaluationComment = (value = '') => {
+    setEvalComments((current) => [...current, value]);
+  };
+
+  const removeEvaluationComment = (index) => {
+    setEvalComments((current) => current.length === 1
+      ? ['']
+      : current.filter((_, commentIndex) => commentIndex !== index));
   };
 
   const handleDownloadReport = async () => {
@@ -580,6 +611,7 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
                   </h2>
                   <p style={{ fontSize: '0.85rem', color: '#64748B' }}>
                     Mã phiên: #{getSessionId(selectedSession)} — Ngày: {formatSessionDate(selectedSession.sessionDate)} — Phòng: {selectedSession.room || 'Chưa xác định'}
+                    {selectedSession.reviewerCount ? ` — Hội đồng: ${selectedSession.reviewerCount} giảng viên` : ''}
                   </p>
                 </div>
 
@@ -800,25 +832,44 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
                         <p><b>Tóm tắt:</b> {aiSuggestion.contentSummary}</p>
                         <p><b>Nội dung làm tốt:</b> {aiSuggestion.strengthsSummary}</p>
                         <p style={{ marginBottom: 0 }}><b>Cải thiện:</b> {aiSuggestion.improvementSummary}</p>
-                        <button type="button" className="btn btn-secondary" onClick={() => setEvalNotes((current) => current.trim() ? `${current.trim()}\n\n${aiSuggestion.improvementSummary}` : aiSuggestion.improvementSummary)} style={{ marginTop: '0.75rem', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
-                          Dùng phần cải thiện làm bản nháp nhận xét
+                        <button type="button" className="btn btn-secondary" onClick={() => addEvaluationComment(aiSuggestion.improvementSummary)} style={{ marginTop: '0.75rem', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
+                          Thêm phần cải thiện thành một nhận xét
                         </button>
                       </div>
                     )}
                   </div>
 
-                  <div className="form-group">
-                    <label htmlFor="rev-eval-notes" className="form-label" style={{ color: '#334155', fontWeight: 700, fontSize: '0.9rem' }}>Ý kiến Nhận xét & Góp ý chuyên môn chi tiết cho Nhóm</label>
-                    <textarea
-                      id="rev-eval-notes"
-                      className="form-input"
-                      rows="6"
-                      value={evalNotes}
-                      onChange={(e) => setEvalNotes(e.target.value)}
-                      placeholder="Nhập chi tiết các nhận xét về kiến trúc, chức năng đã hoàn thành, các hạn chế cần khắc phục và định hướng cho giai đoạn tiếp theo..."
-                      style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', fontSize: '0.9rem', lineHeight: 1.6 }}
-                      required
-                    />
+                  <div className="form-group" style={{ gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                      <div>
+                        <h4 style={{ margin: 0, color: '#334155', fontWeight: 800, fontSize: '0.95rem' }}>Ý kiến nhận xét chuyên môn cho nhóm</h4>
+                        <p style={{ margin: '0.25rem 0 0', color: '#64748B', fontSize: '0.78rem' }}>Có thể thêm nhiều nhận xét độc lập trong cùng một phiếu.</p>
+                      </div>
+                      <button type="button" className="btn btn-secondary" onClick={() => addEvaluationComment()} style={{ background: '#FFF7ED', border: '1px solid #FDBA74', color: '#C2410C', fontWeight: 700 }}>
+                        <Plus size={16} /> Thêm nhận xét
+                      </button>
+                    </div>
+                    {evalComments.map((comment, index) => (
+                      <div key={`evaluation-comment-${index}`} style={{ padding: '1rem', border: '1px solid #E2E8F0', borderRadius: '0.85rem', background: '#FFFFFF' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', gap: '1rem' }}>
+                          <label htmlFor={`rev-eval-comment-${index}`} className="form-label" style={{ margin: 0, color: '#334155', fontWeight: 700 }}>Nhận xét {index + 1}</label>
+                          <button type="button" onClick={() => removeEvaluationComment(index)} aria-label={`Xóa nhận xét ${index + 1}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', border: 'none', background: 'transparent', color: '#DC2626', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                            <Trash2 size={14} /> Xóa
+                          </button>
+                        </div>
+                        <textarea
+                          id={`rev-eval-comment-${index}`}
+                          className="form-input"
+                          rows="4"
+                          maxLength={4000}
+                          value={comment}
+                          onChange={(event) => updateEvaluationComment(index, event.target.value)}
+                          placeholder="Nhập nhận xét về kiến trúc, chức năng, hạn chế hoặc định hướng tiếp theo..."
+                          style={{ display: 'block', width: '100%', boxSizing: 'border-box', resize: 'vertical', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', fontSize: '0.9rem', lineHeight: 1.6 }}
+                        />
+                        <div style={{ marginTop: '0.35rem', textAlign: 'right', color: comment.length > 3800 ? '#DC2626' : '#94A3B8', fontSize: '0.7rem', fontWeight: 600 }}>{comment.length}/4000</div>
+                      </div>
+                    ))}
                   </div>
 
                   <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>

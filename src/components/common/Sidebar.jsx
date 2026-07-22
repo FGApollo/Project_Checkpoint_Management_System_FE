@@ -107,13 +107,13 @@ const Sidebar = () => {
               <Clock size={18} />
               <span>Đăng ký Slot</span>
             </NavLink>
-            <NavLink to="/lecturer/reviews" style={navItemStyle}>
-              <CheckSquare size={18} />
-              <span>Phòng Bảo vệ Trực tiếp</span>
-            </NavLink>
             <NavLink to="/lecturer/attendance" style={navItemStyle}>
               <Users size={18} />
               <span>Điểm danh Sinh viên</span>
+            </NavLink>
+            <NavLink to="/lecturer/reviews" style={navItemStyle}>
+              <CheckSquare size={18} />
+              <span>Phòng Bảo vệ Trực tiếp</span>
             </NavLink>
           </>
         )}
