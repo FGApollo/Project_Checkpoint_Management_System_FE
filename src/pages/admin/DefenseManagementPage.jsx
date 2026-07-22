@@ -10,6 +10,9 @@ const DefenseManagementPage = () => {
 
   // Defense Rounds State
   const [rounds, setRounds] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [lecturers, setLecturers] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [showCreateRound, setShowCreateRound] = useState(false);
   const [roundCode, setRoundCode] = useState('Def1-Su26');
   const [roundName, setRoundName] = useState('First Defense Round Summer 2026');
@@ -52,9 +55,52 @@ const DefenseManagementPage = () => {
     }
   };
 
+  const fetchSessions = async () => {
+    try {
+      const response = await api.get('/defense-sessions');
+      setSessions(Array.isArray(response.data) ? response.data : (response.data?.items || []));
+    } catch (err) {
+      setError(err.response?.data?.error || 'Không thể tải danh sách lịch bảo vệ.');
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'rounds') fetchRounds();
+    if (activeTab === 'sessions') fetchSessions();
   }, [activeTab]);
+
+  useEffect(() => {
+    const fetchReferenceData = async () => {
+      try {
+        const semesterResponse = await api.get('/semesters/resolve');
+        const semester = semesterResponse.data;
+        if (!semester?.id) return;
+        setRoundSemesterId(semester.id);
+        setBoardSemesterId(semester.id);
+        const roundsResponse = await api.get('/review-scheduling/rounds', { params: { semesterId: semester.id } });
+        const reviewRounds = Array.isArray(roundsResponse.data) ? roundsResponse.data : [];
+        const reviewRound = reviewRounds[0];
+        if (!reviewRound) return;
+        const boardResponse = await api.get('/review-scheduling/board', {
+          params: { semesterId: semester.id, reviewType: reviewRound.type, weekStart: reviewRound.weekStartDate }
+        });
+        const availableLecturers = boardResponse.data?.lecturers || [];
+        const availableGroups = boardResponse.data?.groups || [];
+        setLecturers(availableLecturers);
+        setGroups(availableGroups);
+        if (availableLecturers.length >= 3) {
+          setChairmanId(availableLecturers[0].id);
+          setSecretaryId(availableLecturers[1].id);
+          setMemberIdsStr(String(availableLecturers[2].id));
+          setAddLecturerId(availableLecturers[2].id);
+        }
+        if (availableGroups.length > 0) setSessGroupId(availableGroups[0].id);
+      } catch (err) {
+        console.error('Failed to load defense reference data:', err);
+      }
+    };
+    fetchReferenceData();
+  }, []);
 
   const handleRoundStartChange = (e) => {
     const val = e.target.value;
@@ -164,6 +210,7 @@ const DefenseManagementPage = () => {
         room: sessRoom
       });
       setSuccess(`Project Group #${sessGroupId} successfully assigned to Council #${sessCouncilId} in Room ${sessRoom}!`);
+      await fetchSessions();
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.error || 'Assignment rejected due to non-negotiable supervisor conflict rules or council capacity restrictions!');
@@ -312,11 +359,15 @@ const DefenseManagementPage = () => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="form-group">
                 <label htmlFor="def-chairman" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Giảng viên (Chủ tịch)</label>
-                <input id="def-chairman" type="number" className="form-input" value={chairmanId} onChange={(e) => setChairmanId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <select id="def-chairman" className="form-select" value={chairmanId} onChange={(e) => setChairmanId(e.target.value)} required>
+                  {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.code} — {lecturer.fullName}</option>)}
+                </select>
               </div>
               <div className="form-group">
                 <label htmlFor="def-secretary" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Giảng viên (Thư ký)</label>
-                <input id="def-secretary" type="number" className="form-input" value={secretaryId} onChange={(e) => setSecretaryId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <select id="def-secretary" className="form-select" value={secretaryId} onChange={(e) => setSecretaryId(e.target.value)} required>
+                  {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.code} — {lecturer.fullName}</option>)}
+                </select>
               </div>
             </div>
 
@@ -361,7 +412,9 @@ const DefenseManagementPage = () => {
 
             <div className="form-group">
               <label htmlFor="def-addLec" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Giảng viên</label>
-              <input id="def-addLec" type="number" className="form-input" value={addLecturerId} onChange={(e) => setAddLecturerId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+              <select id="def-addLec" className="form-select" value={addLecturerId} onChange={(e) => setAddLecturerId(e.target.value)} required>
+                {lecturers.map((lecturer) => <option key={lecturer.id} value={lecturer.id}>{lecturer.code} — {lecturer.fullName}</option>)}
+              </select>
             </div>
 
             <div className="form-group">
@@ -382,7 +435,7 @@ const DefenseManagementPage = () => {
 
       {/* ASSIGN SESSIONS TAB */}
       {activeTab === 'sessions' && (
-        <div className="glass-card" style={{ padding: '2rem', maxWidth: '640px', margin: '0 auto', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
+        <div className="glass-card" style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
             <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <ShieldAlert size={20} color="#EF4444" />
@@ -401,7 +454,9 @@ const DefenseManagementPage = () => {
               </div>
               <div className="form-group">
                 <label htmlFor="def-sessGroup" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Nhóm Checkpoint</label>
-                <input id="def-sessGroup" type="number" className="form-input" value={sessGroupId} onChange={(e) => setSessGroupId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <select id="def-sessGroup" className="form-select" value={sessGroupId} onChange={(e) => setSessGroupId(e.target.value)} required>
+                  {groups.map((group) => <option key={group.id} value={group.id}>{group.code} — {group.projectName}</option>)}
+                </select>
               </div>
             </div>
 
@@ -425,6 +480,25 @@ const DefenseManagementPage = () => {
               <ArrowRight size={18} />
             </button>
           </form>
+
+          <div className="table-container" style={{ marginTop: '2rem' }}>
+            <table className="table">
+              <thead><tr><th>Mã phiên</th><th>Nhóm / Đề tài</th><th>Thời gian</th><th>Phòng</th><th>Hội đồng</th><th>Trạng thái</th></tr></thead>
+              <tbody>
+                {sessions.map((session) => (
+                  <tr key={session.id}>
+                    <td style={{ fontWeight: 700 }}>{session.code}</td>
+                    <td>{session.groupCode}<br /><small>{session.projectTitle}</small></td>
+                    <td>{session.sessionDate} — Ca {session.slot}</td>
+                    <td>{session.room}</td>
+                    <td>{Array.isArray(session.reviewers) ? session.reviewers.join(', ') : 'Chưa có dữ liệu'}</td>
+                    <td>{session.status}</td>
+                  </tr>
+                ))}
+                {sessions.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>Chưa có lịch bảo vệ.</td></tr>}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

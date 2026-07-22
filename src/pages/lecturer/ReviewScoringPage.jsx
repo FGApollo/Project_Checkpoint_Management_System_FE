@@ -36,7 +36,12 @@ const ReviewScoringPage = () => {
     setError('');
     try {
       const response = await api.get('/review-sessions/my');
-      const list = Array.isArray(response.data) ? response.data : (response.data.items || []);
+      const rawList = Array.isArray(response.data) ? response.data : (response.data.items || []);
+      const list = rawList.map((item) => ({
+        ...item,
+        id: item.sessionId ?? item.id,
+        projectName: item.projectName || item.topicName
+      }));
       setSessions(list);
       setSelectedSession((current) => current || list[0] || null);
     } catch (err) {
@@ -56,10 +61,10 @@ const ReviewScoringPage = () => {
     setError('');
     try {
       if (activeTab === 'attendance') {
-        const res = await api.get(`/review-attendance/${sess.id}`);
+        const res = await api.get(`/review-attendance/${sess.id}`, { params: { groupId: sess.groupId } });
         setAttendanceList(Array.isArray(res.data) ? res.data : (res.data?.students || []));
       } else if (activeTab === 'comments') {
-        const res = await api.get(`/review-attendance/${sess.id}/comments`);
+        const res = await api.get(`/review-attendance/${sess.id}/comments`, { params: { groupId: sess.groupId } });
         setCommentsList(Array.isArray(res.data) ? res.data : []);
       } else if (activeTab === 'evaluation') {
         const subId = sess.submissionId || sess.id;
@@ -79,7 +84,7 @@ const ReviewScoringPage = () => {
     if (selectedSession) {
       setAiProjectContent(selectedSession.projectContent || selectedSession.description || '');
       setAiSuggestion(null);
-      listProjectDocuments(sess.groupId).then(({ data }) => setDocuments(Array.isArray(data) ? data : [])).catch(() => setDocuments([]));
+      listProjectDocuments(selectedSession.groupId).then(({ data }) => setDocuments(Array.isArray(data) ? data : [])).catch(() => setDocuments([]));
       fetchSessionDetails(selectedSession);
     }
   }, [selectedSession, fetchSessionDetails]);
@@ -198,7 +203,16 @@ const ReviewScoringPage = () => {
         items: []
       });
       await api.post(`/review-submissions/${subId}/submit`);
-      setSuccess('Đã kết thúc buổi Review. Nhận xét của giảng viên đã được gửi cho sinh viên.');
+      try {
+        await api.post(`/review-attendance/${selectedSession.id}/groups/${selectedSession.groupId}/complete`);
+        setSuccess('Đã kết thúc buổi Review. Nhận xét của giảng viên đã được gửi cho sinh viên.');
+      } catch (completeError) {
+        if (completeError.response?.status === 409) {
+          setSuccess('Đã nộp nhận xét của bạn. Buổi review sẽ hoàn thành khi tất cả giảng viên nộp nhận xét và điểm danh đầy đủ.');
+        } else {
+          throw completeError;
+        }
+      }
       fetchSessionDetails(selectedSession);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to submit final checkpoint review.');
@@ -391,7 +405,7 @@ const ReviewScoringPage = () => {
                           attendanceList.map((att, idx) => (
                             <tr key={att.studentId ?? att.id ?? att.studentCode}>
                               <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontWeight: 700 }}>{att.studentCode || `SE#${att.studentId}`}</span></td>
-                              <td style={{ fontWeight: 600, color: '#0F172A' }}>{att.studentName || 'Sinh viên Nhóm'}</td>
+                              <td style={{ fontWeight: 600, color: '#0F172A' }}>{att.fullName || att.studentName || 'Sinh viên Nhóm'}</td>
                               <td>
                                 <span className="badge" style={{
                                   background: att.isPresent !== false ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',

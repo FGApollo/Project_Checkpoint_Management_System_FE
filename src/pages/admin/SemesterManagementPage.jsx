@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Plus, CheckCircle, AlertCircle, RefreshCw, CalendarDays, Lock, Unlock, Trash2 } from 'lucide-react';
+import { Plus, CheckCircle, AlertCircle, RefreshCw, CalendarDays, Lock, Unlock, Trash2, Users, X } from 'lucide-react';
 import { getActivationBlockedMessage, isDateWithinSemester } from '../../features/semesters/semesterDates';
 
 const SemesterManagementPage = () => {
@@ -15,6 +15,9 @@ const SemesterManagementPage = () => {
 
   // Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [groupsModal, setGroupsModal] = useState(null);
+  const [semesterGroups, setSemesterGroups] = useState([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
   const [formData, setFormData] = useState({
     season: 'SP',
     academicYear: new Date().getFullYear(),
@@ -70,6 +73,21 @@ const SemesterManagementPage = () => {
       fetchSemesters();
     } catch (err) {
       setError(err.response?.data?.error || 'Lỗi khi xóa kỳ học.');
+    }
+  };
+
+  const handleViewGroups = async (semester) => {
+    setGroupsModal(semester);
+    setGroupsLoading(true);
+    setError('');
+    try {
+      const response = await api.get(`/semesters/${semester.id}/groups`);
+      setSemesterGroups(Array.isArray(response.data) ? response.data : (response.data?.items || []));
+    } catch (err) {
+      setSemesterGroups([]);
+      setError(err.response?.data?.error || 'Không thể tải danh sách nhóm của kỳ học.');
+    } finally {
+      setGroupsLoading(false);
     }
   };
 
@@ -201,6 +219,14 @@ const SemesterManagementPage = () => {
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                         <button
                           type="button"
+                          className="btn btn-secondary"
+                          onClick={() => handleViewGroups(sem)}
+                          style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', fontWeight: 600 }}
+                        >
+                          <Users size={14} /> Xem nhóm
+                        </button>
+                        <button
+                          type="button"
                           className={`btn ${sem.isActive ? 'btn-danger' : 'btn-success'}`}
                           onClick={() => handleToggleStatus(sem)}
                           title={activationBlocked ? getActivationBlockedMessage(sem) : undefined}
@@ -289,6 +315,39 @@ const SemesterManagementPage = () => {
           </div>
         )}
       </div>
+
+      {groupsModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: '1rem' }}>
+          <div className="glass-card" style={{ width: 'min(1000px, 96vw)', maxHeight: '88vh', overflow: 'auto', padding: '1.5rem', background: '#FFFFFF' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#0F172A' }}>Nhóm đồ án — {groupsModal.name}</h3>
+                <p style={{ margin: '0.25rem 0 0', color: '#64748B' }}>{semesterGroups.length} nhóm lấy trực tiếp từ database.</p>
+              </div>
+              <button type="button" className="btn btn-secondary" onClick={() => setGroupsModal(null)} aria-label="Đóng"><X size={18} /></button>
+            </div>
+            {groupsLoading ? <p>Đang tải dữ liệu nhóm...</p> : (
+              <div className="table-container">
+                <table className="table">
+                  <thead><tr><th>Mã nhóm</th><th>Đề tài</th><th>Giảng viên hướng dẫn</th><th>Thành viên</th><th>Trạng thái</th></tr></thead>
+                  <tbody>
+                    {semesterGroups.map((group) => (
+                      <tr key={group.id}>
+                        <td style={{ fontWeight: 700 }}>{group.code}</td>
+                        <td>{group.topicName || 'Chưa có đề tài'}</td>
+                        <td>{group.supervisorName || 'Chưa phân công'}</td>
+                        <td>{Array.isArray(group.members) ? group.members.map((member) => member.fullName).join(', ') || 'Chưa có thành viên' : 'Chưa có thành viên'}</td>
+                        <td>{group.status}</td>
+                      </tr>
+                    ))}
+                    {semesterGroups.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>Kỳ học chưa có nhóm đồ án.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Create Modal */}
       {showCreateModal && (

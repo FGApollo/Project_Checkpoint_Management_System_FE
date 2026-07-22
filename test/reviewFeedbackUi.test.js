@@ -65,3 +65,38 @@ test('students upload project documents and assigned lecturers can view them', a
   assert.match(lecturerPage, /generateProjectDocumentSuggestions/);
   assert.match(lecturerPage, /AI phân tích/);
 });
+
+test('lecturer review uses the deployed session contract and completes the group workflow', async () => {
+  const lecturerPage = await readSource('../src/pages/lecturer/ReviewScoringPage.jsx');
+  assert.match(lecturerPage, /id: item\.sessionId \?\? item\.id/);
+  assert.match(lecturerPage, /params: \{ groupId: sess\.groupId \}/);
+  assert.match(lecturerPage, /review-attendance\/\$\{selectedSession\.id\}\/groups\/\$\{selectedSession\.groupId\}\/complete/);
+  assert.doesNotMatch(lecturerPage, /listProjectDocuments\(sess\.groupId\)/);
+});
+
+test('lecturer defense room is routed, database-backed, and production-safe', async () => {
+  const [app, sidebar, defensePage, defenseManagementPage] = await Promise.all([
+    readSource('../src/App.jsx'),
+    readSource('../src/components/common/Sidebar.jsx'),
+    readSource('../src/pages/lecturer/DefenseRoomPage.jsx'),
+    readSource('../src/pages/admin/DefenseManagementPage.jsx'),
+  ]);
+  assert.match(app, /path="\/lecturer\/defenses"/);
+  assert.match(sidebar, /to="\/lecturer\/defenses"/);
+  assert.match(defensePage, /defense-management\/my-board-sessions/);
+  assert.match(defenseManagementPage, /api\.get\('\/defense-sessions'\)/);
+  assert.match(defensePage, /getBackendUrl/);
+  assert.doesNotMatch(defensePage, /http:\/\/localhost:5122/);
+  assert.doesNotMatch(defensePage, /SE190001|Nguyen Van A/);
+});
+
+test('admin can inspect semester groups and export all review reports', async () => {
+  const [semesterPage, trackingPage, reviewManagementPage] = await Promise.all([
+    readSource('../src/pages/admin/SemesterManagementPage.jsx'),
+    readSource('../src/pages/admin/ReviewTrackingPage.jsx'),
+    readSource('../src/pages/admin/ReviewManagementPage.jsx'),
+  ]);
+  assert.match(semesterPage, /semesters\/\$\{semester\.id\}\/groups/);
+  assert.match(trackingPage, /review-submissions\/export\.zip/);
+  assert.match(reviewManagementPage, /review-scheduling\/student-registrations/);
+});

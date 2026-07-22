@@ -20,6 +20,7 @@ import DefenseManagementPage from './pages/admin/DefenseManagementPage';
 import LecturerDashboard from './pages/lecturer/LecturerDashboard';
 import AvailabilityPage from './pages/lecturer/AvailabilityPage';
 import ReviewScoringPage from './pages/lecturer/ReviewScoringPage';
+import DefenseRoomPage from './pages/lecturer/DefenseRoomPage';
 
 
 // Student Pages
@@ -175,6 +176,14 @@ const AppContent = () => {
           element={
             <ProtectedRoute allowedRoles={['Lecturer']}>
               <ReviewScoringPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/lecturer/defenses"
+          element={
+            <ProtectedRoute allowedRoles={['Lecturer']}>
+              <DefenseRoomPage />
             </ProtectedRoute>
           }
         />

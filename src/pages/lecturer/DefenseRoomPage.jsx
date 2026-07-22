@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import signalRService from '../../services/signalr';
+import { getBackendUrl } from '../../config/environment';
 import { Gavel, Play, Square, Send, Camera, UploadCloud, Users, CheckCircle2, AlertCircle, Lock, Unlock, Award, Eye, Clock } from 'lucide-react';
 
 const addConnectedMember = (members, member) => {
@@ -56,7 +57,7 @@ const DefenseRoomPage = () => {
     const fetchBoardSessions = async () => {
       try {
         const response = await api.get('/defense-management/my-board-sessions');
-        const list = Array.isArray(response.data) ? response.data : [];
+        const list = Array.isArray(response.data) ? response.data : (response.data?.items || []);
         setMySessions(list);
         if (!selectedSessionId && list.length > 0) {
           setSelectedSessionId(list[0].id || list[0].code);
@@ -85,11 +86,7 @@ const DefenseRoomPage = () => {
         setSessionState(data);
         setIsChairman(Boolean(data.isChairman || (user && user.id === data.chairmanId)));
         
-        const stList = Array.isArray(data.students) ? data.students : [
-          { id: 101, code: 'SE190001', fullName: 'Nguyen Van A' },
-          { id: 102, code: 'SE190002', fullName: 'Tran Thi B' },
-          { id: 103, code: 'SE190003', fullName: 'Le Van C' }
-        ];
+        const stList = Array.isArray(data.students) ? data.students : [];
         setStudentsList(stList);
 
         // Initialize default score matrix
@@ -526,7 +523,7 @@ const DefenseRoomPage = () => {
                   {evidences.map((ev, idx) => (
                     <div key={ev.id ?? ev.url ?? ev.filePath} className="glass-panel" style={{ padding: '0.6rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', border: '1px solid #CBD5E1' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0F172A' }}>Minh chứng #{idx + 1}</span>
-                      <a href={`http://localhost:5122${ev.url || ev.filePath || ''}`} target="_blank" rel="noopener noreferrer" className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontWeight: 700, textDecoration: 'none' }}>
+                      <a href={getBackendUrl(ev.url || ev.filePath || '')} target="_blank" rel="noopener noreferrer" className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontWeight: 700, textDecoration: 'none' }}>
                         <Eye size={12} /> Xem ảnh
                       </a>
                     </div>

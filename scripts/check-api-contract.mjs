@@ -37,9 +37,31 @@ for (const [swaggerPath, methods] of Object.entries(swagger.paths || {})) {
 }
 
 const missing = calls.filter((call) => !operations.has(`${call.method} ${normalizePath(call.path)}`));
+const covered = new Set(calls.map((call) => `${call.method} ${normalizePath(call.path)}`));
+const intentionallyBackendOnly = [
+  /^get \/$/,
+  /^get \/health\//,
+  /^(get|post) \/test-support\//,
+  /^(get|post) \/v1\/accounts$/,
+  /^post \/auth\/refresh$/,
+  /^get \/review-schedules\/my$/,
+  /^get \/student-review\/(attendance|comments)$/,
+  /^post \/review-scheduling\/ensure-lecturer-dataset$/,
+  /^(post \/review-sessions|post \/review-sessions\/bulk-assign|patch \/review-sessions\/\{\})$/,
+];
+const backendOnly = [...operations].filter((operation) =>
+  !covered.has(operation) && !intentionallyBackendOnly.some((pattern) => pattern.test(operation))
+);
 if (missing.length > 0) {
   for (const call of missing) console.error(`MISSING ${call.method.toUpperCase()} ${call.path} (${call.file})`);
   process.exitCode = 1;
 } else {
   console.log(`API contract check passed: ${calls.length} literal FE calls match ${operations.size} Swagger operations.`);
+}
+
+if (backendOnly.length > 0) {
+  backendOnly.forEach((operation) => console.error(`UNMAPPED BACKEND OPERATION ${operation.toUpperCase()}`));
+  process.exitCode = 1;
+} else {
+  console.log('Business API coverage passed: every non-infrastructure Swagger operation is mapped by the FE.');
 }

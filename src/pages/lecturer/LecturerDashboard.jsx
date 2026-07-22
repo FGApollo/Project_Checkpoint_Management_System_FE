@@ -142,8 +142,8 @@ const LecturerDashboard = () => {
         )}
         {!loading && myReviews.length > 0 && (
           <div style={{ padding: '0.5rem' }}>
-            {myReviews.map((review) => (
-              <div key={review.id ?? `${review.groupId}-${review.sessionDate}-${review.slot}`} style={{
+            {myReviews.map((review, idx) => (
+              <div key={review.sessionId ?? review.id ?? `${review.groupId}-${review.sessionDate}-${review.slot}`} style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '1rem',
@@ -169,7 +169,7 @@ const LecturerDashboard = () => {
                     </span>
                     <span style={{ color: '#94A3B8' }}>|</span>
                     <span style={{ fontSize: '0.85rem', color: '#475569' }}>
-                      {formatDate(review.date || review.scheduledDate)}
+                      {formatDate(review.sessionDate || review.date || review.scheduledDate)}
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
@@ -183,7 +183,7 @@ const LecturerDashboard = () => {
                         <Users size={13} /> {review.groupCode}
                       </span>
                     )}
-                    {review.reviewType && (
+                    {(review.type || review.reviewType) && (
                       <span style={{
                         fontSize: '0.7rem',
                         fontWeight: 600,
@@ -192,7 +192,7 @@ const LecturerDashboard = () => {
                         background: '#EEF2FF',
                         color: '#4F46E5',
                       }}>
-                        {review.reviewType}
+                        {review.type || review.reviewType}
                       </span>
                     )}
                   </div>
@@ -203,11 +203,11 @@ const LecturerDashboard = () => {
                   fontWeight: 600,
                   padding: '0.25rem 0.6rem',
                   borderRadius: '6px',
-                  background: review.status === 'Completed' ? '#DCFCE7' : '#FEF3C7',
-                  color: review.status === 'Completed' ? '#16A34A' : '#D97706',
+                  background: review.sessionStatus === 'Completed' || review.status === 'Completed' ? '#DCFCE7' : '#FEF3C7',
+                  color: review.sessionStatus === 'Completed' || review.status === 'Completed' ? '#16A34A' : '#D97706',
                   whiteSpace: 'nowrap',
                 }}>
-                  {review.status === 'Completed' ? 'Đã chấm' : 'Sắp tới'}
+                  {review.sessionStatus === 'Completed' || review.status === 'Completed' ? 'Đã nhận xét' : 'Sắp tới'}
                 </span>
               </div>
             ))}

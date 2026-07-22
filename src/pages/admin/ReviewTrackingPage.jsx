@@ -68,6 +68,26 @@ const ReviewTrackingPage = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
+  const handleExportAllReports = async () => {
+    setError('');
+    try {
+      const response = await api.get('/review-submissions/export.zip', {
+        params: selectedSemesterId ? { semesterId: selectedSemesterId } : undefined,
+        responseType: 'blob'
+      });
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bao-cao-review-${selectedSemesterId || 'tat-ca'}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Không thể xuất bộ báo cáo review.');
+    }
+  };
+
   // Fetch semesters on mount
   useEffect(() => {
     const fetchSemesters = async () => {
@@ -235,16 +255,22 @@ const ReviewTrackingPage = () => {
           </p>
         </div>
 
-        <button 
-          type="button"
-          className="btn btn-secondary" 
-          onClick={fetchTrackingData}
-          disabled={loading}
-          style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 600 }}
-        >
-          <RefreshCw size={16} className={loading ? 'spin' : ''} />
-          <span>Làm mới dữ liệu</span>
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button type="button" className="btn btn-secondary" onClick={handleExportAllReports} disabled={loading}>
+            <FileText size={16} />
+            <span>Xuất tất cả (.zip)</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={fetchTrackingData}
+            disabled={loading}
+            style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 600 }}
+          >
+            <RefreshCw size={16} className={loading ? 'spin' : ''} />
+            <span>Làm mới dữ liệu</span>
+          </button>
+        </div>
       </div>
 
       {error && (

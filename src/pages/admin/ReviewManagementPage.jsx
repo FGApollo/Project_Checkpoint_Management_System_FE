@@ -165,20 +165,24 @@ const ReviewManagementPage = () => {
       return;
     }
     try {
-      const res = await api.get('/review-scheduling/board', {
-        params: {
-          semesterId: Number(semId),
-          reviewType: String(round.type),
-          weekStart: String(round.weekStartDate)
-        }
-      });
+      const [res, registrationsResponse] = await Promise.all([
+        api.get('/review-scheduling/board', {
+          params: {
+            semesterId: Number(semId),
+            reviewType: String(round.type),
+            weekStart: String(round.weekStartDate)
+          }
+        }),
+        api.get('/review-scheduling/student-registrations', { params: { roundId: round.id } })
+      ]);
       const data = res.data || {};
       const lecturersCount = data.lecturers?.length || 0;
       const registeredLecturersCount = data.lecturers?.filter(l =>
         data.availabilitySubmissions?.some(s => s.lecturerId === l.id && (s.isSubmitted || s.submitted || s.slotCount > 0)) ||
         data.availability?.some(a => a.lecturerId === l.id)
       ).length || data.availabilitySubmissions?.filter(s => s.isSubmitted || s.submitted || s.slotCount > 0).length || 0;
-      const registeredGroupsCount = round.registrationCount ?? round.registeredGroupCount ?? 0;
+      const registrations = Array.isArray(registrationsResponse.data) ? registrationsResponse.data : [];
+      const registeredGroupsCount = new Set(registrations.map((item) => item.groupId)).size || round.registrationCount || round.registeredGroupCount || 0;
       const sessions = Array.isArray(data.sessions) ? data.sessions : [];
 
       setBoardData({
