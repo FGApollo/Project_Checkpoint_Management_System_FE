@@ -3,8 +3,9 @@ import api from '../../services/api';
 import { listProjectDocuments, downloadProjectDocument, generateProjectDocumentSuggestions, listDocumentComments, createDocumentComment } from '../../services/documents';
 import reviewProgressService from '../../services/reviewProgress';
 import { useAuth } from '../../context/authContextValue.js';
-import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { CheckSquare, CalendarDays, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { PageSkeleton, PanelSkeleton } from '../../components/common/Skeleton';
+import { filterReviewSessions, getReviewDateKey, getReviewReminder, REVIEW_TIME_ZONE } from '../../features/reviews/reviewSessionDates.js';
 
 const getTabButtonProps = (activeTab, tab) => {
   if (activeTab === tab) return { className: 'btn btn-primary', style: {} };
@@ -18,7 +19,17 @@ const getSessionId = (session) => session?.sessionId ?? session?.id;
 const getSessionKey = (session) => session?.submissionId
   ?? `${getSessionId(session)}-${session?.groupId ?? 'group'}`;
 const formatSessionDate = (value) => value
-  ? new Date(value).toLocaleDateString('vi-VN')
+  ? new Date(value).toLocaleDateString('vi-VN', { timeZone: REVIEW_TIME_ZONE })
+  : 'Chưa xác định';
+
+const formatSessionDateHeading = (value) => value
+  ? new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: REVIEW_TIME_ZONE
+  }).format(new Date(value))
   : 'Chưa xác định';
 
 const formatCommentTime = (value) => value
@@ -37,7 +48,8 @@ const ReviewScoringPage = () => {
   const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
-  const [activeTab, setActiveTab] = useState('attendance'); // 'attendance' | 'comments' | 'evaluation'
+  const [sessionFilter, setSessionFilter] = useState('today');
+  const [activeTab, setActiveTab] = useState('evaluation'); // 'attendance' | 'comments' | 'evaluation'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -61,6 +73,25 @@ const ReviewScoringPage = () => {
   const [commentReference, setCommentReference] = useState('');
   const [inlineCommentText, setInlineCommentText] = useState('');
   const [inlineCommentBusy, setInlineCommentBusy] = useState(false);
+  const todaySessions = filterReviewSessions(sessions, 'today');
+  const upcomingSessions = filterReviewSessions(sessions, 'upcoming');
+  const filteredSessions = filterReviewSessions(sessions, sessionFilter);
+  const sessionDateGroups = new Map();
+  filteredSessions.forEach((session) => {
+    const dateKey = getReviewDateKey(session.sessionDate) || 'unknown';
+    const existingGroup = sessionDateGroups.get(dateKey);
+
+    if (existingGroup) {
+      existingGroup.sessions.push(session);
+    } else {
+      sessionDateGroups.set(dateKey, {
+        key: dateKey,
+        date: session.sessionDate,
+        sessions: [session]
+      });
+    }
+  });
+  const sessionsByDate = Array.from(sessionDateGroups.values());
 
   const mergeProgressComment = useCallback((incoming) => {
     if (!incoming?.id) return;
@@ -85,9 +116,13 @@ const ReviewScoringPage = () => {
         projectName: item.projectName || item.topicName
       }));
       setSessions(list);
-      setSelectedSession((current) => current || list[0] || null);
+      const today = filterReviewSessions(list, 'today');
+      const upcoming = filterReviewSessions(list, 'upcoming');
+      const preferredSession = today[0] || upcoming[0] || list[0] || null;
+      setSessionFilter(today.length > 0 ? 'today' : upcoming.length > 0 ? 'upcoming' : 'all');
+      setSelectedSession(preferredSession);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to fetch assigned review sessions.');
+      setError(err.response?.data?.error || 'Không thể tải danh sách phiên bảo vệ được phân công.');
     } finally {
       setLoading(false);
     }
@@ -124,7 +159,7 @@ const ReviewScoringPage = () => {
         }
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load details for selected tab.');
+      setError(err.response?.data?.error || 'Không thể tải thông tin của phiên bảo vệ đã chọn.');
     } finally {
       setLoading(false);
     }
@@ -248,9 +283,9 @@ const ReviewScoringPage = () => {
           note: item.note || ''
         }))
       });
-      setSuccess('Student attendance records saved successfully.');
+      setSuccess('Đã lưu kết quả điểm danh của sinh viên.');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save attendance.');
+      setError(err.response?.data?.error || 'Không thể lưu kết quả điểm danh.');
     }
   };
 
@@ -273,9 +308,9 @@ const ReviewScoringPage = () => {
       });
       mergeProgressComment(response.data);
       setNewComment('');
-      setSuccess('Nhận xét tiến độ đã được gửi tới các giảng viên trong ca review.');
+      setSuccess('Nhận xét tiến độ đã được gửi tới các giảng viên trong phiên bảo vệ.');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to submit comment.');
+      setError(err.response?.data?.error || 'Không thể gửi nhận xét.');
     } finally {
       setCommentSending(false);
     }
@@ -298,14 +333,14 @@ const ReviewScoringPage = () => {
       });
       setSuccess('Đã lưu bản nháp nhận xét thành công!');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save review draft.');
+      setError(err.response?.data?.error || 'Không thể lưu bản nháp nhận xét.');
     }
   };
 
   const handleSubmitEvaluationFinal = async () => {
     if (!selectedSession) return;
     if (!evalNotes.trim()) {
-      setError('Vui lòng nhập nhận xét chính thức trước khi kết thúc buổi Review.');
+      setError('Vui lòng nhập nhận xét chính thức trước khi kết thúc phiên bảo vệ.');
       return;
     }
     const subId = selectedSession.submissionId || getSessionId(selectedSession);
@@ -324,17 +359,17 @@ const ReviewScoringPage = () => {
       await api.post(`/review-submissions/${subId}/submit`);
       try {
         await api.post(`/review-attendance/${selectedSession.id}/groups/${selectedSession.groupId}/complete`);
-        setSuccess('Đã kết thúc buổi Review. Nhận xét của giảng viên đã được gửi cho sinh viên.');
+        setSuccess('Đã kết thúc phiên bảo vệ. Nhận xét của giảng viên đã được gửi cho sinh viên.');
       } catch (completeError) {
         if (completeError.response?.status === 409) {
-          setSuccess('Đã nộp nhận xét của bạn. Buổi review sẽ hoàn thành khi mọi giảng viên đã nộp nhận xét. Sinh viên không ký sẽ tự động được ghi nhận vắng mặt.');
+          setSuccess('Đã nộp nhận xét của bạn. Phiên bảo vệ sẽ hoàn thành khi mọi giảng viên đã nộp nhận xét. Sinh viên không ký sẽ tự động được ghi nhận vắng mặt.');
         } else {
           throw completeError;
         }
       }
       fetchSessionDetails(selectedSession);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to submit final checkpoint review.');
+      setError(err.response?.data?.error || 'Không thể gửi nhận xét chính thức cho phiên bảo vệ.');
     }
   };
 
@@ -359,19 +394,27 @@ const ReviewScoringPage = () => {
     }
   };
 
+  const handleSessionFilterChange = (filter) => {
+    setSessionFilter(filter);
+    const candidates = filterReviewSessions(sessions, filter);
+    if (!candidates.some((session) => getSessionKey(session) === getSessionKey(selectedSession))) {
+      setSelectedSession(candidates[0] || null);
+    }
+  };
+
   if (loading && sessions.length === 0) return <PageSkeleton cards={2} rows={6} />;
 
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title" style={{ color: '#0F172A' }}>Điểm danh & Nhận xét Review Checkpoint</h1>
-          <p className="page-subtitle" style={{ color: '#475569' }}>Xác nhận sinh viên có mặt và gửi nhận xét chuyên môn cho nhóm sau buổi review. Review không chấm điểm.</p>
+          <h1 className="page-title" style={{ color: '#0F172A' }}>Phòng Bảo vệ Trực tiếp</h1>
+          <p className="page-subtitle" style={{ color: '#475569' }}>Theo dõi phiên bảo vệ, xác nhận sinh viên tham dự và gửi nhận xét chuyên môn cho nhóm.</p>
         </div>
 
         <button type="button" className="btn btn-secondary" onClick={fetchMySessions} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
           <RefreshCw size={16} color="#F26522" />
-          <span style={{ fontWeight: 600 }}>Tải lại Danh sách Phân công</span>
+          <span style={{ fontWeight: 600 }}>Tải lại danh sách phiên bảo vệ</span>
         </button>
       </div>
 
@@ -394,50 +437,123 @@ const ReviewScoringPage = () => {
         <div className="glass-card" style={{ padding: '1.25rem', height: 'fit-content', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0F172A' }}>
             <CheckSquare size={18} color="#F26522" />
-            <span>Ca Review được Phân công ({sessions.length})</span>
+            <span>Phiên Bảo vệ được Phân công ({sessions.length})</span>
           </h3>
+
+          {sessions.length > 0 && (
+            <div role="tablist" aria-label="Lọc phiên bảo vệ theo ngày" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.4rem', marginBottom: '1rem' }}>
+              {[
+                { key: 'today', label: 'Hôm nay', count: todaySessions.length },
+                { key: 'upcoming', label: 'Sắp tới', count: upcomingSessions.length },
+                { key: 'all', label: 'Tất cả', count: sessions.length }
+              ].map((filter) => {
+                const isActive = sessionFilter === filter.key;
+                return (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => handleSessionFilterChange(filter.key)}
+                    style={{
+                      border: `1px solid ${isActive ? '#F26522' : '#CBD5E1'}`,
+                      borderRadius: '0.6rem',
+                      padding: '0.55rem 0.3rem',
+                      background: isActive ? '#FFF7ED' : '#FFFFFF',
+                      color: isActive ? '#C2410C' : '#475569',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {filter.label} ({filter.count})
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {loading && !sessions.length && <PanelSkeleton rows={5} />}
           {!loading && sessions.length === 0 && (
             <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B', fontSize: '0.8rem' }}>
-              Hiện chưa có lịch review nào được phân công cho bạn trong tuần này.
+              Hiện chưa có phiên bảo vệ nào được phân công cho bạn trong tuần này.
             </div>
           )}
-          {sessions.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {sessions.map((sess) => {
-                const sessionKey = getSessionKey(sess);
-                const isSelected = getSessionKey(selectedSession) === sessionKey;
-                return (
-                  <button
-                    type="button"
-                    key={sessionKey}
-                    onClick={() => setSelectedSession(sess)}
-                    style={{
-                      padding: '1rem',
-                      borderRadius: 'var(--radius-md)',
-                      background: isSelected ? 'linear-gradient(135deg, #F26522, #FF7A00)' : '#F8FAFC',
-                      color: isSelected ? 'white' : '#0F172A',
-                      cursor: 'pointer',
-                      transition: 'all var(--transition-fast)',
-                      border: `1px solid ${isSelected ? '#F26522' : '#CBD5E1'}`,
-                      textAlign: 'left',
-                      width: '100%',
-                      font: 'inherit'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                      <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>{sess.groupCode || `Nhóm #${sess.groupId}`}</span>
-                      <span className="badge" style={{ background: isSelected ? 'rgba(255,255,255,0.25)' : 'rgba(242,101,34,0.12)', color: isSelected ? 'white' : '#F26522', fontWeight: 700 }}>
-                        Ca {sess.slot}
+          {!loading && sessions.length > 0 && filteredSessions.length === 0 && (
+            <div style={{ padding: '1.5rem 0.75rem', textAlign: 'center', color: '#64748B', fontSize: '0.8rem', lineHeight: 1.5 }}>
+              {sessionFilter === 'today'
+                ? 'Hôm nay bạn chưa có phiên bảo vệ nào.'
+                : 'Không có phiên bảo vệ sắp tới.'}
+            </div>
+          )}
+          {filteredSessions.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {sessionsByDate.map((dateGroup) => (
+                <section key={dateGroup.key} aria-label={formatSessionDateHeading(dateGroup.date)}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.75rem',
+                    padding: '0.65rem 0.75rem',
+                    marginBottom: '0.6rem',
+                    borderLeft: '3px solid #F26522',
+                    borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+                    background: '#FFF7ED',
+                    color: '#9A3412'
+                  }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                      <CalendarDays size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
+                      <span style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'capitalize', lineHeight: 1.3 }}>
+                        {formatSessionDateHeading(dateGroup.date)}
                       </span>
-                    </div>
-                    <p style={{ fontSize: '0.75rem', opacity: isSelected ? 0.95 : 0.75, margin: 0 }}>
-                      {formatSessionDate(sess.sessionDate)} — Phòng {sess.room || 'TBD'}
-                    </p>
-                  </button>
-                );
-              })}
+                    </span>
+                    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem', whiteSpace: 'nowrap', color: '#C2410C' }}>
+                      {getReviewReminder(dateGroup.date) && (
+                        <strong style={{ fontSize: '0.72rem' }}>{getReviewReminder(dateGroup.date)}</strong>
+                      )}
+                      <span style={{ fontSize: '0.68rem', fontWeight: 700 }}>{dateGroup.sessions.length} ca</span>
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingLeft: '0.5rem' }}>
+                    {dateGroup.sessions.map((sess) => {
+                      const sessionKey = getSessionKey(sess);
+                      const isSelected = getSessionKey(selectedSession) === sessionKey;
+                      return (
+                        <button
+                          type="button"
+                          key={sessionKey}
+                          onClick={() => setSelectedSession(sess)}
+                          aria-pressed={isSelected}
+                          style={{
+                            padding: '1rem',
+                            borderRadius: 'var(--radius-md)',
+                            background: isSelected ? 'linear-gradient(135deg, #F26522, #FF7A00)' : '#F8FAFC',
+                            color: isSelected ? 'white' : '#0F172A',
+                            cursor: 'pointer',
+                            transition: 'all var(--transition-fast)',
+                            border: `1px solid ${isSelected ? '#F26522' : '#CBD5E1'}`,
+                            textAlign: 'left',
+                            width: '100%',
+                            font: 'inherit'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', gap: '0.75rem' }}>
+                            <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>{sess.groupCode || `Nhóm #${sess.groupId}`}</span>
+                            <span className="badge" style={{ background: isSelected ? 'rgba(255,255,255,0.25)' : 'rgba(242,101,34,0.12)', color: isSelected ? 'white' : '#F26522', fontWeight: 700 }}>
+                              Ca {sess.slot}
+                            </span>
+                          </div>
+                          <p style={{ fontSize: '0.75rem', opacity: isSelected ? 0.95 : 0.75, margin: 0 }}>
+                            Phòng {sess.room || 'Chưa xếp phòng'}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
             </div>
           )}
         </div>
@@ -446,17 +562,17 @@ const ReviewScoringPage = () => {
         <div className="glass-card" style={{ padding: '1.75rem', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
           {!selectedSession ? (
             <div style={{ padding: '4rem', textAlign: 'center', color: '#64748B' }}>
-              Vui lòng chọn một ca review từ danh sách bên trái để ghi nhận xét.
+              Vui lòng chọn một phiên bảo vệ từ danh sách bên trái để ghi nhận xét.
             </div>
           ) : (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #CBD5E1', paddingBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                   <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0F172A' }}>
-                    Review Checkpoint Nhóm {selectedSession.groupCode || `#${selectedSession.groupId}`}
+                    Phiên Bảo vệ Checkpoint: Nhóm {selectedSession.groupCode || `#${selectedSession.groupId}`}
                   </h2>
                   <p style={{ fontSize: '0.85rem', color: '#64748B' }}>
-                    ID Ca: #{getSessionId(selectedSession)} — Ngày: {formatSessionDate(selectedSession.sessionDate)} — Phòng: {selectedSession.room || 'N/A'}
+                    Mã phiên: #{getSessionId(selectedSession)} — Ngày: {formatSessionDate(selectedSession.sessionDate)} — Phòng: {selectedSession.room || 'Chưa xác định'}
                   </p>
                 </div>
 
@@ -473,8 +589,17 @@ const ReviewScoringPage = () => {
                 {documents.length === 0 ? <p style={{ margin: '0.5rem 0 0', color: '#64748B', fontSize: '0.85rem' }}>Nhóm chưa tải tài liệu.</p> : documents.map((document, index) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', paddingTop: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid #E2E8F0' }}><span style={{ fontSize: '0.9rem', overflowWrap: 'anywhere', minWidth: 0 }}><strong>{document.fileName}</strong><small style={{ color: '#64748B', display: 'block', marginTop: '0.2rem' }}>Lần tải #{documents.length - index} · {document.uploadedByName || `Sinh viên #${document.uploadedById}`} · {new Date(document.uploadedAt).toLocaleString('vi-VN')} · {(document.fileSize / 1024 / 1024).toFixed(2)} MB</small></span><span style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}><button type="button" className="btn btn-secondary" onClick={() => openCommentViewer(document)}><FileText size={14} /> Mở & nhận xét</button><button type="button" className="btn btn-primary" disabled={aiLoading || document.fileName.toLowerCase().endsWith('.zip')} onClick={() => handleAnalyzeDocument(document)}><Sparkles size={14} /> AI phân tích</button></span></div>)}
               </div>
 
-              {/* Sub-Tabs */}
+              {/* Session work areas */}
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className={getTabButtonProps(activeTab, 'evaluation').className}
+                  onClick={() => setActiveTab('evaluation')}
+                  style={getTabButtonProps(activeTab, 'evaluation').style}
+                >
+                  <FileText size={16} />
+                  <span>Nhận xét sau Phiên Bảo vệ</span>
+                </button>
                 <button
                   type="button"
                   className={getTabButtonProps(activeTab, 'attendance').className}
@@ -491,16 +616,7 @@ const ReviewScoringPage = () => {
                   style={getTabButtonProps(activeTab, 'comments').style}
                 >
                   <MessageSquare size={16} />
-                  <span>Nhận xét Tiến độ</span>
-                </button>
-                <button
-                  type="button"
-                  className={getTabButtonProps(activeTab, 'evaluation').className}
-                  onClick={() => setActiveTab('evaluation')}
-                  style={getTabButtonProps(activeTab, 'evaluation').style}
-                >
-                  <FileText size={16} />
-                  <span>Nhận xét Chính thức</span>
+                  <span>Trao đổi trong Phiên</span>
                 </button>
               </div>
 
@@ -572,13 +688,13 @@ const ReviewScoringPage = () => {
                       <div>
                         <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: '#0F172A' }}>Trao đổi tiến độ</h3>
                         <p style={{ fontSize: '0.78rem', color: '#64748B', margin: '0.15rem 0 0' }}>
-                          Nhận xét được cập nhật trực tiếp cho các giảng viên trong ca review này.
+                          Nhận xét được cập nhật trực tiếp cho các giảng viên trong phiên bảo vệ này.
                         </p>
                       </div>
                     </div>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', borderRadius: 999, padding: '0.4rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, color: progressConnection === 'connected' ? '#047857' : progressConnection === 'connecting' ? '#B45309' : '#64748B', background: progressConnection === 'connected' ? '#D1FAE5' : progressConnection === 'connecting' ? '#FEF3C7' : '#F1F5F9', border: `1px solid ${progressConnection === 'connected' ? '#A7F3D0' : progressConnection === 'connecting' ? '#FDE68A' : '#E2E8F0'}` }}>
                       {progressConnection === 'connected' ? <Wifi size={14} /> : progressConnection === 'connecting' ? <Loader2 size={14} className="spin" /> : <WifiOff size={14} />}
-                      {progressConnection === 'connected' ? 'Đang cập nhật trực tiếp' : progressConnection === 'connecting' ? 'Đang kết nối' : 'Đang dùng dữ liệu API'}
+                      {progressConnection === 'connected' ? 'Đang cập nhật trực tiếp' : progressConnection === 'connecting' ? 'Đang kết nối' : 'Đang đồng bộ dữ liệu'}
                     </span>
                   </header>
 
@@ -654,9 +770,9 @@ const ReviewScoringPage = () => {
               {/* EVALUATION PANEL */}
               {activeTab === 'evaluation' && (
                 <div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem', color: '#0F172A' }}>Nhận xét Chính thức sau Buổi Review</h3>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem', color: '#0F172A' }}>Nhận xét Chính thức sau Phiên Bảo vệ</h3>
                   <p style={{ fontSize: '0.8rem', color: '#64748B', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-                    Giảng viên ghi rõ nội dung nhóm đã thực hiện, các vấn đề cần khắc phục và định hướng cho giai đoạn tiếp theo. Hệ thống chỉ ghi nhận nhận xét, không ghi điểm hoặc xếp loại Pass/Fail.
+                    Giảng viên ghi rõ nội dung nhóm đã thực hiện, các vấn đề cần khắc phục và định hướng cho giai đoạn tiếp theo.
                   </p>
 
                   <div className="form-group">
@@ -678,7 +794,7 @@ const ReviewScoringPage = () => {
                       <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '0.75rem', background: '#F8FAFC', border: '1px solid #C7D2FE', color: '#1E293B' }}>
                         <strong style={{ color: '#4338CA' }}>Gợi ý AI — giảng viên cần kiểm tra và chỉnh sửa trước khi gửi</strong>
                         <p><b>Tóm tắt:</b> {aiSuggestion.contentSummary}</p>
-                        <p><b>Điểm mạnh:</b> {aiSuggestion.strengthsSummary}</p>
+                        <p><b>Nội dung làm tốt:</b> {aiSuggestion.strengthsSummary}</p>
                         <p style={{ marginBottom: 0 }}><b>Cải thiện:</b> {aiSuggestion.improvementSummary}</p>
                         <button type="button" className="btn btn-secondary" onClick={() => setEvalNotes((current) => current.trim() ? `${current.trim()}\n\n${aiSuggestion.improvementSummary}` : aiSuggestion.improvementSummary)} style={{ marginTop: '0.75rem', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
                           Dùng phần cải thiện làm bản nháp nhận xét
@@ -695,7 +811,7 @@ const ReviewScoringPage = () => {
                       rows="6"
                       value={evalNotes}
                       onChange={(e) => setEvalNotes(e.target.value)}
-                      placeholder="Nhập chi tiết các nhận xét về kiến trúc, chức năng đã hoàn thành, những điểm hạn chế cần khắc phục và định hướng cho giai đoạn tiếp theo..."
+                      placeholder="Nhập chi tiết các nhận xét về kiến trúc, chức năng đã hoàn thành, các hạn chế cần khắc phục và định hướng cho giai đoạn tiếp theo..."
                       style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', fontSize: '0.9rem', lineHeight: 1.6 }}
                       required
                     />
@@ -708,7 +824,7 @@ const ReviewScoringPage = () => {
                     </button>
                     <button type="button" className="btn btn-success" onClick={handleSubmitEvaluationFinal} style={{ background: '#10B981', color: 'white', fontWeight: 700, padding: '0.75rem 1.5rem' }}>
                       <CheckCircle2 size={18} />
-                      <span>Kết thúc Buổi Review & Gửi Nhận xét</span>
+                      <span>Kết thúc Phiên Bảo vệ & Gửi Nhận xét</span>
                     </button>
                   </div>
                 </div>

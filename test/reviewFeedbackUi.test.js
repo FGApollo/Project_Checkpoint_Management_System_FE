@@ -17,7 +17,11 @@ test('review feedback UI does not expose scores or pass/fail verdicts', async ()
   assert.doesNotMatch(studentPage, /sub\.score|selectedSubmission\.result|getResultBadge/);
   assert.doesNotMatch(studentPage, /Điểm:\s*<strong>|KẾT QUẢ REVIEW|ĐẠT YÊU CẦU|KHÔNG ĐẠT/);
   assert.match(studentPage, /entry\.fullName \|\| entry\.studentName/);
-  assert.doesNotMatch(lecturerPage, /evalResult|resultText:\s*evalResult|Nộp Điểm|Chấm điểm/);
+  assert.doesNotMatch(lecturerPage, /evalResult|resultText:\s*evalResult|Nộp Điểm|Chấm điểm|Phiếu Chấm|ChamBaoVe|ChamNguoi|0\.0 đến 10\.0/i);
+  assert.match(lecturerPage, /Phòng Bảo vệ Trực tiếp/);
+  assert.match(lecturerPage, /useState\('evaluation'\)/);
+  assert.match(lecturerPage, /Nhận xét sau Phiên Bảo vệ/);
+  assert.doesNotMatch(lecturerPage, /SignalR Live Room|Live Room|Đang dùng dữ liệu API/i);
   assert.doesNotMatch(trackingPage, /scoringStatus|reviewer1Result|reviewer2Result|item\.result|Đạt yêu cầu \(Pass\)|Không đạt \(Fail\)|chấm điểm/i);
   assert.match(trackingPage, /item\.groupStatus === 'Completed'/);
   assert.match(trackingPage, /FEEDBACK_RECEIVED/);
@@ -92,7 +96,7 @@ test('lecturer review uses the deployed session contract and completes the group
   assert.doesNotMatch(lecturerPage, /listProjectDocuments\(sess\.groupId\)/);
 });
 
-test('progress comments use a scoped SignalR room and an optimistic realtime conversation UI', async () => {
+test('progress comments use a scoped realtime channel and an optimistic conversation UI', async () => {
   const [lecturerPage, realtimeService, environment] = await Promise.all([
     readSource('../src/pages/lecturer/ReviewScoringPage.jsx'),
     readSource('../src/services/reviewProgress.js'),
@@ -109,14 +113,16 @@ test('progress comments use a scoped SignalR room and an optimistic realtime con
   assert.match(lecturerPage, /aria-live="polite"/);
 });
 
-test('lecturer navigation does not expose the duplicate live defense room', async () => {
+test('lecturer navigation exposes one direct defense room backed by the review workflow', async () => {
   const [app, sidebar] = await Promise.all([
     readSource('../src/App.jsx'),
     readSource('../src/components/common/Sidebar.jsx'),
   ]);
 
   assert.doesNotMatch(app, /DefenseRoomPage|\/lecturer\/defenses/);
-  assert.doesNotMatch(sidebar, /Phòng bảo vệ trực tiếp|\/lecturer\/defenses/);
+  assert.match(sidebar, /to="\/lecturer\/reviews"/);
+  assert.match(sidebar, /Phòng Bảo vệ Trực tiếp/);
+  assert.doesNotMatch(sidebar, /SignalR Live Room|Live Room|\/lecturer\/defenses/);
 });
 
 test('admin can inspect semester groups and export all review reports', async () => {

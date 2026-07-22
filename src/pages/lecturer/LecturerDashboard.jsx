@@ -5,6 +5,7 @@ import { Clock, CheckSquare, Calendar, Users, ArrowRight, MapPin } from 'lucide-
 import { Link } from 'react-router-dom';
 import { PageSkeleton } from '../../components/common/Skeleton';
 import { getReviewSlotLabel } from '../../features/reviews/reviewSlots';
+import { getReviewReminder, REVIEW_TIME_ZONE } from '../../features/reviews/reviewSessionDates.js';
 
 const LecturerDashboard = () => {
   const { user } = useAuth();
@@ -28,7 +29,7 @@ const LecturerDashboard = () => {
     if (!dateStr) return '—';
     try {
       const d = new Date(dateStr);
-      return d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+      return d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: REVIEW_TIME_ZONE });
     } catch { return dateStr; }
   };
 
@@ -40,7 +41,7 @@ const LecturerDashboard = () => {
         <div>
           <h1 className="page-title" style={{ color: '#0F172A' }}>Dashboard Giảng viên</h1>
           <p className="page-subtitle" style={{ color: '#64748B' }}>
-            Xin chào, <strong>{user?.fullName || user?.username}</strong>. Quản lý đăng ký slot và theo dõi lịch review.
+            Xin chào, <strong>{user?.fullName || user?.username}</strong>. Quản lý đăng ký slot và theo dõi lịch bảo vệ checkpoint.
           </p>
         </div>
       </div>
@@ -61,7 +62,7 @@ const LecturerDashboard = () => {
           </div>
           <div>
             <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A' }}>{myReviews.length}</p>
-            <p style={{ fontSize: '0.8rem', color: '#64748B' }}>Slot Review được phân công</p>
+            <p style={{ fontSize: '0.8rem', color: '#64748B' }}>Phiên bảo vệ được phân công</p>
           </div>
         </div>
 
@@ -104,7 +105,7 @@ const LecturerDashboard = () => {
               <CheckSquare size={22} color="#16A34A" />
             </div>
             <div>
-              <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0F172A' }}>Hoàn thành Review</p>
+              <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0F172A' }}>Phòng Bảo vệ Trực tiếp</p>
               <p style={{ fontSize: '0.75rem', color: '#64748B' }}>Điểm danh và gửi nhận xét cho sinh viên</p>
             </div>
             <ArrowRight size={16} color="#94A3B8" style={{ marginLeft: 'auto' }} />
@@ -121,8 +122,8 @@ const LecturerDashboard = () => {
       }}>
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>Lịch Review được Phân công</h2>
-            <p style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '0.15rem' }}>Danh sách các slot review mà bạn cần tham gia chấm checkpoint</p>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>Lịch Bảo vệ được Phân công</h2>
+            <p style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '0.15rem' }}>Danh sách các phiên bảo vệ checkpoint mà bạn được phân công tham gia</p>
           </div>
         </div>
 
@@ -130,8 +131,8 @@ const LecturerDashboard = () => {
         {!loading && myReviews.length === 0 && (
           <div style={{ padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>
             <Calendar size={40} color="#CBD5E1" style={{ marginBottom: '0.75rem' }} />
-            <p style={{ fontWeight: 600, color: '#64748B' }}>Chưa có lịch review nào được phân công</p>
-            <p style={{ fontSize: '0.8rem' }}>Lịch sẽ hiển thị sau khi Admin publish đợt review.</p>
+            <p style={{ fontWeight: 600, color: '#64748B' }}>Chưa có lịch bảo vệ nào được phân công</p>
+            <p style={{ fontSize: '0.8rem' }}>Lịch sẽ hiển thị sau khi Phòng Đào tạo công bố đợt bảo vệ.</p>
           </div>
         )}
         {!loading && myReviews.length > 0 && (
@@ -165,6 +166,11 @@ const LecturerDashboard = () => {
                     <span style={{ fontSize: '0.85rem', color: '#475569' }}>
                       {formatDate(review.sessionDate || review.date || review.scheduledDate)}
                     </span>
+                    {getReviewReminder(review.sessionDate || review.date || review.scheduledDate) && (
+                      <span style={{ padding: '0.2rem 0.5rem', borderRadius: '999px', background: '#FFEDD5', color: '#C2410C', fontSize: '0.7rem', fontWeight: 800 }}>
+                        {getReviewReminder(review.sessionDate || review.date || review.scheduledDate)}
+                      </span>
+                    )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
                     {review.room && (

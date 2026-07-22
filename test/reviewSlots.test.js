@@ -32,9 +32,9 @@ test('five review slots cover 07:30 to 19:00 without crossing the lunch break', 
     return end - start;
   });
 
-  assert.ok(Math.max(...durations) - Math.min(...durations) <= 3);
-  assert.equal(getReviewSlotTime(5), '16:50 – 19:00');
-  assert.equal(getReviewSlotLabel(3), 'Slot 3 (12:30 – 14:40)');
+  assert.ok(durations.every((duration) => duration === 120));
+  assert.equal(getReviewSlotTime(5), '17:00 – 19:00');
+  assert.equal(getReviewSlotLabel(3), 'Slot 3 (12:30 – 14:30)');
 });
 
 test('lecturer can edit and resubmit availability while the round remains open', async () => {

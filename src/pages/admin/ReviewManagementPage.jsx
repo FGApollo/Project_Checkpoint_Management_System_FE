@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../services/api';
 import { Layers, UserPlus, Zap, CheckCircle2, AlertCircle, Users, Calendar, ArrowRight, Play, CheckSquare, Lock, Unlock, ShieldAlert } from 'lucide-react';
 import { REVIEW_TYPES, getAvailableReviewTypes, getDuplicateReviewTypes, getExistingReviewTypes } from '../../features/reviews/reviewRoundTypes';
+import { calculateReviewDates, getRegistrationEndDate, isWednesday } from '../../features/reviews/reviewRoundDates';
 import { PageSkeleton } from '../../components/common/Skeleton';
 
 const formatReviewType = (type) => {
@@ -128,6 +129,7 @@ const ReviewManagementPage = () => {
   const [formData, setFormData] = useState({
     semesterId: 1,
     reviewType: 'Review1',
+    registrationEndDate: '',
     startDate: '',
     endDate: ''
   });
@@ -265,15 +267,15 @@ const ReviewManagementPage = () => {
     }
   }, [availableReviewTypes, existingReviewTypes, formData.reviewType]);
 
-  const handleStartDateChange = (e) => {
-    const startVal = e.target.value;
-    let endVal = formData.endDate;
-    if (startVal) {
-      const d = new Date(startVal);
-      d.setDate(d.getDate() + 5); // từ Thứ 2 đến Thứ 7 là 6 ngày (cộng 5)
-      endVal = d.toISOString().split('T')[0];
-    }
-    setFormData({ ...formData, startDate: startVal, endDate: endVal });
+  const handleRegistrationEndDateChange = (e) => {
+    const registrationEndDate = e.target.value;
+    const { weekStartDate, weekEndDate } = calculateReviewDates(registrationEndDate);
+    setFormData({
+      ...formData,
+      registrationEndDate,
+      startDate: weekStartDate,
+      endDate: weekEndDate,
+    });
   };
 
   const handleCreateRound = async (e) => {
@@ -291,8 +293,12 @@ const ReviewManagementPage = () => {
       return;
     }
 
-    if (!formData.startDate || !formData.endDate) {
-      setError('Vui lòng chọn Từ ngày và Đến ngày.');
+    if (!formData.registrationEndDate || !formData.startDate || !formData.endDate) {
+      setError('Vui lòng chọn ngày cuối đăng ký.');
+      return;
+    }
+    if (!isWednesday(formData.registrationEndDate)) {
+      setError('Ngày cuối đăng ký phải là Thứ 4 để lịch chấm bắt đầu vào Thứ 2, đúng 5 ngày sau đó.');
       return;
     }
     const start = new Date(formData.startDate);
@@ -311,6 +317,7 @@ const ReviewManagementPage = () => {
       const res = await api.post('/review-scheduling/rounds', {
         semesterId: Number(formData.semesterId),
         reviewType: formData.reviewType,
+        registrationEndDate: formData.registrationEndDate,
         weekStartDate: formData.startDate
       });
       setSuccess('Đã tạo đợt review thành công.');
@@ -575,19 +582,23 @@ const ReviewManagementPage = () => {
                       ))}
                     </select>
                   </div>
+                  <div className="form-group" style={{ marginBottom: '1rem' }}>
+                    <label htmlFor="registration-end-date" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Ngày cuối đăng ký (Thứ 4)</label>
+                    <input id="registration-end-date" required type="date" className="form-input" value={formData.registrationEndDate} onChange={handleRegistrationEndDateChange} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
+                  </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.75rem' }}>
                     <div>
-                      <label htmlFor="start-date-round" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Từ ngày (Thứ 2)</label>
-                      <input id="start-date-round" required type="date" className="form-input" value={formData.startDate} onChange={handleStartDateChange} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
+                      <label htmlFor="start-date-round" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Bắt đầu chấm (Thứ 2)</label>
+                      <input id="start-date-round" required readOnly type="date" className="form-input" value={formData.startDate} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px', background: '#F8FAFC' }} />
                     </div>
                     <div>
-                      <label htmlFor="end-date-round" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Đến ngày (Thứ 7)</label>
-                      <input id="end-date-round" required type="date" className="form-input" value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px' }} />
+                      <label htmlFor="end-date-round" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Kết thúc chấm (Thứ 7)</label>
+                      <input id="end-date-round" required readOnly type="date" className="form-input" value={formData.endDate} style={{ width: '100%', padding: '0.5rem', border: '1px solid #CBD5E1', borderRadius: '6px', background: '#F8FAFC' }} />
                     </div>
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#64748B', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                     <Calendar size={14} color="#F26522" />
-                    <span>* Khi chọn Từ ngày, Đến ngày sẽ tự động cộng 5 ngày. Ràng buộc 1 đợt có độ dài đúng 6 ngày từ Thứ 2 đến Thứ 7.</span>
+                    <span>* Lịch chấm bắt đầu sau ngày cuối đăng ký đúng 5 ngày và kéo dài từ Thứ 2 đến Thứ 7.</span>
                   </div>
                   <button type="submit" className="btn btn-primary" disabled={availableReviewTypes.length === 0} style={{ width: '100%' }}>Tạo Đợt Review & Tiếp tục <ArrowRight size={16} /></button>
                 </form>
@@ -608,7 +619,8 @@ const ReviewManagementPage = () => {
                               <p style={{ fontWeight: 750, fontSize: '1rem', color: isSelected ? '#4F46E5' : '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                 Đợt {formatReviewType(r.type)}
                               </p>
-                              <p style={{ fontSize: '0.8rem', color: '#64748B', margin: '0.2rem 0 0' }}>Từ {r.weekStartDate} đến {r.weekEndDate}</p>
+                              <p style={{ fontSize: '0.8rem', color: '#64748B', margin: '0.2rem 0 0' }}>Đăng ký đến {getRegistrationEndDate(r)}</p>
+                              <p style={{ fontSize: '0.8rem', color: '#64748B', margin: '0.15rem 0 0' }}>Lịch chấm: {r.weekStartDate} đến {r.weekEndDate}</p>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
                               <span className="badge" style={{
