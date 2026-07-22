@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { BookOpen, User, Calendar, CheckSquare, Award, ArrowRight, Layers, Upload, FileText, Download } from 'lucide-react';
+import { BookOpen, User, Users, Wifi, WifiOff, Crown, Calendar, CheckSquare, Award, ArrowRight, Layers, Upload, FileText, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { listProjectDocuments, uploadProjectDocument, downloadProjectDocument } from '../../services/documents';
 import { PageSkeleton } from '../../components/common/Skeleton';
+import presenceService from '../../services/presence';
 
 const StudentDashboard = () => {
   const { user } = useAuth();
@@ -12,6 +13,8 @@ const StudentDashboard = () => {
   const [groupInfo, setGroupInfo] = useState(null);
   const [mySchedules, setMySchedules] = useState([]);
   const [mySubmissions, setMySubmissions] = useState([]);
+  const [groupMembers, setGroupMembers] = useState([]);
+  const [onlineMembers, setOnlineMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const groupId = user?.groupId || user?.group?.id || groupInfo?.groupId || mySchedules[0]?.groupId;
   const groupCode = user?.groupCode || user?.group?.code || groupInfo?.groupCode || mySchedules[0]?.groupCode || '';
@@ -33,7 +36,15 @@ const StudentDashboard = () => {
         if (semester?.id) {
           const roundsRes = await api.get(`/student-review/rounds?semesterId=${semester.id}`).catch(() => ({ data: [] }));
           const rounds = Array.isArray(roundsRes.data) ? roundsRes.data : [];
-          setGroupInfo(rounds.find((round) => round.groupId) || null);
+          const ownRound = rounds.find((round) => round.groupId) || null;
+          setGroupInfo(ownRound);
+
+          if (ownRound?.groupId) {
+            const groupsRes = await api.get(`/semesters/${semester.id}/groups`).catch(() => ({ data: [] }));
+            const groups = Array.isArray(groupsRes.data) ? groupsRes.data : [];
+            const ownGroup = groups.find((group) => Number(group.id) === Number(ownRound.groupId));
+            setGroupMembers(Array.isArray(ownGroup?.members) ? ownGroup.members : []);
+          }
         }
 
         const schedRes = await api.get('/student-review/schedule').catch(() => ({ data: [] }));
@@ -47,6 +58,10 @@ const StudentDashboard = () => {
     };
     fetchStudentData();
   }, []);
+
+  useEffect(() => presenceService.subscribe(setOnlineMembers), []);
+
+  const onlineUserIds = new Set(onlineMembers.map((member) => String(member.userId)));
 
   useEffect(() => {
     if (!groupId) return;
@@ -127,6 +142,51 @@ const StudentDashboard = () => {
             <span className="badge" style={{ marginTop: '0.5rem', display: 'inline-block', background: 'rgba(14, 165, 233, 0.15)', color: '#0EA5E9' }}>Kỹ thuật Phần mềm (SWD)</span>
           </div>
         </div>
+      </div>
+
+      <div className="glass-card" style={{ padding: '1.75rem', marginBottom: '2rem', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0F172A' }}>
+              <Users size={20} color="#F26522" /> Thành viên nhóm
+            </h3>
+            <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: '0.3rem' }}>
+              {groupCode || 'Nhóm của bạn'} · {groupMembers.length} thành viên
+            </p>
+          </div>
+          <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <Wifi size={14} /> {groupMembers.filter((member) => onlineUserIds.has(String(member.userId))).length} đang online
+          </span>
+        </div>
+
+        {groupMembers.length === 0 ? (
+          <div style={{ padding: '1.25rem', borderRadius: 'var(--radius-md)', background: '#F8FAFC', color: '#64748B' }}>
+            Chưa tải được danh sách thành viên của nhóm.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '0.75rem' }}>
+            {groupMembers.map((member) => {
+              const isOnline = onlineUserIds.has(String(member.userId));
+              return (
+                <div key={member.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.9rem', border: `1px solid ${isOnline ? 'rgba(16,185,129,0.35)' : '#E2E8F0'}`, borderRadius: 'var(--radius-md)', background: isOnline ? 'rgba(236,253,245,0.7)' : '#F8FAFC' }}>
+                  <div style={{ width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isOnline ? '#10B981' : '#CBD5E1', color: '#FFFFFF', flexShrink: 0 }}>
+                    <User size={19} />
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                      <strong style={{ color: '#0F172A' }}>{member.fullName}</strong>
+                      {member.isLeader && <span title="Nhóm trưởng" aria-label="Nhóm trưởng"><Crown size={15} color="#F59E0B" /></span>}
+                    </div>
+                    <div style={{ color: '#64748B', fontSize: '0.78rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>{member.code} · {member.email}</div>
+                  </div>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: isOnline ? '#059669' : '#94A3B8', fontSize: '0.75rem', fontWeight: 700 }}>
+                    {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}{isOnline ? 'Online' : 'Offline'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Quick Cards */}

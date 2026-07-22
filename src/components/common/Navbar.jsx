@@ -10,6 +10,7 @@ const Navbar = () => {
   const location = useLocation();
   const [activeSemester, setActiveSemester] = useState(null);
   const [onlineMembers, setOnlineMembers] = useState([]);
+  const [presenceOpen, setPresenceOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -201,13 +202,31 @@ const Navbar = () => {
       )}
       </header>
 
-      <div
-        className="presence-indicator"
-        title={onlineMembers.map((member) => `${member.displayName} (${member.role})`).join(', ') || 'Chưa có người dùng khác đang hoạt động'}
-        aria-label={`${onlineMembers.length} người dùng đang hoạt động`}
-      >
-        <Wifi size={15} aria-hidden="true" />
-        <span>{onlineMembers.length} online{onlineMembers.length > 0 ? ` · ${onlineMembers.slice(0, 2).map((member) => member.displayName).join(', ')}` : ''}</span>
+      <div className="presence-widget">
+        {presenceOpen && (
+          <div className="presence-list" role="status" aria-label="Danh sách người dùng đang online">
+            <strong>Đang hoạt động ({onlineMembers.length})</strong>
+            {onlineMembers.length === 0 ? (
+              <span className="presence-empty">Chưa có người dùng online</span>
+            ) : onlineMembers.map((member) => (
+              <div className="presence-member" key={member.userId ?? member.connectionId}>
+                <span className="presence-dot" aria-hidden="true" />
+                <span className="presence-member-name">{member.displayName}</span>
+                <small>{getRoleBadgeText(member.role)}</small>
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          className="presence-indicator"
+          onClick={() => setPresenceOpen((open) => !open)}
+          aria-expanded={presenceOpen}
+          aria-label={`${onlineMembers.length} người dùng đang hoạt động. Nhấn để xem danh sách.`}
+        >
+          <Wifi size={15} aria-hidden="true" />
+          <span>{onlineMembers.length} online{onlineMembers.length === 1 ? ` · ${onlineMembers[0].displayName}` : ''}</span>
+        </button>
       </div>
     </>
   );

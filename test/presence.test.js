@@ -16,12 +16,14 @@ test('presence counts users instead of SignalR connections', () => {
   );
 });
 
-test('presence indicator is rendered as a fixed bottom-left badge', async () => {
+test('presence indicator is an expandable bottom-left user list', async () => {
   const navbar = await readFile(new URL('../src/components/common/Navbar.jsx', import.meta.url), 'utf8');
   const styles = await readFile(new URL('../src/App.css', import.meta.url), 'utf8');
   const header = navbar.slice(navbar.indexOf('return ('), navbar.indexOf('</header>'));
 
   assert.match(navbar, /className="presence-indicator"/);
-  assert.match(styles, /\.presence-indicator\s*\{[\s\S]*position:\s*fixed[\s\S]*left:\s*1rem[\s\S]*bottom:\s*1rem/);
+  assert.match(navbar, /className="presence-list"/);
+  assert.match(navbar, /onlineMembers\.map/);
+  assert.match(styles, /\.presence-widget\s*\{[\s\S]*position:\s*fixed[\s\S]*left:\s*1rem[\s\S]*bottom:\s*1rem/);
   assert.doesNotMatch(header, /onlineMembers|<Wifi/);
 });

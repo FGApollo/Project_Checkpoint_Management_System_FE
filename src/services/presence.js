@@ -23,7 +23,11 @@ class PresenceService {
     }
   }
 
-  subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
+  subscribe(listener) {
+    this.listeners.add(listener);
+    listener(uniquePresenceMembers(this.currentMembers || []));
+    return () => this.listeners.delete(listener);
+  }
   emit(members) {
     const uniqueMembers = uniquePresenceMembers(members);
     this.listeners.forEach((listener) => listener(uniqueMembers));
