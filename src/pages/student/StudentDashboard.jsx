@@ -19,7 +19,7 @@ const StudentDashboard = () => {
   const groupId = user?.groupId || user?.group?.id || groupInfo?.groupId || mySchedules[0]?.groupId;
   const groupCode = user?.groupCode || user?.group?.code || groupInfo?.groupCode || mySchedules[0]?.groupCode || '';
   const [documents, setDocuments] = useState([]);
-  const [documentType, setDocumentType] = useState('Final');
+  const [documentType, setDocumentType] = useState('Review1');
   const [selectedFile, setSelectedFile] = useState(null);
   const [documentBusy, setDocumentBusy] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -128,7 +128,7 @@ const StudentDashboard = () => {
               </div>
               <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0F172A' }}>Review Checkpoint SEP490 - Đại học FPT</h2>
               <p style={{ color: '#64748B', fontSize: '0.9rem', marginTop: '0.25rem', lineHeight: 1.5 }}>
-                Quy trình kiểm tra tiến độ theo chuẩn đề cương: Review 1 (Báo cáo đề cương), Review 2 (Giữa kỳ), Review 3 (Bảo vệ thử).
+                Nhóm tham gia 3 lần review tiến độ độc lập: Review 1, Review 2 và Review 3.
               </p>
             </div>
           </div>
@@ -230,7 +230,7 @@ const StudentDashboard = () => {
         <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center', color: '#0F172A' }}><FileText size={20} color="#F26522" /> Tài liệu đồ án</h3>
         <p style={{ color: '#64748B', fontSize: '0.85rem' }}>Tải bản PDF/DOCX/ZIP/TXT để giảng viên xem trước buổi review. Tối đa 50 MB mỗi tệp.</p>
         {groupId ? <form onSubmit={handleUpload} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', margin: '1rem 0' }}>
-          <select value={documentType} onChange={(event) => setDocumentType(event.target.value)} className="form-input" style={{ width: 'auto' }}><option value="Proposal">Đề cương</option><option value="Progress">Giữa kỳ</option><option value="Final">Bản cuối</option></select>
+          <select value={documentType} onChange={(event) => setDocumentType(event.target.value)} className="form-input" style={{ width: 'auto' }}><option value="Review1">Review 1</option><option value="Review2">Review 2</option><option value="Review3">Review 3</option></select>
           <input type="file" accept=".pdf,.docx,.zip,.txt" onChange={(event) => setSelectedFile(event.target.files?.[0] || null)} />
           <button className="btn btn-primary" type="submit" disabled={!selectedFile || documentBusy}><Upload size={16} /> {documentBusy ? 'Đang tải...' : 'Tải tài liệu'}</button>
         </form> : <p style={{ color: '#B45309' }}>Tài khoản chưa được gán vào nhóm.</p>}
