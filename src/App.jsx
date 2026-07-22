@@ -27,6 +27,7 @@ import DefenseRoomPage from './pages/lecturer/DefenseRoomPage';
 import StudentDashboard from './pages/student/StudentDashboard';
 import ReviewRegistrationPage from './pages/student/ReviewRegistrationPage';
 import ReviewResultsPage from './pages/student/ReviewResultsPage';
+import StudentCheckInPage from './pages/student/StudentCheckInPage';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
@@ -190,6 +191,14 @@ const AppContent = () => {
           element={
             <ProtectedRoute allowedRoles={['Student']}>
               <ReviewRegistrationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student/check-in"
+          element={
+            <ProtectedRoute allowedRoles={['Student']}>
+              <StudentCheckInPage />
             </ProtectedRoute>
           }
         />

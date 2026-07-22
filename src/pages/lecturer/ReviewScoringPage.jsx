@@ -222,7 +222,7 @@ const ReviewScoringPage = () => {
         setSuccess('Đã kết thúc buổi Review. Nhận xét của giảng viên đã được gửi cho sinh viên.');
       } catch (completeError) {
         if (completeError.response?.status === 409) {
-          setSuccess('Đã nộp nhận xét của bạn. Buổi review sẽ hoàn thành khi tất cả giảng viên nộp nhận xét và điểm danh đầy đủ.');
+          setSuccess('Đã nộp nhận xét của bạn. Buổi review sẽ hoàn thành khi mọi giảng viên đã nộp nhận xét. Sinh viên không ký sẽ tự động được ghi nhận vắng mặt.');
         } else {
           throw completeError;
         }
@@ -410,12 +410,13 @@ const ReviewScoringPage = () => {
                           <th>Mã SV</th>
                           <th>Họ và tên Sinh viên</th>
                           <th>Trạng thái Điểm danh</th>
+                          <th>Chữ ký Sinh viên</th>
                           <th>Thao tác</th>
                         </tr>
                       </thead>
                       <tbody>
                         {attendanceList.length === 0 ? (
-                          <tr><td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: '#64748B' }}>Chưa có danh sách sinh viên. Bấm Lưu để khởi tạo dữ liệu mặc định.</td></tr>
+                          <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748B' }}>Chưa có danh sách sinh viên. Bấm Lưu để khởi tạo dữ liệu mặc định.</td></tr>
                         ) : (
                           attendanceList.map((att, idx) => (
                             <tr key={att.studentId ?? att.id ?? att.studentCode}>
@@ -429,6 +430,13 @@ const ReviewScoringPage = () => {
                                 }}>
                                   {att.isPresent !== false ? 'Có mặt' : 'Vắng mặt'}
                                 </span>
+                              </td>
+                              <td>
+                                {att.studentConfirmedAt ? (
+                                  <span className="badge badge-success">Đã ký {new Date(att.studentConfirmedAt).toLocaleString('vi-VN')}</span>
+                                ) : (
+                                  <span className="badge badge-warning">Chưa ký xác nhận</span>
+                                )}
                               </td>
                               <td>
                                 <button type="button" className="btn btn-secondary" onClick={() => handleToggleAttendance(idx)} style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 600 }}>
@@ -452,7 +460,7 @@ const ReviewScoringPage = () => {
               {activeTab === 'comments' && (
                 <div>
                   <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', color: '#0F172A' }}>Trao đổi & Nhận xét Tiến độ</h3>
-                  
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem', maxHeight: '300px', overflowY: 'auto' }}>
                     {commentsList.length === 0 ? (
                       <div style={{ padding: '2rem', textAlign: 'center', background: '#F8FAFC', borderRadius: 'var(--radius-md)', color: '#64748B', border: '1px solid #CBD5E1' }}>

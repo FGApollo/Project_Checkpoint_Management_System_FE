@@ -1,15 +1,16 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { 
-  LayoutDashboard, 
-  Users, 
-  FileSpreadsheet, 
-  CalendarClock, 
+import {
+  LayoutDashboard,
+  Users,
+  FileSpreadsheet,
+  CalendarClock,
   ClipboardCheck,
-  Clock, 
-  CheckSquare, 
-  BookOpen, 
+  Gavel,
+  Clock,
+  CheckSquare,
+  BookOpen,
   ListChecks,
   LogOut
 } from 'lucide-react';
@@ -128,6 +129,10 @@ const Sidebar = () => {
             <NavLink to="/student/review-schedule" style={navItemStyle}>
               <BookOpen size={18} />
               <span>Đăng ký Nguyện vọng</span>
+            </NavLink>
+            <NavLink to="/student/check-in" style={navItemStyle}>
+              <ClipboardCheck size={18} />
+              <span>Ký xác nhận tham dự</span>
             </NavLink>
             <NavLink to="/student/results" style={navItemStyle}>
               <ListChecks size={18} />

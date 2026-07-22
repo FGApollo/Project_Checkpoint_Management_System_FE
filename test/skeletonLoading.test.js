@@ -20,6 +20,7 @@ test('all API-backed pages render shared skeletons during initial loading', asyn
     '../src/pages/student/StudentDashboard.jsx',
     '../src/pages/student/ReviewRegistrationPage.jsx',
     '../src/pages/student/ReviewResultsPage.jsx',
+    '../src/pages/student/StudentCheckInPage.jsx',
   ];
 
   const sources = await Promise.all(pagePaths.map(readSource));
