@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../../services/api';
+import { listProjectDocuments, downloadProjectDocument } from '../../services/documents';
 import { 
   ClipboardCheck, 
   Search, 
@@ -12,6 +14,7 @@ import {
   Calendar, 
   CheckSquare, 
   FileText, 
+  Download,
   ArrowRight,
   ShieldAlert
 } from 'lucide-react';
@@ -34,6 +37,13 @@ const getRoundBadgeColors = (isSelected, status) => {
   if (isSelected) return { background: 'rgba(255, 255, 255, 0.22)', color: '#FFF' };
   if (status === 'Open' || status === 'Published') return { background: '#DCFCE7', color: '#15803D' };
   return { background: '#F1F5F9', color: '#64748B' };
+};
+
+const formatFileSize = (size) => {
+  const bytes = Number(size || 0);
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
 const FeedbackStatus = ({ item }) => {
@@ -68,6 +78,81 @@ const ReviewTrackingPage = () => {
   const [trackingData, setTrackingData] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailDocuments, setDetailDocuments] = useState([]);
+  const [detailDocumentsLoading, setDetailDocumentsLoading] = useState(false);
+  const [detailDocumentsError, setDetailDocumentsError] = useState('');
+  const [downloadingDocumentId, setDownloadingDocumentId] = useState(null);
+
+  const closeDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedItem(null);
+  };
+
+  const openDetailModal = (item) => {
+    setSelectedItem(item);
+    setShowDetailModal(true);
+  };
+
+  const handleDownloadDocument = async (projectDocument) => {
+    setDetailDocumentsError('');
+    setDownloadingDocumentId(projectDocument.id);
+    try {
+      const response = await downloadProjectDocument(projectDocument.id);
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = projectDocument.fileName || `tai-lieu-${projectDocument.id}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setDetailDocumentsError(err.response?.data?.error || 'Không thể tải tài liệu sinh viên đã nộp.');
+    } finally {
+      setDownloadingDocumentId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!showDetailModal || !selectedItem?.groupId) return undefined;
+
+    let cancelled = false;
+    setDetailDocuments([]);
+    setDetailDocumentsError('');
+    setDetailDocumentsLoading(true);
+    listProjectDocuments(selectedItem.groupId)
+      .then(({ data }) => {
+        if (!cancelled) setDetailDocuments(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setDetailDocumentsError(err.response?.data?.error || 'Không thể tải danh sách tài liệu của nhóm.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDetailDocumentsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showDetailModal, selectedItem?.groupId]);
+
+  useEffect(() => {
+    if (!showDetailModal) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') closeDetailModal();
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [showDetailModal]);
 
   const handleExportAllReports = async () => {
     setError('');
@@ -149,6 +234,7 @@ const ReviewTrackingPage = () => {
 
   const mapBoardItem = (item, roundName, lecturers = []) => ({
     id: item.id,
+    groupId: item.groupId,
     key: `${item.id}-${item.groupId}`,
     round: roundName,
     groupCode: item.groupCode || `Group #${item.groupId}`,
@@ -163,8 +249,9 @@ const ReviewTrackingPage = () => {
         ? `${lecturer.fullName} (${lecturer.code})`
         : `Giảng viên #${id}`;
     }) : [],
-    studentSubmitted: item.status !== 'Scheduled' && item.status !== 'Assigned',
-    submissionTime: item.sessionDate ? item.sessionDate.split('T')[0] : 'N/A',
+    studentSubmitted: false,
+    submissionTime: 'N/A',
+    documentCount: 0,
     feedbackStatus: item.status === 'Completed' ? 'COMPLETED' : 'PENDING',
     comments: item.notes || ''
   });
@@ -203,6 +290,30 @@ const ReviewTrackingPage = () => {
         const boardLecturers = Array.isArray(boardRes.data?.lecturers) ? boardRes.data.lecturers : [];
         mappedSessions = boardSessions.map(item => mapBoardItem(item, selectedRound.name, boardLecturers));
       }
+
+      const groupIds = [...new Set(mappedSessions.map(item => Number(item.groupId)).filter(Number.isFinite))];
+      const documentEntries = await Promise.all(groupIds.map(async (groupId) => {
+        const { data } = await listProjectDocuments(groupId);
+        return [groupId, Array.isArray(data) ? data : []];
+      }));
+      const documentsByGroup = new Map(documentEntries);
+
+      mappedSessions = mappedSessions.map((item) => {
+        const documents = documentsByGroup.get(Number(item.groupId)) || [];
+        const latestDocument = documents.reduce((latest, document) => {
+          if (!latest) return document;
+          return new Date(document.uploadedAt) > new Date(latest.uploadedAt) ? document : latest;
+        }, null);
+
+        return {
+          ...item,
+          studentSubmitted: documents.length > 0,
+          documentCount: documents.length,
+          submissionTime: latestDocument?.uploadedAt
+            ? latestDocument.uploadedAt.split('T')[0]
+            : 'N/A'
+        };
+      });
 
       setTrackingData(mappedSessions);
     } catch (err) {
@@ -600,7 +711,7 @@ const ReviewTrackingPage = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#10B981', fontWeight: 700, fontSize: '0.8rem' }}>
                             <CheckCircle2 size={15} />
-                            Đã nộp Báo cáo & Slide
+                            Đã nộp {item.documentCount} tài liệu
                           </span>
                           <span style={{ fontSize: '0.725rem', color: '#64748B' }}>Lúc: {item.submissionTime}</span>
                         </div>
@@ -624,10 +735,7 @@ const ReviewTrackingPage = () => {
                         <button
                           type="button"
                           className="btn btn-secondary"
-                          onClick={() => {
-                            setSelectedItem(item);
-                            setShowDetailModal(true);
-                          }}
+                          onClick={() => openDetailModal(item)}
                           style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
                           title="Xem chi tiết phiếu phản biện"
                         >
@@ -647,15 +755,24 @@ const ReviewTrackingPage = () => {
       </div>
 
       {/* Detail Modal */}
-      {showDetailModal && selectedItem && (
-        <div className="modal-overlay animate-fade-in">
-          <div className="modal-content" style={{ maxWidth: '640px', padding: '1.75rem', borderRadius: '16px' }}>
+      {showDetailModal && selectedItem && createPortal((
+        <div
+          className="modal-overlay animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="review-detail-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeDetailModal();
+          }}
+          style={{ alignItems: 'flex-start', overflowY: 'auto', paddingTop: '1.5rem', paddingBottom: '1.5rem' }}
+        >
+          <div className="modal-content" style={{ maxWidth: '720px', maxHeight: 'calc(100vh - 3rem)', padding: '1.75rem', borderRadius: '16px', margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #E2E8F0', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
               <div>
                 <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#4F46E5', background: 'rgba(79, 70, 229, 0.1)', padding: '0.2rem 0.6rem', borderRadius: '6px' }}>
                   PHIẾU PHẢN BIỆN - {selectedItem.round}
                 </span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A', margin: '0.5rem 0 0.2rem' }}>
+                <h3 id="review-detail-title" style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A', margin: '0.5rem 0 0.2rem' }}>
                   {selectedItem.groupCode} - {selectedItem.projectTitle}
                 </h3>
                 <span style={{ fontSize: '0.85rem', color: '#64748B' }}>
@@ -664,7 +781,8 @@ const ReviewTrackingPage = () => {
               </div>
               <button 
                 type="button"
-                onClick={() => setShowDetailModal(false)}
+                onClick={closeDetailModal}
+                aria-label="Đóng chi tiết"
                 style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748B' }}
               >
                 &times;
@@ -685,6 +803,44 @@ const ReviewTrackingPage = () => {
                     <div style={{ fontWeight: 700, color: '#0F172A' }}>{selectedItem.reviewers[1] || 'N/A'}</div>
                   </div>
                 </div>
+              </div>
+
+              {/* Submitted documents */}
+              <div style={{ background: '#FFFFFF', padding: '1rem', borderRadius: '10px', border: '1px solid #CBD5E1' }}>
+                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', margin: '0 0 0.75rem' }}>TÀI LIỆU SINH VIÊN ĐÃ NỘP</h4>
+                {detailDocumentsLoading && (
+                  <p style={{ margin: 0, color: '#64748B', fontSize: '0.85rem' }}>Đang tải danh sách tài liệu...</p>
+                )}
+                {!detailDocumentsLoading && detailDocumentsError && (
+                  <p style={{ margin: 0, color: '#EF4444', fontSize: '0.85rem', fontWeight: 600 }}>{detailDocumentsError}</p>
+                )}
+                {!detailDocumentsLoading && !detailDocumentsError && detailDocuments.length === 0 && (
+                  <p style={{ margin: 0, color: '#64748B', fontSize: '0.85rem', fontStyle: 'italic' }}>Nhóm chưa tải tài liệu lên hệ thống.</p>
+                )}
+                {!detailDocumentsLoading && detailDocuments.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                    {detailDocuments.map((projectDocument) => (
+                      <div key={projectDocument.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', padding: '0.75rem', borderRadius: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, color: '#0F172A', overflowWrap: 'anywhere' }}>{projectDocument.fileName}</div>
+                          <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: '#64748B' }}>
+                            {projectDocument.docType} · Phiên bản {projectDocument.versionNo} · {formatFileSize(projectDocument.fileSize)}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => handleDownloadDocument(projectDocument)}
+                          disabled={downloadingDocumentId === projectDocument.id}
+                          style={{ flexShrink: 0, padding: '0.45rem 0.75rem', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 700 }}
+                        >
+                          <Download size={15} />
+                          {downloadingDocumentId === projectDocument.id ? 'Đang tải...' : 'Tải về'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Comments */}
@@ -713,7 +869,7 @@ const ReviewTrackingPage = () => {
               <button 
                 type="button"
                 className="btn btn-primary"
-                onClick={() => setShowDetailModal(false)}
+                onClick={closeDetailModal}
                 style={{ padding: '0.6rem 1.5rem', fontWeight: 600, background: '#4F46E5', color: '#FFF' }}
               >
                 Đóng chi tiết
@@ -721,7 +877,7 @@ const ReviewTrackingPage = () => {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
     </div>
   );
 };
