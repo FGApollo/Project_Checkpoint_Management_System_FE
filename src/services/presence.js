@@ -1,12 +1,16 @@
 import * as signalR from '@microsoft/signalr';
 import { PRESENCE_HUB_URL } from '../config/environment';
+import { uniquePresenceMembers } from './presenceUtils.js';
 
 class PresenceService {
   connection = null;
   listeners = new Set();
 
   subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
-  emit(members) { this.listeners.forEach((listener) => listener(members)); }
+  emit(members) {
+    const uniqueMembers = uniquePresenceMembers(members);
+    this.listeners.forEach((listener) => listener(uniqueMembers));
+  }
 
   async start() {
     if (this.connection?.state === signalR.HubConnectionState.Connected) return;
