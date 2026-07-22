@@ -11,8 +11,7 @@ import {
   CheckSquare, 
   BookOpen, 
   ListChecks,
-  LogOut,
-  Gavel
+  LogOut
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -93,10 +92,6 @@ const Sidebar = () => {
             <NavLink to="/admin/review-tracking" style={navItemStyle}>
               <ClipboardCheck size={18} />
               <span>Theo dõi Review</span>
-            </NavLink>
-            <NavLink to="/admin/defenses" style={navItemStyle}>
-              <Gavel size={18} />
-              <span>Hội đồng & Lịch Bảo vệ</span>
             </NavLink>
           </>
         )}

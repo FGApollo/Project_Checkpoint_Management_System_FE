@@ -1,4 +1,14 @@
-const DEFAULT_BACKEND_ORIGIN = 'https://swd-capstone.onrender.com';
+const PRODUCTION_BACKEND_ORIGIN = 'https://swd-capstone.onrender.com';
+
+const getDefaultBackendOrigin = () => {
+  if (typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+    return 'http://localhost:5122';
+  }
+
+  return PRODUCTION_BACKEND_ORIGIN;
+};
+
+const DEFAULT_BACKEND_ORIGIN = getDefaultBackendOrigin();
 
 const removeTrailingSlashes = (value) => value.replace(/\/+$/, '');
 

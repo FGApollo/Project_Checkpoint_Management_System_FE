@@ -146,8 +146,9 @@ const ReviewTrackingPage = () => {
     fetchRoundsForSemester();
   }, [selectedSemesterId]);
 
-  const mapBoardItem = (item, roundName) => ({
+  const mapBoardItem = (item, roundName, lecturers = []) => ({
     id: item.id,
+    key: `${item.id}-${item.groupId}`,
     round: roundName,
     groupCode: item.groupCode || `Group #${item.groupId}`,
     projectTitle: item.projectTitle || 'Báo cáo Review Checkpoint Tiến trình',
@@ -155,7 +156,12 @@ const ReviewTrackingPage = () => {
     slot: item.slot || 1,
     slotTime: getSlotTime(item.slot || 1),
     room: item.room || 'BE-401',
-    reviewers: item.reviewerIds ? item.reviewerIds.map(id => `Giảng viên #${id}`) : [],
+    reviewers: item.reviewerIds ? item.reviewerIds.map((id) => {
+      const lecturer = lecturers.find(candidate => Number(candidate.id) === Number(id));
+      return lecturer
+        ? `${lecturer.fullName} (${lecturer.code})`
+        : `Giảng viên #${id}`;
+    }) : [],
     studentSubmitted: item.status !== 'Scheduled' && item.status !== 'Assigned',
     submissionTime: item.sessionDate ? item.sessionDate.split('T')[0] : 'N/A',
     feedbackStatus: item.status === 'Completed' ? 'COMPLETED' : 'PENDING',
@@ -186,13 +192,15 @@ const ReviewTrackingPage = () => {
         for (let i = 0; i < reviewRoundsToFetch.length; i++) {
           const boardSessions = Array.isArray(results[i].data?.sessions) ? results[i].data.sessions : [];
           const roundName = reviewRoundsToFetch[i].name || reviewRoundsToFetch[i].type;
-          mappedSessions.push(...boardSessions.map(item => mapBoardItem(item, roundName)));
+          const boardLecturers = Array.isArray(results[i].data?.lecturers) ? results[i].data.lecturers : [];
+          mappedSessions.push(...boardSessions.map(item => mapBoardItem(item, roundName, boardLecturers)));
         }
       } else {
         if (!selectedRound.weekStart) throw new Error('Đợt review đã chọn thiếu ngày bắt đầu tuần.');
         const boardRes = await api.get(`/review-scheduling/board?semesterId=${selectedSemesterId}&reviewType=${selectedRound.type}&weekStart=${selectedRound.weekStart}`);
         const boardSessions = Array.isArray(boardRes.data?.sessions) ? boardRes.data.sessions : [];
-        mappedSessions = boardSessions.map(item => mapBoardItem(item, selectedRound.name));
+        const boardLecturers = Array.isArray(boardRes.data?.lecturers) ? boardRes.data.lecturers : [];
+        mappedSessions = boardSessions.map(item => mapBoardItem(item, selectedRound.name, boardLecturers));
       }
 
       setTrackingData(mappedSessions);
@@ -393,7 +401,7 @@ const ReviewTrackingPage = () => {
               </div>
             </div>
             <a 
-              href="/admin/review-management" 
+              href="/admin/reviews"
               style={{ 
                 padding: '0.5rem 1rem', 
                 background: '#4F46E5', 
@@ -557,7 +565,7 @@ const ReviewTrackingPage = () => {
               )}
               {!loading && filteredList.length > 0 && (
                 filteredList.map((item) => (
-                  <tr key={item.id} style={{ transition: 'background 0.15s' }}>
+                  <tr key={item.key} style={{ transition: 'background 0.15s' }}>
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                         <span style={{ fontWeight: 700, color: '#0F172A', fontSize: '0.875rem' }}>

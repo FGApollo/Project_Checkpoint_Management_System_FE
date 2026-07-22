@@ -12,7 +12,8 @@ const StudentDashboard = () => {
   const [mySchedules, setMySchedules] = useState([]);
   const [mySubmissions, setMySubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const groupId = user?.groupId || user?.group?.id || groupInfo?.groupId;
+  const groupId = user?.groupId || user?.group?.id || groupInfo?.groupId || mySchedules[0]?.groupId;
+  const groupCode = user?.groupCode || user?.group?.code || groupInfo?.groupCode || mySchedules[0]?.groupCode || '';
   const [documents, setDocuments] = useState([]);
   const [documentType, setDocumentType] = useState('Final');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -100,7 +101,7 @@ const StudentDashboard = () => {
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.35rem' }}>
-                <span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontSize: '0.8rem', fontWeight: 700 }}>Nhóm Checkpoint Đăng ký</span>
+                <span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontSize: '0.8rem', fontWeight: 700 }}>{groupCode || 'Nhóm Checkpoint Đăng ký'}</span>
                 {activeSemester && (
                   <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', fontSize: '0.75rem', fontWeight: 700 }}>
                     {activeSemester.code || 'Học kỳ Hiện tại'}
@@ -207,11 +208,11 @@ const StudentDashboard = () => {
                 {mySchedules.map((sc) => (
                   <tr key={sc.sessionId ?? sc.id ?? `${sc.sessionDate}-${sc.slot}`}>
                     <td style={{ fontWeight: 600, color: '#0F172A' }}>#{sc.sessionId || sc.id || 'N/A'}</td>
-                    <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522' }}>{sc.groupCode || groupInfo?.groupCode || 'Nhóm của bạn'}</span></td>
-                    <td style={{ color: '#475569' }}>{sc.sessionDate || sc.dayOfWeek} — Ca {sc.slot}</td>
+                    <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522' }}>{sc.groupCode || groupCode || groupInfo?.groupCode || 'Nhóm của bạn'}</span></td>
+                    <td style={{ color: '#475569' }}>{sc.sessionDate ? new Date(sc.sessionDate).toLocaleDateString('vi-VN') : (sc.dayOfWeek || '—')} — Ca {sc.slot}</td>
                     <td style={{ fontWeight: 700, color: '#0F172A' }}>{sc.room || 'TBD'}</td>
-                    <td style={{ color: '#475569' }}>{sc.type || sc.reviewType || 'Review Checkpoint'}</td>
-                    <td><span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981' }}>{sc.groupStatus || sc.status || 'Đã công bố'}</span></td>
+                    <td style={{ color: '#475569' }}>{sc.type || 'Chấm Checkpoint'}</td>
+                    <td><span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981' }}>{sc.status || sc.groupStatus || 'Đã công bố'}</span></td>
                   </tr>
                 ))}
               </tbody>

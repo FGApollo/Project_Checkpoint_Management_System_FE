@@ -14,6 +14,9 @@ const getTabButtonProps = (activeTab, tab) => {
 const getSessionId = (session) => session?.sessionId ?? session?.id;
 const getSessionKey = (session) => session?.submissionId
   ?? `${getSessionId(session)}-${session?.groupId ?? 'group'}`;
+const formatSessionDate = (value) => value
+  ? new Date(value).toLocaleDateString('vi-VN')
+  : 'Chưa xác định';
 
 const ReviewScoringPage = () => {
   const [sessions, setSessions] = useState([]);
@@ -67,10 +70,14 @@ const ReviewScoringPage = () => {
     setError('');
     try {
       if (activeTab === 'attendance') {
-        const res = await api.get(`/review-attendance/${sessionId}`, { params: { groupId: sess.groupId } });
+        const res = await api.get(`/review-attendance/${sessionId}`, {
+          params: { groupId: sess.groupId }
+        });
         setAttendanceList(Array.isArray(res.data) ? res.data : (res.data?.students || []));
       } else if (activeTab === 'comments') {
-        const res = await api.get(`/review-attendance/${sessionId}/comments`, { params: { groupId: sess.groupId } });
+        const res = await api.get(`/review-attendance/${sessionId}/comments`, {
+          params: { groupId: sess.groupId }
+        });
         setCommentsList(Array.isArray(res.data) ? res.data : []);
       } else if (activeTab === 'evaluation') {
         const subId = sess.submissionId || sessionId;
@@ -320,7 +327,7 @@ const ReviewScoringPage = () => {
                       </span>
                     </div>
                     <p style={{ fontSize: '0.75rem', opacity: isSelected ? 0.95 : 0.75, margin: 0 }}>
-                      {sess.sessionDate || sess.dayOfWeek} — Phòng {sess.room || 'TBD'}
+                      {formatSessionDate(sess.sessionDate)} — Phòng {sess.room || 'TBD'}
                     </p>
                   </button>
                 );
@@ -343,7 +350,7 @@ const ReviewScoringPage = () => {
                     Review Checkpoint Nhóm {selectedSession.groupCode || `#${selectedSession.groupId}`}
                   </h2>
                   <p style={{ fontSize: '0.85rem', color: '#64748B' }}>
-                    ID Ca: #{getSessionId(selectedSession)} — Ngày: {selectedSession.sessionDate} — Phòng: {selectedSession.room || 'N/A'}
+                    ID Ca: #{getSessionId(selectedSession)} — Ngày: {formatSessionDate(selectedSession.sessionDate)} — Phòng: {selectedSession.room || 'N/A'}
                   </p>
                 </div>
 
@@ -412,7 +419,7 @@ const ReviewScoringPage = () => {
                           attendanceList.map((att, idx) => (
                             <tr key={att.studentId ?? att.id ?? att.studentCode}>
                               <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontWeight: 700 }}>{att.studentCode || `SE#${att.studentId}`}</span></td>
-                              <td style={{ fontWeight: 600, color: '#0F172A' }}>{att.fullName || att.studentName || 'Sinh viên Nhóm'}</td>
+                              <td style={{ fontWeight: 600, color: '#0F172A' }}>{att.fullName || att.studentName || 'Chưa cập nhật họ tên'}</td>
                               <td>
                                 <span className="badge" style={{
                                   background: att.isPresent !== false ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',

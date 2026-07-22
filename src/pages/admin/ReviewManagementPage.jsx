@@ -11,8 +11,13 @@ const formatReviewType = (type) => {
   return type || '';
 };
 
+const isRoundOpen = (status) => status === 'Open' || status === 1;
+const isRoundPublished = (status) => status === 'Published' || status === 3;
+const canOpenRoundRegistration = (status) =>
+  status === 'Draft' || status === 0 || status === 'Closed' || status === 2;
+
 const getRoundStatusMeta = (status) => {
-  if (status === 'Open' || status === 1) {
+  if (isRoundOpen(status)) {
     return {
       isOpen: true,
       badgeBackground: '#DCFCE7',
@@ -81,8 +86,10 @@ const getRoundStatusMeta = (status) => {
 };
 
 const normalizeRoundStatus = (status) => {
+  if (status === 0 || status === 'Draft') return 'Draft';
   if (status === 1 || status === 'Open') return 'Open';
   if (status === 2 || status === 'Closed') return 'Closed';
+  if (status === 3 || status === 'Published') return 'Published';
   return status;
 };
 
@@ -127,6 +134,7 @@ const ReviewManagementPage = () => {
   const [boardData, setBoardData] = useState({
     lecturersCount: 0,
     registeredLecturersCount: 0,
+    draftLecturersCount: 0,
     registeredGroupsCount: 0,
     sessions: []
   });
@@ -159,6 +167,7 @@ const ReviewManagementPage = () => {
       setBoardData({
         lecturersCount: 0,
         registeredLecturersCount: 0,
+        draftLecturersCount: 0,
         registeredGroupsCount: 0,
         sessions: []
       });
@@ -177,17 +186,29 @@ const ReviewManagementPage = () => {
       ]);
       const data = res.data || {};
       const lecturersCount = data.lecturers?.length || 0;
-      const registeredLecturersCount = data.lecturers?.filter(l =>
-        data.availabilitySubmissions?.some(s => s.lecturerId === l.id && (s.isSubmitted || s.submitted || s.slotCount > 0)) ||
-        data.availability?.some(a => a.lecturerId === l.id)
-      ).length || data.availabilitySubmissions?.filter(s => s.isSubmitted || s.submitted || s.slotCount > 0).length || 0;
+      const availabilitySubmissions = Array.isArray(data.availabilitySubmissions) ? data.availabilitySubmissions : [];
+      const submittedLecturerIds = new Set(
+        availabilitySubmissions
+          .filter(s => (s.isSubmitted === true || s.submitted === true) && Number(s.slotCount || 0) > 0)
+          .map(s => s.lecturerId)
+      );
+      const registeredLecturersCount = submittedLecturerIds.size;
+      const draftLecturersCount = new Set(
+        availabilitySubmissions
+          .filter(s => s.isSubmitted !== true && s.submitted !== true && Number(s.slotCount || 0) > 0)
+          .map(s => s.lecturerId)
+      ).size;
       const registrations = Array.isArray(registrationsResponse.data) ? registrationsResponse.data : [];
-      const registeredGroupsCount = new Set(registrations.map((item) => item.groupId)).size || round.registrationCount || round.registeredGroupCount || 0;
+      const registeredGroupsCount = new Set(registrations.map((item) => item.groupId)).size
+        || round.registrationCount
+        || round.registeredGroupCount
+        || 0;
       const sessions = Array.isArray(data.sessions) ? data.sessions : [];
 
       setBoardData({
         lecturersCount,
         registeredLecturersCount,
+        draftLecturersCount,
         registeredGroupsCount,
         sessions
       });
@@ -196,6 +217,7 @@ const ReviewManagementPage = () => {
       setBoardData({
         lecturersCount: 0,
         registeredLecturersCount: 0,
+        draftLecturersCount: 0,
         registeredGroupsCount: 0,
         sessions: []
       });
@@ -229,6 +251,7 @@ const ReviewManagementPage = () => {
       setBoardData({
         lecturersCount: 0,
         registeredLecturersCount: 0,
+        draftLecturersCount: 0,
         registeredGroupsCount: 0,
         sessions: []
       });
@@ -303,6 +326,10 @@ const ReviewManagementPage = () => {
 
   const handleLockRegistrationAndProceed = async () => {
     if (!selectedRound) return;
+    if (isRoundPublished(selectedRound.status)) {
+      setActiveStep(3);
+      return;
+    }
     setLoading(true);
     setError('');
     setSuccess('');
@@ -325,6 +352,11 @@ const ReviewManagementPage = () => {
   const handleToggleRoundStatus = async (roundToUpdate, newStatus, e) => {
     if (e) e.stopPropagation();
     if (!roundToUpdate) return;
+    if (isRoundOpen(newStatus) && isRoundPublished(roundToUpdate.status)) {
+      setSuccess('');
+      setError('Đợt review đã công bố nên không thể mở lại đăng ký.');
+      return;
+    }
     setLoading(true);
     setError('');
     setSuccess('');
@@ -348,6 +380,16 @@ const ReviewManagementPage = () => {
       setError('Vui lòng chọn hoặc tạo đợt review trước.');
       return;
     }
+    if (isRoundPublished(selectedRound.status)) {
+      setSuccess('');
+      setError('Đợt review đã công bố nên không thể chạy lại phân công.');
+      return;
+    }
+    if (boardData.registeredLecturersCount < 2) {
+      setSuccess('');
+      setError(`Cần ít nhất 2 giảng viên nộp chính thức lịch rảnh trước khi chạy phân công. Hiện có ${boardData.registeredLecturersCount} giảng viên đã nộp${boardData.draftLecturersCount > 0 ? ` và ${boardData.draftLecturersCount} giảng viên mới lưu nháp` : ''}.`);
+      return;
+    }
     setError('');
     setSuccess('');
     setLoading(true);
@@ -361,7 +403,7 @@ const ReviewManagementPage = () => {
         reviewType: selectedRound.type,
         weekStart: selectedRound.weekStartDate,
         reviewersPerSession: 2,
-        roomPrefix: 'REV-'
+        roomPrefix: 'REV'
       });
       const data = res.data || {};
       const assignedCount = data.assignedCount !== undefined ? data.assignedCount : (data.sessions?.length || 0);
@@ -505,6 +547,9 @@ const ReviewManagementPage = () => {
                       value={formData.semesterId}
                       onChange={(e) => {
                         const semId = Number(e.target.value);
+                        // Clear the previous semester's round before changing semester so
+                        // the board effect never requests an old round with the new semester id.
+                        setSelectedRound(null);
                         setFormData({ ...formData, semesterId: semId });
                         fetchRounds(semId);
                       }}
@@ -552,6 +597,7 @@ const ReviewManagementPage = () => {
                       const isSelected = selectedRound?.id === r.id;
                       const statusMeta = getRoundStatusMeta(r.status);
                       const isOpen = statusMeta.isOpen;
+                      const canOpenRegistration = canOpenRoundRegistration(r.status);
                       return (
                         <div key={r.id} style={{ padding: '1rem', background: isSelected ? '#EEF2FF' : '#F8FAFC', borderRadius: '12px', border: isSelected ? '2px solid #4F46E5' : '1px solid #E2E8F0', transition: 'all 0.2s' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.6rem' }}>
@@ -580,7 +626,7 @@ const ReviewManagementPage = () => {
                             <button type="button" className="btn btn-secondary" onClick={() => setSelectedRound(r)} disabled={isSelected}>
                               {isSelected ? 'Đang chọn' : 'Chọn đợt'}
                             </button>
-                            {!isOpen && (
+                            {canOpenRegistration && (
                               <button
                                 type="button"
                                 className="btn"
@@ -644,7 +690,10 @@ const ReviewManagementPage = () => {
                   <div style={{ padding: '1.5rem', background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0', width: '220px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
                     <Users size={32} color="#4F46E5" style={{ margin: '0 auto 1rem' }} />
                     <p style={{ fontSize: '2rem', fontWeight: 800, margin: 0, color: '#0F172A' }}>{boardData.registeredLecturersCount} / {boardData.lecturersCount}</p>
-                    <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0, fontWeight: 650 }}>Giảng viên đã đăng ký</p>
+                    <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0, fontWeight: 650 }}>Giảng viên đã nộp chính thức</p>
+                    {boardData.draftLecturersCount > 0 && (
+                      <p style={{ fontSize: '0.78rem', color: '#D97706', margin: '0.35rem 0 0', fontWeight: 650 }}>{boardData.draftLecturersCount} giảng viên mới lưu nháp</p>
+                    )}
                   </div>
                   <div style={{ padding: '1.5rem', background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0', width: '220px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
                     <Users size={32} color="#F26522" style={{ margin: '0 auto 1rem' }} />
@@ -655,7 +704,7 @@ const ReviewManagementPage = () => {
 
                 {/* Control Action Buttons */}
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                  {(selectedRound.status !== 'Open' && selectedRound.status !== 1) && (
+                  {canOpenRoundRegistration(selectedRound.status) && (
                     <button
                       type="button"
                       className="btn"
@@ -688,7 +737,7 @@ const ReviewManagementPage = () => {
                     disabled={loading}
                     style={{ padding: '0.8rem 1.8rem', fontSize: '1rem', fontWeight: 800, borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
                   >
-                    <span>Khóa & Chuyển sang Phân công</span>
+                    <span>{isRoundPublished(selectedRound.status) ? 'Xem Phân công' : 'Khóa & Chuyển sang Phân công'}</span>
                     <ArrowRight size={18} />
                   </button>
                 </div>
@@ -714,16 +763,32 @@ const ReviewManagementPage = () => {
                   Đang xử lý đợt: {selectedRound.type} ({selectedRound.weekStartDate} đến {selectedRound.weekEndDate})
                 </div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', color: '#0F172A' }}>Bước 3: Thuật toán Phân công Lịch Review</h2>
-                <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>Thuật toán sẽ tự động khớp lịch rảnh của giảng viên và nhóm sinh viên để tạo bảng lịch trình tối ưu (tối đa 3 nhóm/slot).</p>
+                {isRoundPublished(selectedRound.status) ? (
+                  <div style={{ background: '#EFF6FF', borderRadius: '12px', border: '1px solid #7DD3FC', padding: '2.5rem', maxWidth: '540px', margin: '0 auto 2rem' }}>
+                    <CheckCircle2 size={48} color="#0284C7" style={{ margin: '0 auto 1rem' }} />
+                    <h3 style={{ fontSize: '1.1rem', color: '#075985', marginBottom: '0.5rem' }}>Phân công đã được công bố</h3>
+                    <p style={{ fontSize: '0.9rem', color: '#0369A1', margin: 0, lineHeight: 1.6 }}>
+                      Lịch review đã được công bố chính thức. Không thể chạy lại Auto-Match hoặc thay đổi kết quả phân công.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>Thuật toán sẽ tự động khớp lịch rảnh của giảng viên và nhóm sinh viên để tạo bảng lịch trình tối ưu (tối đa 3 nhóm/slot).</p>
 
-                <div style={{ background: '#F8FAFC', borderRadius: '12px', border: '1px dashed #CBD5E1', padding: '2.5rem', maxWidth: '540px', margin: '0 auto 2rem' }}>
-                  <Zap size={48} color="#D97706" style={{ margin: '0 auto 1rem' }} />
-                  <h3 style={{ fontSize: '1.1rem', color: '#0F172A', marginBottom: '0.5rem' }}>Sẵn sàng chạy thuật toán</h3>
-                  <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem' }}>Hiện có {boardData.registeredGroupsCount} nhóm chờ phân công và {boardData.registeredLecturersCount} giảng viên đã gửi lịch rảnh cho đợt {selectedRound.type}.</p>
-                  <button type="button" className="btn btn-primary" onClick={handleMatch} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#4F46E5' }}>
-                    <Play size={18} fill="white" /> {loading ? 'Đang chạy Auto-Match...' : 'Chạy Auto-Match'}
-                  </button>
-                </div>
+                    <div style={{ background: '#F8FAFC', borderRadius: '12px', border: `1px dashed ${boardData.registeredLecturersCount >= 2 ? '#CBD5E1' : '#F59E0B'}`, padding: '2.5rem', maxWidth: '540px', margin: '0 auto 2rem' }}>
+                      {boardData.registeredLecturersCount >= 2 ? <Zap size={48} color="#D97706" style={{ margin: '0 auto 1rem' }} /> : <AlertCircle size={48} color="#D97706" style={{ margin: '0 auto 1rem' }} />}
+                      <h3 style={{ fontSize: '1.1rem', color: '#0F172A', marginBottom: '0.5rem' }}>{boardData.registeredLecturersCount >= 2 ? 'Sẵn sàng chạy thuật toán' : 'Chưa đủ lịch rảnh đã nộp'}</h3>
+                      <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+                        {boardData.registeredLecturersCount >= 2
+                          ? `Hiện có ${boardData.registeredGroupsCount} nhóm chờ phân công và ${boardData.registeredLecturersCount} giảng viên đã nộp chính thức lịch rảnh cho đợt ${selectedRound.type}.`
+                          : `Cần ít nhất 2 giảng viên nộp chính thức lịch rảnh. Hiện có ${boardData.registeredLecturersCount} giảng viên đã nộp${boardData.draftLecturersCount > 0 ? `; ${boardData.draftLecturersCount} giảng viên mới lưu nháp` : ''}. Hãy mở lại đăng ký và yêu cầu giảng viên bấm “Nộp chính thức”.`}
+                      </p>
+                      <button type="button" className="btn btn-primary" onClick={handleMatch} disabled={loading || boardData.registeredLecturersCount < 2} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#4F46E5', opacity: boardData.registeredLecturersCount < 2 ? 0.5 : 1, cursor: boardData.registeredLecturersCount < 2 ? 'not-allowed' : 'pointer' }}>
+                        <Play size={18} fill="white" /> {loading ? 'Đang chạy Auto-Match...' : boardData.registeredLecturersCount < 2 ? 'Chưa thể Auto-Match' : 'Chạy Auto-Match'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>

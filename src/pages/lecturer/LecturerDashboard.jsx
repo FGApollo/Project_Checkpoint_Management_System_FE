@@ -143,7 +143,7 @@ const LecturerDashboard = () => {
         {!loading && myReviews.length > 0 && (
           <div style={{ padding: '0.5rem' }}>
             {myReviews.map((review, idx) => (
-              <div key={review.sessionId ?? review.id ?? `${review.groupId}-${review.sessionDate}-${review.slot}`} style={{
+              <div key={review.submissionId ?? `${review.sessionId}-${review.groupId}`} style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '1rem',
@@ -203,11 +203,11 @@ const LecturerDashboard = () => {
                   fontWeight: 600,
                   padding: '0.25rem 0.6rem',
                   borderRadius: '6px',
-                  background: review.sessionStatus === 'Completed' || review.status === 'Completed' ? '#DCFCE7' : '#FEF3C7',
-                  color: review.sessionStatus === 'Completed' || review.status === 'Completed' ? '#16A34A' : '#D97706',
+                  background: review.submissionStatus === 'Submitted' || review.sessionStatus === 'Completed' || review.status === 'Completed' ? '#DCFCE7' : '#FEF3C7',
+                  color: review.submissionStatus === 'Submitted' || review.sessionStatus === 'Completed' || review.status === 'Completed' ? '#16A34A' : '#D97706',
                   whiteSpace: 'nowrap',
                 }}>
-                  {review.sessionStatus === 'Completed' || review.status === 'Completed' ? 'Đã nhận xét' : 'Sắp tới'}
+                  {review.submissionStatus === 'Submitted' || review.sessionStatus === 'Completed' || review.status === 'Completed' ? 'Đã nhận xét' : 'Sắp tới'}
                 </span>
               </div>
             ))}

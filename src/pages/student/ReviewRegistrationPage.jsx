@@ -55,6 +55,11 @@ const getRegistrationStatusColors = (status) => {
   return { background: '#FEE2E2', color: '#DC2626' };
 };
 
+const isRoundRegistrationOpen = (status) =>
+  status === 'Draft' || status === 0 ||
+  status === 'Open' || status === 1 ||
+  status === 'Đang mở';
+
 const RegistrationSlotGrid = ({ isSlotSelected, toggleSlot, roundStatus }) => (
   <div className="table-container">
     <table className="table" style={{ textAlign: 'center', width: '100%' }}>
@@ -168,12 +173,9 @@ const ReviewRegistrationPage = () => {
 
   const updateRoundStatus = (roundObj) => {
     if (!roundObj) return;
-    const st = roundObj.status;
-    if (st === 'Closed' || st === 1 || st === 'Completed' || st === 3 || st === 'Cancelled' || st === 4) {
-      setRoundStatus('Đã kết thúc đăng ký');
-    } else {
-      setRoundStatus('Đang mở đăng ký');
-    }
+    setRoundStatus(isRoundRegistrationOpen(roundObj.status)
+      ? 'Đang mở đăng ký'
+      : 'Đã kết thúc đăng ký');
   };
 
   const handleSemesterChange = (newSemId) => {
@@ -377,7 +379,7 @@ const ReviewRegistrationPage = () => {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.75rem', marginBottom: '3rem' }}>
               {rounds.map((r) => {
-                const isOpen = r.status === 'Open' || r.status === 1 || r.status === 0 || r.status === 'Draft' || r.status === 'Đang mở';
+                const isOpen = isRoundRegistrationOpen(r.status);
                 return (
                   <div
                     key={r.id}
@@ -492,13 +494,15 @@ const ReviewRegistrationPage = () => {
                   </thead>
                   <tbody>
                     {mySchedules.map((sc) => (
-                      <tr key={sc.id ?? `${sc.groupId}-${sc.sessionDate}-${sc.slot}`}>
-                        <td style={{ fontWeight: 700, color: '#0F172A' }}>#{sc.id}</td>
+                      <tr key={sc.sessionId ?? `${sc.groupId}-${sc.sessionDate}-${sc.slot}`}>
+                        <td style={{ fontWeight: 700, color: '#0F172A' }}>#{sc.sessionId}</td>
                         <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontWeight: 800 }}>{sc.groupCode || `Nhóm #${sc.groupId}`}</span></td>
-                        <td style={{ fontWeight: 700, color: '#0F172A' }}>{sc.sessionDate}</td>
+                        <td style={{ fontWeight: 700, color: '#0F172A' }}>
+                          {sc.sessionDate ? new Date(sc.sessionDate).toLocaleDateString('vi-VN') : '—'}
+                        </td>
                         <td style={{ color: '#475569', fontWeight: 600 }}>Ca {sc.slot}</td>
                         <td><span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', fontSize: '0.85rem', fontWeight: 800 }}>{sc.room}</span></td>
-                        <td style={{ color: '#475569', fontWeight: 600 }}>{sc.reviewType}</td>
+                        <td style={{ color: '#475569', fontWeight: 600 }}>{sc.type}</td>
                         <td><span className="badge" style={{ background: 'rgba(14, 165, 233, 0.15)', color: '#0EA5E9', fontWeight: 800 }}>{sc.status || 'Đã công bố'}</span></td>
                       </tr>
                     ))}
