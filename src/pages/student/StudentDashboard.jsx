@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
-import { BookOpen, User, Users, Wifi, WifiOff, Crown, Calendar, CheckSquare, Award, ArrowRight, Layers, Upload, FileText, Download } from 'lucide-react';
+import { BookOpen, User, Users, Wifi, WifiOff, Crown, Calendar, CheckSquare, Award, ArrowRight, Layers, Upload, FileText, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { listProjectDocuments, uploadProjectDocument, downloadProjectDocument } from '../../services/documents';
 import { PageSkeleton } from '../../components/common/Skeleton';
@@ -19,7 +19,6 @@ const StudentDashboard = () => {
   const groupId = user?.groupId || user?.group?.id || groupInfo?.groupId || mySchedules[0]?.groupId;
   const groupCode = user?.groupCode || user?.group?.code || groupInfo?.groupCode || mySchedules[0]?.groupCode || '';
   const [documents, setDocuments] = useState([]);
-  const [documentType, setDocumentType] = useState('Review1');
   const [selectedFile, setSelectedFile] = useState(null);
   const [documentBusy, setDocumentBusy] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -73,7 +72,7 @@ const StudentDashboard = () => {
     if (!selectedFile || !groupId) return;
     setDocumentBusy(true); setUploadProgress(0); setDocumentMessage('');
     try {
-      await uploadProjectDocument(groupId, documentType, selectedFile, (progressEvent) => {
+      await uploadProjectDocument(groupId, selectedFile, (progressEvent) => {
         if (progressEvent.total) setUploadProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
       });
       const { data } = await listProjectDocuments(groupId);
@@ -84,8 +83,9 @@ const StudentDashboard = () => {
 
   const handleDownload = async (document) => {
     const response = await downloadProjectDocument(document.id);
-    const url = URL.createObjectURL(response.data); const anchor = window.document.createElement('a');
-    anchor.href = url; anchor.download = document.fileName; anchor.click(); URL.revokeObjectURL(url);
+    const url = URL.createObjectURL(response.data);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   if (loading) return <PageSkeleton cards={3} rows={5} />;
@@ -230,13 +230,13 @@ const StudentDashboard = () => {
         <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center', color: '#0F172A' }}><FileText size={20} color="#F26522" /> Tài liệu đồ án</h3>
         <p style={{ color: '#64748B', fontSize: '0.85rem' }}>Tải bản PDF/DOCX/ZIP/TXT để giảng viên xem trước buổi review. Tối đa 50 MB mỗi tệp.</p>
         {groupId ? <form onSubmit={handleUpload} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', margin: '1rem 0' }}>
-          <select value={documentType} onChange={(event) => setDocumentType(event.target.value)} className="form-input" style={{ width: 'auto' }}><option value="Review1">Review 1</option><option value="Review2">Review 2</option><option value="Review3">Review 3</option></select>
           <input type="file" accept=".pdf,.docx,.zip,.txt" onChange={(event) => setSelectedFile(event.target.files?.[0] || null)} />
           <button className="btn btn-primary" type="submit" disabled={!selectedFile || documentBusy}><Upload size={16} /> {documentBusy ? 'Đang tải...' : 'Tải tài liệu'}</button>
         </form> : <p style={{ color: '#B45309' }}>Tài khoản chưa được gán vào nhóm.</p>}
         {documentBusy && <div aria-live="polite" style={{ color: '#475569', fontSize: '0.85rem' }}>Đã tải {uploadProgress}%</div>}
         {documentMessage && <p style={{ color: documentMessage.startsWith('Đã') ? '#059669' : '#DC2626', fontSize: '0.9rem' }}>{documentMessage}</p>}
-        {documents.length === 0 ? <p style={{ color: '#64748B', padding: '1rem 0' }}>Chưa có tài liệu nào.</p> : documents.map((document) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E2E8F0', padding: '0.75rem 0' }}><span><strong>{document.fileName}</strong><small style={{ display: 'block', color: '#64748B' }}>{document.docType} · phiên bản {document.versionNo}</small></span><button className="btn btn-secondary" type="button" onClick={() => handleDownload(document)}><Download size={15} /> Xem/Tải</button></div>)}
+        <h4 style={{ margin: '1.25rem 0 0.35rem', color: '#0F172A' }}>Lịch sử tải lên</h4>
+        {documents.length === 0 ? <p style={{ color: '#64748B', padding: '1rem 0' }}>Chưa có tài liệu nào.</p> : documents.map((document, index) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', borderTop: '1px solid #E2E8F0', padding: '0.75rem 0' }}><span style={{ minWidth: 0 }}><strong style={{ overflowWrap: 'anywhere' }}>{document.fileName}</strong><small style={{ display: 'block', color: '#64748B', marginTop: '0.2rem' }}>Lần tải #{documents.length - index} · {document.uploadedByName || `Sinh viên #${document.uploadedById}`} · {new Date(document.uploadedAt).toLocaleString('vi-VN')} · {(document.fileSize / 1024 / 1024).toFixed(2)} MB</small></span><button className="btn btn-secondary" type="button" onClick={() => handleDownload(document)} style={{ flexShrink: 0 }}><Eye size={15} /> Xem file</button></div>)}
       </div>
 
       {/* Published Schedules Table */}

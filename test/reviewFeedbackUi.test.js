@@ -62,7 +62,11 @@ test('students upload project documents and assigned lecturers can view them', a
   ]);
   assert.match(studentPage, /uploadProjectDocument/);
   assert.match(studentPage, /\.pdf,\.docx,\.zip,\.txt/);
-  assert.match(lecturerPage, /Tài liệu đồ án của nhóm/);
+  assert.match(studentPage, /Lịch sử tải lên/);
+  assert.match(lecturerPage, /Lịch sử tài liệu của nhóm/);
+  assert.match(studentPage, /uploadedByName/);
+  assert.match(lecturerPage, /uploadedByName/);
+  assert.doesNotMatch(studentPage, /<select[^>]*documentType|docType} · phiên bản/);
   assert.match(documentService, /FormData/);
   assert.match(documentService, /\/documents\/group\//);
   assert.match(documentService, /responseType: 'blob'/);

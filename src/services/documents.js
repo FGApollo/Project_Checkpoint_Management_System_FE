@@ -1,9 +1,9 @@
 import api from './api';
 
 export const listProjectDocuments = (groupId) => api.get(`/documents/group/${groupId}`);
-export const uploadProjectDocument = (groupId, docType, file, onUploadProgress) => {
+export const uploadProjectDocument = (groupId, file, onUploadProgress) => {
   const form = new FormData();
-  form.append('groupId', String(groupId)); form.append('docType', docType); form.append('file', file);
+  form.append('groupId', String(groupId)); form.append('file', file);
   return api.post('/documents', form, { onUploadProgress });
 };
 export const downloadProjectDocument = (id) => api.get(`/documents/${id}/download`, { responseType: 'blob' });
