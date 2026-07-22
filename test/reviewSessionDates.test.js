@@ -35,10 +35,13 @@ test('upcoming review reminders count down to the session date', () => {
   assert.equal(getReviewReminder('2026-07-22T00:00:00Z', today), null);
 });
 
-test('lecturer review UI exposes today and upcoming tabs with reminder badges', async () => {
-  const [reviewPage, dashboard] = await Promise.all([
+test('lecturer and student review UIs expose today and upcoming tabs with reminder badges', async () => {
+  const [reviewPage, lecturerDashboard, studentSchedule, studentDashboard, registrationPage] = await Promise.all([
     readFile(new URL('../src/pages/lecturer/ReviewScoringPage.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/pages/lecturer/LecturerDashboard.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/components/reviews/StudentReviewSchedule.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/pages/student/StudentDashboard.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/pages/student/ReviewRegistrationPage.jsx', import.meta.url), 'utf8'),
   ]);
 
   assert.match(reviewPage, /role="tablist"/);
@@ -46,5 +49,12 @@ test('lecturer review UI exposes today and upcoming tabs with reminder badges', 
   assert.match(reviewPage, /label: 'Sắp tới'/);
   assert.match(reviewPage, /filterReviewSessions\(sessions, sessionFilter\)/);
   assert.match(reviewPage, /getReviewReminder\(dateGroup\.date\)/);
-  assert.match(dashboard, /getReviewReminder\(review\.sessionDate/);
+  assert.match(lecturerDashboard, /getReviewReminder\(review\.sessionDate/);
+  assert.match(studentSchedule, /role="tablist"/);
+  assert.match(studentSchedule, /label: 'Hôm nay'/);
+  assert.match(studentSchedule, /label: 'Sắp tới'/);
+  assert.match(studentSchedule, /getReviewSlotLabel\(schedule\.slot\)/);
+  assert.match(studentSchedule, /getReviewReminder\(schedule\.sessionDate\)/);
+  assert.match(studentDashboard, /<StudentReviewSchedule schedules=\{mySchedules\}/);
+  assert.match(registrationPage, /<StudentReviewSchedule schedules=\{mySchedules\}/);
 });

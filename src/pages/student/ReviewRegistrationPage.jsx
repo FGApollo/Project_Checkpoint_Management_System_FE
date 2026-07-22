@@ -4,6 +4,7 @@ import { useAuth } from '../../context/authContextValue.js';
 import { Calendar, CheckCircle2, AlertCircle, RefreshCw, Send, BookOpen, Layers, ArrowRight, ArrowLeft, Sparkles, ShieldCheck, Users } from 'lucide-react';
 import { PageSkeleton } from '../../components/common/Skeleton';
 import { REVIEW_LUNCH_BREAK, REVIEW_SLOTS } from '../../features/reviews/reviewSlots';
+import StudentReviewSchedule from '../../components/reviews/StudentReviewSchedule.jsx';
 
 const DAYS_OF_WEEK = [
   { id: 1, name: 'Thứ 2' },
@@ -472,42 +473,7 @@ const ReviewRegistrationPage = () => {
               <span>Lịch Review Checkpoint Chính thức của Nhóm #{groupId}</span>
             </h3>
 
-            {mySchedules.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B', background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0', lineHeight: 1.6, fontWeight: 500 }}>
-                Nhóm #{groupId} chưa có lịch review chính thức nào được chốt cho các đợt trên. Khi Phòng Đào tạo chạy thuật toán xếp lịch và công bố (Publish), hội đồng, địa điểm và thời gian cụ thể sẽ hiển thị ngay tại đây.
-              </div>
-            ) : (
-              <div className="table-container">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>ID Phiên</th>
-                      <th>Mã Nhóm</th>
-                      <th>Ngày review</th>
-                      <th>Ca học & Thời gian</th>
-                      <th>Phòng</th>
-                      <th>Vòng Review</th>
-                      <th>Trạng thái</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mySchedules.map((sc) => (
-                      <tr key={sc.sessionId ?? `${sc.groupId}-${sc.sessionDate}-${sc.slot}`}>
-                        <td style={{ fontWeight: 700, color: '#0F172A' }}>#{sc.sessionId}</td>
-                        <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontWeight: 800 }}>{sc.groupCode || `Nhóm #${sc.groupId}`}</span></td>
-                        <td style={{ fontWeight: 700, color: '#0F172A' }}>
-                          {sc.sessionDate ? new Date(sc.sessionDate).toLocaleDateString('vi-VN') : '—'}
-                        </td>
-                        <td style={{ color: '#475569', fontWeight: 600 }}>Ca {sc.slot}</td>
-                        <td><span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', fontSize: '0.85rem', fontWeight: 800 }}>{sc.room}</span></td>
-                        <td style={{ color: '#475569', fontWeight: 600 }}>{sc.type}</td>
-                        <td><span className="badge" style={{ background: 'rgba(14, 165, 233, 0.15)', color: '#0EA5E9', fontWeight: 800 }}>{sc.status || 'Đã công bố'}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <StudentReviewSchedule schedules={mySchedules} groupCode={groupCode} />
           </div>
         </div>
       ); })() : (() => { return (

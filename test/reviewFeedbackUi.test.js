@@ -6,9 +6,10 @@ const readSource = (relativePath) =>
   readFile(new URL(relativePath, import.meta.url), 'utf8');
 
 test('review feedback UI does not expose scores or pass/fail verdicts', async () => {
-  const [studentPage, studentDashboard, lecturerPage, trackingPage, lecturerDashboard] = await Promise.all([
+  const [studentPage, studentDashboard, studentSchedule, lecturerPage, trackingPage, lecturerDashboard] = await Promise.all([
     readSource('../src/pages/student/ReviewResultsPage.jsx'),
     readSource('../src/pages/student/StudentDashboard.jsx'),
+    readSource('../src/components/reviews/StudentReviewSchedule.jsx'),
     readSource('../src/pages/lecturer/ReviewScoringPage.jsx'),
     readSource('../src/pages/admin/ReviewTrackingPage.jsx'),
     readSource('../src/pages/lecturer/LecturerDashboard.jsx'),
@@ -31,7 +32,7 @@ test('review feedback UI does not expose scores or pass/fail verdicts', async ()
   assert.doesNotMatch(trackingPage, /comments: item\.notes/);
   assert.doesNotMatch(lecturerDashboard, /Chấm điểm Review/);
   assert.doesNotMatch(studentDashboard, /Kết quả Chấm|Nhóm #\$\{sc\.groupId\}/);
-  assert.match(studentDashboard, /sc\.sessionId \|\| sc\.id/);
+  assert.match(studentSchedule, /schedule\.sessionId \?\? schedule\.id/);
   assert.match(studentDashboard, /groupInfo\?\.groupCode/);
 });
 

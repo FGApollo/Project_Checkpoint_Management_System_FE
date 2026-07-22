@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { listProjectDocuments, uploadProjectDocument, downloadProjectDocument, listDocumentComments } from '../../services/documents';
 import { PageSkeleton } from '../../components/common/Skeleton';
 import presenceService from '../../services/presence';
+import StudentReviewSchedule from '../../components/reviews/StudentReviewSchedule.jsx';
 
 const StudentDashboard = () => {
   const { user } = useAuth();
@@ -257,39 +258,7 @@ const StudentDashboard = () => {
         </h3>
 
 
-        {!loading && mySchedules.length === 0 && (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B', background: '#F8FAFC', borderRadius: 'var(--radius-md)', border: '1px solid #E2E8F0' }}>
-            Nhóm chưa có lịch review chính thức nào được công bố. Nếu bạn đã đăng ký slot, vui lòng chờ Phòng Đào tạo xếp lịch và thông báo.
-          </div>
-        )}
-        {!loading && mySchedules.length > 0 && (
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>ID Phiên</th>
-                  <th>Mã Nhóm</th>
-                  <th>Ngày & Ca học</th>
-                  <th>Phòng</th>
-                  <th>Vòng Review</th>
-                  <th>Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mySchedules.map((sc) => (
-                  <tr key={sc.sessionId ?? sc.id ?? `${sc.sessionDate}-${sc.slot}`}>
-                    <td style={{ fontWeight: 600, color: '#0F172A' }}>#{sc.sessionId || sc.id || 'N/A'}</td>
-                    <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522' }}>{sc.groupCode || groupCode || groupInfo?.groupCode || 'Nhóm của bạn'}</span></td>
-                    <td style={{ color: '#475569' }}>{sc.sessionDate ? new Date(sc.sessionDate).toLocaleDateString('vi-VN') : (sc.dayOfWeek || '—')} — Ca {sc.slot}</td>
-                    <td style={{ fontWeight: 700, color: '#0F172A' }}>{sc.room || 'TBD'}</td>
-                    <td style={{ color: '#475569' }}>{sc.type || 'Chấm Checkpoint'}</td>
-                    <td><span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981' }}>{sc.status || sc.groupStatus || 'Đã công bố'}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {!loading && <StudentReviewSchedule schedules={mySchedules} groupCode={groupCode || groupInfo?.groupCode} />}
       </div>
     </div>
   );
