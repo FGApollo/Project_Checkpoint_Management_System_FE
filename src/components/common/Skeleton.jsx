@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import './Skeleton.css';
+
+const SLOW_LOADING_NOTICE_MS = 12_000;
 
 export const SkeletonBlock = ({ width = '100%', height = '1rem', radius = '8px', style = {} }) => (
   <span className="skeleton-block" aria-hidden="true" style={{ width, height, borderRadius: radius, ...style }} />
@@ -52,24 +54,44 @@ export const PanelSkeleton = ({ rows = 4 }) => (
   </div>
 );
 
-export const PageSkeleton = ({ cards = 3, rows = 5 }) => (
-  <div className="page-container skeleton-page" role="status" aria-label="Đang tải nội dung trang">
-    <span className="sr-only">Đang tải nội dung trang...</span>
-    <div className="skeleton-page-header" aria-hidden="true">
-      <div className="skeleton-stack" style={{ width: 'min(520px, 75%)' }}>
-        <SkeletonBlock width="48%" height="2rem" />
-        <SkeletonBlock width="84%" height="0.85rem" />
+export const PageSkeleton = ({ cards = 3, rows = 5 }) => {
+  const [isSlow, setIsSlow] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsSlow(true), SLOW_LOADING_NOTICE_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="page-container skeleton-page" role="status" aria-label="Đang tải nội dung trang">
+      <span className="sr-only">Đang tải nội dung trang...</span>
+      <div className="skeleton-page-header" aria-hidden="true">
+        <div className="skeleton-stack" style={{ width: 'min(520px, 75%)' }}>
+          <SkeletonBlock width="48%" height="2rem" />
+          <SkeletonBlock width="84%" height="0.85rem" />
+        </div>
+        <SkeletonBlock width="128px" height="42px" radius="10px" />
       </div>
-      <SkeletonBlock width="128px" height="42px" radius="10px" />
-    </div>
-    <SkeletonCardGrid cards={cards} />
-    <div className="skeleton-table-card" aria-hidden="true">
-      <SkeletonBlock width="28%" height="1.3rem" style={{ marginBottom: '1.25rem' }} />
-      <div className="skeleton-stack">
-        {Array.from({ length: rows }, (_, index) => (
-          <SkeletonBlock key={index} height="3rem" radius="6px" />
-        ))}
+      <SkeletonCardGrid cards={cards} />
+      <div className="skeleton-table-card" aria-hidden="true">
+        <SkeletonBlock width="28%" height="1.3rem" style={{ marginBottom: '1.25rem' }} />
+        <div className="skeleton-stack">
+          {Array.from({ length: rows }, (_, index) => (
+            <SkeletonBlock key={index} height="3rem" radius="6px" />
+          ))}
+        </div>
       </div>
+      {isSlow && (
+        <div className="skeleton-slow-notice" aria-live="polite">
+          <div>
+            <strong>Máy chủ đang phản hồi chậm</strong>
+            <p>Bạn có thể tiếp tục chờ hoặc tải lại trang. Giao diện sẽ tự thoát trạng thái tải nếu yêu cầu thất bại.</p>
+          </div>
+          <button type="button" className="btn btn-secondary" onClick={() => window.location.reload()}>
+            Tải lại trang
+          </button>
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};

@@ -1,6 +1,16 @@
 import * as signalR from '@microsoft/signalr';
 import { DEFENSE_HUB_URL } from '../config/environment';
 
+export const REALTIME_REQUEST_TIMEOUT_MS = 30_000;
+
+const withDeadline = (promise, message) => new Promise((resolve, reject) => {
+  const timer = window.setTimeout(
+    () => reject(new Error(message)),
+    REALTIME_REQUEST_TIMEOUT_MS,
+  );
+  promise.then(resolve, reject).finally(() => window.clearTimeout(timer));
+});
+
 class SignalRService {
   connection = null;
 
@@ -27,6 +37,7 @@ class SignalRService {
         accessTokenFactory: () => localStorage.getItem('cpms_access_token') || '',
         skipNegotiation: false,
         transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
+        timeout: REALTIME_REQUEST_TIMEOUT_MS,
       })
       .withAutomaticReconnect([0, 2000, 5000, 10000])
       .configureLogging(signalR.LogLevel.Warning)
@@ -54,10 +65,15 @@ class SignalRService {
     });
 
     try {
-      await this.connection.start();
+      await withDeadline(
+        this.connection.start(),
+        'Defense scoring connection timed out.',
+      );
       console.log('Connected to Defense Scoring Hub successfully.');
       return this.connection;
     } catch (err) {
+      await this.connection?.stop().catch(() => {});
+      this.connection = null;
       console.error('Error connecting to Defense Scoring Hub:', err);
       throw err;
     }
@@ -67,7 +83,10 @@ class SignalRService {
     if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
       await this.startConnection();
     }
-    await this.connection.invoke('JoinDefenseSession', Number(sessionId));
+    await withDeadline(
+      this.connection.invoke('JoinDefenseSession', Number(sessionId)),
+      'Joining the defense session timed out.',
+    );
   }
 
   on(event, callback) {

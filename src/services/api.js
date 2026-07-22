@@ -11,9 +11,11 @@ const getBaseUrl = () => {
 };
 
 const API_BASE_URL = getBaseUrl();
+export const API_REQUEST_TIMEOUT_MS = 60_000;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: API_REQUEST_TIMEOUT_MS,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -72,9 +74,11 @@ api.interceptors.response.use(
       }
 
       try {
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-          refreshToken,
-        });
+        const response = await axios.post(
+          `${API_BASE_URL}/auth/refresh`,
+          { refreshToken },
+          { timeout: API_REQUEST_TIMEOUT_MS },
+        );
 
         const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
         localStorage.setItem('cpms_access_token', newAccessToken);
