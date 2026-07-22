@@ -105,7 +105,7 @@ const Sidebar = () => {
             </NavLink>
             <NavLink to="/lecturer/availability" style={navItemStyle}>
               <Clock size={18} />
-              <span>Đăng ký Slot rảnh</span>
+              <span>Đăng ký Slot</span>
             </NavLink>
             <NavLink to="/lecturer/reviews" style={navItemStyle}>
               <CheckSquare size={18} />

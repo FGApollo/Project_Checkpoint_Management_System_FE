@@ -50,7 +50,7 @@ const getAvailabilityRoundMeta = (isOpen) => {
       buttonBackground: 'linear-gradient(135deg, #4F46E5, #4338CA)',
       buttonColor: '#FFFFFF',
       buttonShadow: '0 6px 16px rgba(79, 70, 229, 0.28)',
-      buttonLabel: '👉 Chọn Đợt & Vào Khai Báo Lịch Rảnh'
+      buttonLabel: '👉 Chọn Đợt & Đăng ký Slot'
     };
   }
   return {
@@ -60,7 +60,7 @@ const getAvailabilityRoundMeta = (isOpen) => {
     buttonBackground: '#F1F5F9',
     buttonColor: '#475569',
     buttonShadow: 'none',
-    buttonLabel: '👁 Xem Bảng Lịch Rảnh Đã Khai Báo'
+    buttonLabel: '👁 Xem các Slot đã Đăng ký'
   };
 };
 
@@ -237,10 +237,10 @@ const AvailabilityPage = () => {
           <div className="page-header" style={{ marginBottom: '2rem' }}>
             <div>
               <h1 className="page-title" style={{ color: '#0F172A', fontSize: '1.8rem', fontWeight: 850 }}>
-                Khai báo Lịch rảnh Giảng viên & Hội đồng Review Checkpoint
+                Đăng ký Slot Review cho Giảng viên
               </h1>
               <p className="page-subtitle" style={{ color: '#475569', fontSize: '0.95rem' }}>
-                Bước 1: Vui lòng chọn Học kỳ và Đợt chấm tiến trình (Review Checkpoint) bên dưới để khai báo 30 ô khung giờ rảnh trong tuần của bạn.
+                Bước 1: Vui lòng chọn Học kỳ và Đợt Review bên dưới để đăng ký các slot bạn có thể tham gia.
               </p>
             </div>
 
@@ -480,7 +480,7 @@ const AvailabilityPage = () => {
 
           {!canEditAvailability && (
             <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', color: '#C2410C', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-              <AlertCircle size={18} /> Đợt review này đã đóng. Bạn chỉ có thể xem lịch rảnh đã khai báo.
+              <AlertCircle size={18} /> Đợt review này đã đóng. Bạn chỉ có thể xem các slot đã đăng ký.
             </div>
           )}
 
@@ -489,7 +489,7 @@ const AvailabilityPage = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <ShieldCheck size={20} color="#4F46E5" />
               <span style={{ fontWeight: 700, color: '#334155', fontSize: '0.95rem' }}>
-                Đã tick rảnh: <strong style={{ color: '#4F46E5', fontSize: '1.1rem' }}>{selectedSlots.length}</strong> / 30 ô slot
+                Đã chọn: <strong style={{ color: '#4F46E5', fontSize: '1.1rem' }}>{selectedSlots.length}</strong> / 30 slot
               </span>
             </div>
 
@@ -528,10 +528,10 @@ const AvailabilityPage = () => {
               <div>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 850, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '0.6rem', margin: 0 }}>
                   <BookOpen size={22} color="#4F46E5" />
-                  <span>Bảng Khai báo Lịch Rảnh</span>
+                  <span>Danh sách Slot Đăng ký</span>
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0.3rem 0 0', fontWeight: 500 }}>
-                  Giảng viên bấm chọn các ô rảnh trong tuần để hệ thống thu thập dữ liệu và tự động phân công hội đồng chấm review checkpoint phù hợp.
+                  Giảng viên chọn các slot có thể tham gia để hệ thống tự động phân công lịch review phù hợp.
                 </p>
               </div>
             </div>
@@ -593,7 +593,7 @@ const AvailabilityPage = () => {
                               {selected ? (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#4F46E5', fontWeight: 800, fontSize: '0.8rem' }}>
                                   <Check size={18} strokeWidth={3} />
-                                  <span>Rảnh</span>
+                                  <span>Có thể tham gia</span>
                                 </div>
                               ) : (
                                 <span style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 500 }}>---</span>

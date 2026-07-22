@@ -259,7 +259,7 @@ const StudentDashboard = () => {
 
         {!loading && mySchedules.length === 0 && (
           <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B', background: '#F8FAFC', borderRadius: 'var(--radius-md)', border: '1px solid #E2E8F0' }}>
-            Nhóm chưa có lịch review chính thức nào được công bố. Nếu bạn đã đăng ký ca rảnh, vui lòng chờ Phòng Đào tạo xếp lịch và thông báo.
+            Nhóm chưa có lịch review chính thức nào được công bố. Nếu bạn đã đăng ký slot, vui lòng chờ Phòng Đào tạo xếp lịch và thông báo.
           </div>
         )}
         {!loading && mySchedules.length > 0 && (

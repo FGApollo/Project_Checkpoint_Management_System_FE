@@ -290,7 +290,7 @@ const ReviewRegistrationPage = () => {
         roundId: Number(selectedRoundId),
         slots: selectedSlots.map(s => ({ dayOfWeek: Number(s.dayOfWeek), slot: Number(s.slot) }))
       });
-      setSuccess(`Trưởng nhóm #${groupId} đã lưu thành công nguyện vọng đăng ký slot rảnh cho đợt ${reviewType}!`);
+      setSuccess(`Trưởng nhóm #${groupId} đã đăng ký slot thành công cho đợt ${reviewType}!`);
       fetchData();
     } catch (err) {
       setError(err.response?.data?.error || 'Lỗi khi lưu danh sách nguyện vọng đăng ký.');
@@ -315,7 +315,7 @@ const ReviewRegistrationPage = () => {
                 Đăng ký Nguyện vọng Lịch Review Checkpoint
               </h1>
               <p className="page-subtitle" style={{ color: '#475569', fontSize: '0.95rem' }}>
-                Bước 1: Vui lòng chọn Học kỳ và Đợt chấm tiến trình (Review Checkpoint) từ danh sách dưới đây để bắt đầu chọn khung giờ rảnh cho nhóm.
+                Bước 1: Vui lòng chọn Học kỳ và Đợt Review từ danh sách dưới đây để bắt đầu đăng ký slot cho nhóm.
               </p>
             </div>
 
@@ -632,7 +632,7 @@ const ReviewRegistrationPage = () => {
                   Quyền thao tác bị giới hạn: Bạn hiện là Thành viên của {groupCode || (groupId ? `Nhóm #${groupId}` : 'nhóm')} (Không phải Trưởng nhóm)
                 </h4>
                 <p style={{ margin: 0, fontSize: '0.92rem', color: '#92400E', lineHeight: 1.6, fontWeight: 600 }}>
-                  Theo quy định của Hệ thống Checkpoint, <strong style={{ color: '#B45309' }}>chỉ có Trưởng nhóm (Leader)</strong> mới có quyền thao tác tick chọn khung giờ rảnh và gửi/lưu nguyện vọng đăng ký cho toàn nhóm. Bạn có thể theo dõi kết quả tick chọn bên dưới nhưng bảng thao tác và nút lưu đã được ẩn mờ.
+                  Theo quy định của hệ thống, <strong style={{ color: '#B45309' }}>chỉ có Trưởng nhóm (Leader)</strong> mới có quyền chọn và lưu các slot đăng ký cho toàn nhóm. Bạn có thể xem các slot đã chọn bên dưới nhưng không thể thay đổi.
                 </p>
               </div>
             </div>
@@ -643,7 +643,7 @@ const ReviewRegistrationPage = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <ShieldCheck size={20} color="#10B981" />
               <span style={{ fontWeight: 700, color: '#334155', fontSize: '0.95rem' }}>
-                Đang chọn: <strong style={{ color: '#F26522', fontSize: '1.1rem' }}>{selectedSlots.length}</strong> / 30 ô slot rảnh trong đợt
+                Đang chọn: <strong style={{ color: '#F26522', fontSize: '1.1rem' }}>{selectedSlots.length}</strong> / 30 slot trong đợt
               </span>
             </div>
 
@@ -675,10 +675,10 @@ const ReviewRegistrationPage = () => {
               <div>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 850, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '0.6rem', margin: 0 }}>
                   <BookOpen size={22} color="#F26522" />
-                  <span>Bảng Tick chọn Khung giờ rảnh</span>
+                  <span>Danh sách Slot Đăng ký</span>
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0.3rem 0 0', fontWeight: 500 }}>
-                  Trưởng nhóm tick vào tất cả những ô khung giờ mà các thành viên rảnh và sẵn sàng tham gia review, sau đó bấm <strong>Save</strong>.
+                  Trưởng nhóm chọn các slot mà cả nhóm có thể tham gia review, sau đó bấm <strong>Lưu đăng ký</strong>.
                 </p>
               </div>
               <span className="badge" style={{ background: 'rgba(242, 101, 34, 0.15)', color: '#F26522', fontWeight: 800, fontSize: '0.9rem', padding: '0.45rem 1rem', borderRadius: '12px' }}>

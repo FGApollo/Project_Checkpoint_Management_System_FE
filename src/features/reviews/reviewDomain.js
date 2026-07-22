@@ -28,7 +28,7 @@ export const getStudentAvailabilityValidationError = (slots) => {
 
   if (normalizedKeys.size !== slots.length) return 'Danh sách đăng ký có slot bị trùng.';
   if (slots.length !== REQUIRED_STUDENT_AVAILABILITY_SLOTS) {
-    return `Mỗi nhóm phải chọn đúng ${REQUIRED_STUDENT_AVAILABILITY_SLOTS} slot rảnh.`;
+    return `Mỗi nhóm phải đăng ký đúng ${REQUIRED_STUDENT_AVAILABILITY_SLOTS} slot.`;
   }
   return null;
 };

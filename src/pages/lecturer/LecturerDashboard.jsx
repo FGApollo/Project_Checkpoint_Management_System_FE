@@ -47,7 +47,7 @@ const LecturerDashboard = () => {
         <div>
           <h1 className="page-title" style={{ color: '#0F172A' }}>Dashboard Giảng viên</h1>
           <p className="page-subtitle" style={{ color: '#64748B' }}>
-            Xin chào, <strong>{user?.fullName || user?.username}</strong>. Quản lý đăng ký slot rảnh và theo dõi lịch chấm checkpoint review.
+            Xin chào, <strong>{user?.fullName || user?.username}</strong>. Quản lý đăng ký slot và theo dõi lịch review.
           </p>
         </div>
       </div>
@@ -88,8 +88,8 @@ const LecturerDashboard = () => {
               <Clock size={22} color="#D97706" />
             </div>
             <div>
-              <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0F172A' }}>Đăng ký Slot rảnh</p>
-              <p style={{ fontSize: '0.75rem', color: '#64748B' }}>Khai báo lịch rảnh cho đợt review</p>
+              <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0F172A' }}>Đăng ký Slot</p>
+              <p style={{ fontSize: '0.75rem', color: '#64748B' }}>Chọn các slot có thể tham gia review</p>
             </div>
             <ArrowRight size={16} color="#94A3B8" style={{ marginLeft: 'auto' }} />
           </div>

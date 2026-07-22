@@ -31,7 +31,7 @@ const getRoundStatusMeta = (status) => {
       headingColor: '#065F46',
       textColor: '#047857',
       heading: 'ĐANG MỞ ĐĂNG KÝ (OPEN)',
-      description: '● Giảng viên và Sinh viên có quyền truy cập vào bảng 30 ô để tick chọn hoặc chỉnh sửa lịch rảnh.',
+      description: '● Giảng viên và Sinh viên có quyền truy cập bảng 30 slot để đăng ký hoặc chỉnh sửa lựa chọn.',
       Icon: Unlock
     };
   }
@@ -368,7 +368,7 @@ const ReviewManagementPage = () => {
         setSelectedRound(updatedRound);
       }
       await fetchRounds(formData.semesterId);
-      setSuccess(newStatus === 1 || newStatus === 'Open' ? `Đã MỞ KHÓA đăng ký cho đợt ${formatReviewType(roundToUpdate.type)}! Giảng viên & Sinh viên hiện có thể truy cập chọn khung giờ rảnh.` : `Đã KHÓA đăng ký cho đợt ${formatReviewType(roundToUpdate.type)}! Giảng viên & Sinh viên không thể thay đổi nguyện vọng.`);
+      setSuccess(newStatus === 1 || newStatus === 'Open' ? `Đã MỞ KHÓA đăng ký cho đợt ${formatReviewType(roundToUpdate.type)}! Giảng viên và Sinh viên hiện có thể đăng ký slot.` : `Đã KHÓA đăng ký cho đợt ${formatReviewType(roundToUpdate.type)}! Giảng viên và Sinh viên không thể thay đổi đăng ký.`);
     } catch (err) {
       setError(err.response?.data?.error || 'Lỗi khi cập nhật trạng thái đợt review');
     } finally {
@@ -388,7 +388,7 @@ const ReviewManagementPage = () => {
     }
     if (boardData.registeredLecturersCount < 2) {
       setSuccess('');
-      setError(`Cần ít nhất 2 giảng viên nộp chính thức lịch rảnh trước khi chạy phân công. Hiện có ${boardData.registeredLecturersCount} giảng viên đã nộp${boardData.draftLecturersCount > 0 ? ` và ${boardData.draftLecturersCount} giảng viên mới lưu nháp` : ''}.`);
+      setError(`Cần ít nhất 2 giảng viên nộp đăng ký slot chính thức trước khi chạy phân công. Hiện có ${boardData.registeredLecturersCount} giảng viên đã nộp${boardData.draftLecturersCount > 0 ? ` và ${boardData.draftLecturersCount} giảng viên mới lưu nháp` : ''}.`);
       return;
     }
     setError('');
@@ -411,7 +411,7 @@ const ReviewManagementPage = () => {
       await fetchBoardDetails(selectedRound, formData.semesterId);
 
       if (assignedCount === 0) {
-        const unassignedReasons = data.unassignedGroups?.map(u => `${u.groupCode}: ${u.reason}`).join(' | ') || 'Chưa đủ giảng viên khai báo rảnh trong cùng 1 slot (cần tối thiểu 2 giảng viên rảnh trong cùng slot và không trùng với GVHD).';
+        const unassignedReasons = data.unassignedGroups?.map(u => `${u.groupCode}: ${u.reason}`).join(' | ') || 'Chưa đủ giảng viên đăng ký cùng một slot (cần tối thiểu 2 giảng viên trong cùng slot và không trùng với GVHD).';
         setError(`Thuật toán chưa thể xếp lịch được ca nào (0/${data.totalCandidateGroups || boardData.registeredGroupsCount || 3} nhóm). Lý do chi tiết:\n${unassignedReasons}`);
         return;
       }
@@ -419,7 +419,7 @@ const ReviewManagementPage = () => {
       setSuccess(`Đã chạy thuật toán xếp lịch và lưu phân công vào Database thành công cho ${assignedCount}/${data.totalCandidateGroups || assignedCount} nhóm!`);
       setActiveStep(4);
     } catch (err) {
-      setError(err.response?.data?.error || 'Lỗi khi chạy thuật toán phân công. Hãy kiểm tra danh sách giảng viên đăng ký slot rảnh và nguyện vọng nhóm.');
+      setError(err.response?.data?.error || 'Lỗi khi chạy thuật toán phân công. Hãy kiểm tra các slot giảng viên và nhóm đã đăng ký.');
     } finally {
       setLoading(false);
     }
@@ -776,15 +776,15 @@ const ReviewManagementPage = () => {
                   </div>
                 ) : (
                   <>
-                    <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>Thuật toán sẽ tự động khớp lịch rảnh của giảng viên và nhóm sinh viên để tạo bảng lịch trình tối ưu (tối đa 3 nhóm/slot).</p>
+                    <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '600px', margin: '0 auto 2rem' }}>Thuật toán sẽ tự động khớp các slot giảng viên và nhóm sinh viên đã đăng ký để tạo lịch tối ưu (tối đa 3 nhóm/slot).</p>
 
                     <div style={{ background: '#F8FAFC', borderRadius: '12px', border: `1px dashed ${boardData.registeredLecturersCount >= 2 ? '#CBD5E1' : '#F59E0B'}`, padding: '2.5rem', maxWidth: '540px', margin: '0 auto 2rem' }}>
                       {boardData.registeredLecturersCount >= 2 ? <Zap size={48} color="#D97706" style={{ margin: '0 auto 1rem' }} /> : <AlertCircle size={48} color="#D97706" style={{ margin: '0 auto 1rem' }} />}
-                      <h3 style={{ fontSize: '1.1rem', color: '#0F172A', marginBottom: '0.5rem' }}>{boardData.registeredLecturersCount >= 2 ? 'Sẵn sàng chạy thuật toán' : 'Chưa đủ lịch rảnh đã nộp'}</h3>
+                      <h3 style={{ fontSize: '1.1rem', color: '#0F172A', marginBottom: '0.5rem' }}>{boardData.registeredLecturersCount >= 2 ? 'Sẵn sàng chạy thuật toán' : 'Chưa đủ đăng ký slot'}</h3>
                       <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem', lineHeight: 1.6 }}>
                         {boardData.registeredLecturersCount >= 2
-                          ? `Hiện có ${boardData.registeredGroupsCount} nhóm chờ phân công và ${boardData.registeredLecturersCount} giảng viên đã nộp chính thức lịch rảnh cho đợt ${selectedRound.type}.`
-                          : `Cần ít nhất 2 giảng viên nộp chính thức lịch rảnh. Hiện có ${boardData.registeredLecturersCount} giảng viên đã nộp${boardData.draftLecturersCount > 0 ? `; ${boardData.draftLecturersCount} giảng viên mới lưu nháp` : ''}. Hãy mở lại đăng ký và yêu cầu giảng viên bấm “Nộp chính thức”.`}
+                          ? `Hiện có ${boardData.registeredGroupsCount} nhóm chờ phân công và ${boardData.registeredLecturersCount} giảng viên đã nộp đăng ký slot chính thức cho đợt ${selectedRound.type}.`
+                          : `Cần ít nhất 2 giảng viên nộp đăng ký slot chính thức. Hiện có ${boardData.registeredLecturersCount} giảng viên đã nộp${boardData.draftLecturersCount > 0 ? `; ${boardData.draftLecturersCount} giảng viên mới lưu nháp` : ''}. Hãy mở lại đăng ký và yêu cầu giảng viên bấm “Nộp chính thức”.`}
                       </p>
                       <button type="button" className="btn btn-primary" onClick={handleMatch} disabled={loading || boardData.registeredLecturersCount < 2} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#4F46E5', opacity: boardData.registeredLecturersCount < 2 ? 0.5 : 1, cursor: boardData.registeredLecturersCount < 2 ? 'not-allowed' : 'pointer' }}>
                         <Play size={18} fill="white" /> {loading ? 'Đang chạy Auto-Match...' : boardData.registeredLecturersCount < 2 ? 'Chưa thể Auto-Match' : 'Chạy Auto-Match'}
