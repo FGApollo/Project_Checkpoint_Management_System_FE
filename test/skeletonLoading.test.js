@@ -41,5 +41,6 @@ test('skeleton UI is accessible and respects reduced motion', async () => {
   assert.match(component, /aria-label="Đang tải/);
   assert.match(styles, /prefers-reduced-motion:\s*reduce/);
   assert.match(styles, /skeleton-shimmer/);
-  assert.match(app, /if \(loading\) return <PageSkeleton/);
+  assert.doesNotMatch(app, /PageSkeleton/);
+  assert.match(app, /if \(loading\) return null/);
 });

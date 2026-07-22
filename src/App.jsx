@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/common/Navbar';
 import Sidebar from './components/common/Sidebar';
-import { PageSkeleton } from './components/common/Skeleton';
 
 // Auth Page
 import LoginPage from './pages/auth/LoginPage';
@@ -32,7 +31,9 @@ import StudentCheckInPage from './pages/student/StudentCheckInPage';
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
 
-  if (loading) return <PageSkeleton cards={3} rows={4} />;
+  // The application shell already owns the branded logo loader during auth bootstrap.
+  // Avoid stacking a page skeleton on the landing/redirect transition.
+  if (loading) return null;
 
   if (!user) {
     return <Navigate to="/login" replace />;
