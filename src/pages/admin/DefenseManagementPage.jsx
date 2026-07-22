@@ -406,7 +406,7 @@ const DefenseManagementPage = () => {
         <div className="glass-card" style={{ padding: '2rem', maxWidth: '560px', margin: '0 auto', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
           <h3 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '0.5rem', color: '#0F172A' }}>Thêm / Cập nhật Thành viên Hội đồng</h3>
           <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem', lineHeight: 1.4 }}>
-            Thêm trực tiếp một giảng viên vào hội đồng đã thành lập kèm vai trò cụ thể (`POST /boards/{councilId}/members`).
+            Thêm trực tiếp một giảng viên vào hội đồng đã thành lập kèm vai trò cụ thể (`POST /boards/:councilId/members`).
           </p>
 
           <form onSubmit={handleAddMember}>

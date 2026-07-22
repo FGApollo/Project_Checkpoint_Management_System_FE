@@ -6,6 +6,10 @@ import { Award, Lock, User, ShieldAlert, Sparkles, CheckCircle2, ArrowRight } fr
 const GOOGLE_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
   || '675096303664-kghujhgk2d7og8s85e0f3kioknh4ip2o.apps.googleusercontent.com';
+const googleIdentityState = {
+  initialized: false,
+  credentialHandler: null,
+};
 
 const getDashboardPath = (role) => {
   if (role === 'SystemAdministrator' || role === 'TrainingDepartment' || role === 'Moderator') return '/admin/dashboard';
@@ -53,10 +57,14 @@ const LoginPage = () => {
 
     const renderGoogleButton = () => {
       if (!window.google?.accounts?.id || !googleButtonRef.current) return;
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleCredential,
-      });
+      googleIdentityState.credentialHandler = handleGoogleCredential;
+      if (!googleIdentityState.initialized) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: (credentialResponse) => googleIdentityState.credentialHandler?.(credentialResponse),
+        });
+        googleIdentityState.initialized = true;
+      }
       googleButtonRef.current.replaceChildren();
       window.google.accounts.id.renderButton(googleButtonRef.current, {
         type: 'standard',
@@ -85,6 +93,9 @@ const LoginPage = () => {
     return () => {
       script.removeEventListener('load', renderGoogleButton);
       script.removeEventListener('error', handleScriptError);
+      if (googleIdentityState.credentialHandler === handleGoogleCredential) {
+        googleIdentityState.credentialHandler = null;
+      }
     };
   }, [handleGoogleCredential, showBootstrap]);
 

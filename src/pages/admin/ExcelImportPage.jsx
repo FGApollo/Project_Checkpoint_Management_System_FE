@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { FileSpreadsheet, UploadCloud, CheckCircle2, Layers, Users, BookOpen, Mail, ArrowRight, ShieldAlert } from 'lucide-react';
 import { PanelSkeleton } from '../../components/common/Skeleton';
@@ -9,6 +9,23 @@ const ExcelImportPage = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [dragActive, setDragActive] = useState(false);
+  const [semesters, setSemesters] = useState([]);
+  const [semesterId, setSemesterId] = useState('');
+
+  useEffect(() => {
+    const loadSemesters = async () => {
+      try {
+        const response = await api.get('/semesters?pageSize=100');
+        const items = Array.isArray(response.data) ? response.data : (response.data?.items || []);
+        setSemesters(items);
+        const defaultSemester = items.find(item => item.isActive) || items[0];
+        setSemesterId(defaultSemester ? String(defaultSemester.id) : '');
+      } catch (err) {
+        setError(err.response?.data?.error || 'Không thể tải danh sách học kỳ để nhập liệu.');
+      }
+    };
+    loadSemesters();
+  }, []);
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -53,12 +70,17 @@ const ExcelImportPage = () => {
       setError('Please select or drop an Excel (.xlsx) file first.');
       return;
     }
+    if (!semesterId) {
+      setError('Vui lòng chọn học kỳ đích trước khi nhập Excel.');
+      return;
+    }
     setError('');
     setResult(null);
     setLoading(true);
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('semesterId', semesterId);
 
     try {
       const response = await api.post('/import/groups', formData, {
@@ -151,6 +173,26 @@ const ExcelImportPage = () => {
 
       <div className="glass-card" style={{ padding: '2.5rem', textAlign: 'center', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
         <form onSubmit={handleSubmit}>
+          <div className="form-group" style={{ maxWidth: '520px', margin: '0 auto 1.5rem', textAlign: 'left' }}>
+            <label htmlFor="import-semester" className="form-label" style={{ color: '#334155', fontWeight: 700 }}>Học kỳ nhận dữ liệu</label>
+            <select
+              id="import-semester"
+              className="form-select"
+              value={semesterId}
+              onChange={(event) => setSemesterId(event.target.value)}
+              required
+              style={{ width: '100%', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
+            >
+              <option value="">Chọn học kỳ đích</option>
+              {semesters.map(semester => (
+                <option key={semester.id} value={semester.id}>
+                  {semester.name} ({semester.code}){semester.isActive ? ' • Đang hoạt động' : ''}
+                </option>
+              ))}
+            </select>
+            <p style={{ margin: '0.45rem 0 0', color: '#64748B', fontSize: '0.8rem' }}>Nhóm, đề tài và sinh viên trong file sẽ được tạo đúng trong học kỳ này.</p>
+          </div>
+
           <label
             htmlFor="fileUploadInput"
             onDragEnter={handleDrag}
@@ -158,6 +200,9 @@ const ExcelImportPage = () => {
             onDragOver={handleDrag}
             onDrop={handleDrop}
             style={{
+              display: 'block',
+              width: '100%',
+              boxSizing: 'border-box',
               border: `2px dashed ${dragActive ? '#F26522' : '#CBD5E1'}`,
               borderRadius: 'var(--radius-xl)',
               padding: '3.5rem 2rem',
@@ -205,7 +250,7 @@ const ExcelImportPage = () => {
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={loading || !file}
+              disabled={loading || !file || !semesterId}
               style={{ padding: '0.875rem 2rem', fontSize: '1rem' }}
             >
               <span>{loading ? 'Đang kiểm tra & Nhập liệu...' : 'Thực hiện Nhập liệu Excel'}</span>
