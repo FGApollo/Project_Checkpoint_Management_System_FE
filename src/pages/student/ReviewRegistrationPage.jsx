@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import api from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/authContextValue.js';
 import { Calendar, CheckCircle2, AlertCircle, RefreshCw, Send, BookOpen, Layers, ArrowRight, ArrowLeft, Sparkles, ShieldCheck, Users } from 'lucide-react';
 import { PageSkeleton } from '../../components/common/Skeleton';
 
@@ -134,6 +134,13 @@ const ReviewRegistrationPage = () => {
   const [success, setSuccess] = useState('');
   const [roundStatus, setRoundStatus] = useState('Đang mở đăng ký'); // 'Đang mở đăng ký' | 'Đã kết thúc đăng ký'
 
+  const updateRoundStatus = useCallback((roundObj) => {
+    if (!roundObj) return;
+    setRoundStatus(isRoundRegistrationOpen(roundObj.status)
+      ? 'Đang mở đăng ký'
+      : 'Đã kết thúc đăng ký');
+  }, []);
+
   const handleSelectRoundStep2 = (roundObj) => {
     setSelectedRoundId(roundObj.id);
     setSemesterId(roundObj.semesterId || semesterId);
@@ -145,7 +152,7 @@ const ReviewRegistrationPage = () => {
     setStep(2);
   };
 
-  const fetchRounds = async (semId) => {
+  const fetchRounds = useCallback(async (semId) => {
     const targetSem = semId !== undefined ? semId : semesterId;
     setLoading(true);
     try {
@@ -170,14 +177,7 @@ const ReviewRegistrationPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const updateRoundStatus = (roundObj) => {
-    if (!roundObj) return;
-    setRoundStatus(isRoundRegistrationOpen(roundObj.status)
-      ? 'Đang mở đăng ký'
-      : 'Đã kết thúc đăng ký');
-  };
+  }, [semesterId, selectedRoundId, updateRoundStatus]);
 
   const handleSemesterChange = (newSemId) => {
     const numId = Number(newSemId);
@@ -186,7 +186,7 @@ const ReviewRegistrationPage = () => {
     fetchRounds(numId);
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!selectedRoundId) return;
     setLoading(true);
     setError('');
@@ -214,7 +214,7 @@ const ReviewRegistrationPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [groupId, selectedRoundId]);
 
   useEffect(() => {
     const initData = async () => {
@@ -234,13 +234,13 @@ const ReviewRegistrationPage = () => {
       fetchRounds(semesterId);
     };
     initData();
-  }, []);
+  }, [fetchRounds, semesterId]);
 
   useEffect(() => {
     if (selectedRoundId) {
       fetchData();
     }
-  }, [selectedRoundId, groupId]);
+  }, [fetchData, groupId, selectedRoundId]);
 
   const toggleSlot = (dayId, slotId) => {
     if (!isLeader) {

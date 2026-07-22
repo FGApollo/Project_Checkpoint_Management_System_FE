@@ -1,16 +1,7 @@
 import * as signalR from '@microsoft/signalr';
 import { PRESENCE_HUB_URL } from '../config/environment';
 import { uniquePresenceMembers } from './presenceUtils.js';
-
-const hasUsableAccessToken = (token) => {
-  if (!token) return false;
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1].replaceAll('-', '+').replaceAll('_', '/')));
-    return !payload.exp || payload.exp * 1000 > Date.now() + 5000;
-  } catch {
-    return false;
-  }
-};
+import { hasUsableAccessToken } from './authSession.js';
 
 class PresenceService {
   connection = null;

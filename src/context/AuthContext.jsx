@@ -1,60 +1,40 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import api from '../services/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import api, { refreshAuthentication } from '../services/api';
+import { clearStoredAuthentication, hasUsableAccessToken, parseJwt } from '../services/authSession.js';
 import signalRService from '../services/signalr';
-
-const AuthContext = createContext(null);
-
-export const parseJwt = (token) => {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replaceAll('-', '+').replaceAll('_', '/');
-    const jsonPayload = decodeURIComponent(
-      window
-        .atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.codePointAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    const parsed = JSON.parse(jsonPayload);
-    
-    // Extract standard .NET claim types or simple claims
-    const id = parsed['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || parsed.sub || parsed.nameid || parsed.id;
-    const username = parsed['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || parsed.unique_name || parsed.name || parsed.username;
-    const role = parsed['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || parsed.role || 'User';
-
-    return { id: Number(id), username, role };
-  } catch (e) {
-    console.error('Failed to parse JWT token', e);
-    return null;
-  }
-};
+import { AuthContext } from './authContextValue.js';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const initAuth = useCallback(() => {
-    const accessToken = localStorage.getItem('cpms_access_token');
-    const savedUser = localStorage.getItem('cpms_user');
-    
-    if (accessToken) {
-      const parsedUser = parseJwt(accessToken);
-      if (parsedUser) {
-        // Merge with saved full name if available
-        const parsedSaved = savedUser ? JSON.parse(savedUser) : {};
-        setUser({ ...parsedUser, ...parsedSaved });
-      } else {
-        localStorage.removeItem('cpms_access_token');
-        localStorage.removeItem('cpms_refresh_token');
-        localStorage.removeItem('cpms_user');
+  const initAuth = useCallback(async () => {
+    try {
+      let accessToken = localStorage.getItem('cpms_access_token');
+      if (accessToken && !hasUsableAccessToken(accessToken)) {
+        accessToken = await refreshAuthentication();
       }
+
+      if (!accessToken) return;
+      const parsedUser = parseJwt(accessToken);
+      if (!parsedUser) throw new Error('Stored access token is invalid.');
+
+      let savedUser = {};
+      try { savedUser = JSON.parse(localStorage.getItem('cpms_user') || '{}'); }
+      catch { savedUser = {}; }
+      // Security-sensitive claims always come from the current signed token.
+      setUser({ ...savedUser, ...parsedUser });
+    } catch {
+      clearStoredAuthentication();
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
-    initAuth();
+    void initAuth();
 
     const handleUnauthorized = () => {
       setUser(null);
@@ -140,9 +120,7 @@ export const AuthProvider = ({ children }) => {
     } catch (e) {
       console.error(e);
     }
-    localStorage.removeItem('cpms_access_token');
-    localStorage.removeItem('cpms_refresh_token');
-    localStorage.removeItem('cpms_user');
+    clearStoredAuthentication();
     setUser(null);
   }, []);
 
@@ -156,12 +134,4 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 };

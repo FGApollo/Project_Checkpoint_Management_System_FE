@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import api from '../../services/api';
 import { CheckCircle2, AlertCircle, RefreshCw, Save, Send, Check, ArrowLeft, ArrowRight, BookOpen, Sparkles, Calendar, ShieldCheck } from 'lucide-react';
 import { PageSkeleton } from '../../components/common/Skeleton';
@@ -88,25 +88,23 @@ const AvailabilityPage = () => {
     setStep(2);
   };
 
-  const fetchRounds = async (semId) => {
+  const fetchRounds = useCallback(async (semId) => {
     const targetSem = semId !== undefined ? semId : semesterId;
     setLoading(true);
     try {
       const res = await api.get(`/review-scheduling/rounds?semesterId=${targetSem}`);
       const list = Array.isArray(res.data) ? res.data : (res.data?.items || []);
       setRounds(list);
-      if (list.length > 0 && (!selectedRoundId || !list.some(r => r.id === selectedRoundId))) {
-        const first = list[0];
-        setSelectedRoundId(first.id);
-      } else if (list.length === 0) {
-        setSelectedRoundId('');
-      }
+      setSelectedRoundId((current) => {
+        if (list.length === 0) return '';
+        return current && list.some((round) => round.id === current) ? current : list[0].id;
+      });
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [semesterId]);
 
   const handleSemesterChange = (newSemId) => {
     const numId = Number(newSemId);
@@ -115,7 +113,7 @@ const AvailabilityPage = () => {
     fetchRounds(numId);
   };
 
-  const fetchAvailability = async () => {
+  const fetchAvailability = useCallback(async () => {
     if (!selectedRoundId) return;
     setLoading(true);
     setError('');
@@ -132,7 +130,7 @@ const AvailabilityPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedRoundId]);
 
   useEffect(() => {
     const initData = async () => {
@@ -152,13 +150,13 @@ const AvailabilityPage = () => {
       fetchRounds(semesterId);
     };
     initData();
-  }, []);
+  }, [fetchRounds, semesterId]);
 
   useEffect(() => {
     if (selectedRoundId) {
       fetchAvailability();
     }
-  }, [selectedRoundId]);
+  }, [fetchAvailability, selectedRoundId]);
 
   const toggleSlot = (dayId, slotId) => {
     if (isSubmitted || !canEditAvailability) return;

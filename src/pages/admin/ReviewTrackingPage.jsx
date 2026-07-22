@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../../services/api';
 import { listProjectDocuments, downloadProjectDocument } from '../../services/documents';
@@ -62,6 +62,17 @@ const FeedbackStatus = ({ item }) => {
     return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#EF4444', fontWeight: 600, fontSize: '0.8rem' }}><ShieldAlert size={15} />Chờ SV nộp bài</span>;
   }
   return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#F59E0B', fontWeight: 600, fontSize: '0.8rem' }}><Clock size={15} />Đang chờ giảng viên nhận xét</span>;
+};
+
+const getSlotTime = (slotNum) => {
+  switch (slotNum) {
+    case 1: return '07:30 – 09:00';
+    case 2: return '09:10 – 10:40';
+    case 3: return '10:50 – 12:20';
+    case 4: return '12:50 – 14:20';
+    case 5: return '14:30 – 16:00';
+    default: return '07:30 – 09:00';
+  }
 };
 
 const ReviewTrackingPage = () => {
@@ -232,7 +243,7 @@ const ReviewTrackingPage = () => {
     fetchRoundsForSemester();
   }, [selectedSemesterId]);
 
-  const mapBoardItem = (item, roundName, lecturers = []) => ({
+  const mapBoardItem = useCallback((item, roundName, lecturers = []) => ({
     id: item.id,
     groupId: item.groupId,
     key: `${item.id}-${item.groupId}`,
@@ -254,9 +265,9 @@ const ReviewTrackingPage = () => {
     documentCount: 0,
     feedbackStatus: item.status === 'Completed' ? 'COMPLETED' : 'PENDING',
     comments: item.notes || ''
-  });
+  }), []);
 
-  const fetchTrackingData = async () => {
+  const fetchTrackingData = useCallback(async () => {
     if (!selectedSemesterId) return;
     setLoading(true);
     setError('');
@@ -322,24 +333,13 @@ const ReviewTrackingPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [mapBoardItem, roundsList, selectedRound, selectedSemesterId]);
 
   useEffect(() => {
     if (selectedSemesterId) {
       fetchTrackingData();
     }
-  }, [selectedSemesterId, selectedRound, roundsList]);
-
-  const getSlotTime = (slotNum) => {
-    switch (slotNum) {
-      case 1: return '07:30 – 09:00';
-      case 2: return '09:10 – 10:40';
-      case 3: return '10:50 – 12:20';
-      case 4: return '12:50 – 14:20';
-      case 5: return '14:30 – 16:00';
-      default: return '07:30 – 09:00';
-    }
-  };
+  }, [fetchTrackingData, selectedSemesterId]);
 
   const filteredList = trackingData.filter(item => {
     const matchesRound = selectedRound === 'ALL' || typeof selectedRound !== 'object'

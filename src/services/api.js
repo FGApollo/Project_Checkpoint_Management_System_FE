@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { clearStoredAuthentication, hasUsableAccessToken } from './authSession.js';
 
 const getBaseUrl = () => {
   if (import.meta.env?.VITE_API_BASE_URL) {
@@ -21,10 +22,56 @@ const api = axios.create({
   },
 });
 
-// Request Interceptor: Attach Access Token
+const isPublicAuthenticationRequest = (url = '') => (
+  url.endsWith('/auth/login')
+  || url.endsWith('/auth/google')
+  || url.endsWith('/auth/bootstrap-admin')
+  || url.endsWith('/auth/refresh')
+);
+
+let refreshPromise = null;
+
+export const refreshAuthentication = async () => {
+  const refreshToken = localStorage.getItem('cpms_refresh_token');
+  if (!refreshToken) throw new Error('No refresh token is available.');
+
+  if (!refreshPromise) {
+    refreshPromise = axios.post(
+      `${API_BASE_URL}/auth/refresh`,
+      { refreshToken },
+      { timeout: API_REQUEST_TIMEOUT_MS },
+    ).then(({ data }) => {
+      if (!data?.accessToken) throw new Error('The refresh response did not contain an access token.');
+      localStorage.setItem('cpms_access_token', data.accessToken);
+      if (data.refreshToken) localStorage.setItem('cpms_refresh_token', data.refreshToken);
+      api.defaults.headers.common.Authorization = `Bearer ${data.accessToken}`;
+      window.dispatchEvent(new Event('auth:token-refreshed'));
+      return data.accessToken;
+    }).finally(() => {
+      refreshPromise = null;
+    });
+  }
+
+  return refreshPromise;
+};
+
+const expireAuthentication = () => {
+  clearStoredAuthentication();
+  delete api.defaults.headers.common.Authorization;
+  window.dispatchEvent(new Event('auth:unauthorized'));
+};
+
 api.interceptors.request.use(
-  (config) => {
-    const accessToken = localStorage.getItem('cpms_access_token');
+  async (config) => {
+    let accessToken = localStorage.getItem('cpms_access_token');
+    if (accessToken && !hasUsableAccessToken(accessToken) && !isPublicAuthenticationRequest(config.url)) {
+      try {
+        accessToken = await refreshAuthentication();
+      } catch (error) {
+        expireAuthentication();
+        throw error;
+      }
+    }
     if (accessToken && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
@@ -33,74 +80,24 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle 401 Unauthorized & Refresh Token
-let isRefreshing = false;
-let failedQueue = [];
-
-const processQueue = (error, token = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
-    }
-  });
-  failedQueue = [];
-};
-
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            return api(originalRequest);
-          });
-      }
-
+    if (error.response?.status === 401
+      && originalRequest
+      && !originalRequest._retry
+      && !isPublicAuthenticationRequest(originalRequest.url)) {
       originalRequest._retry = true;
-      isRefreshing = true;
-
-      const refreshToken = localStorage.getItem('cpms_refresh_token');
-      if (!refreshToken) {
-        isRefreshing = false;
-        throw error;
-      }
 
       try {
-        const response = await axios.post(
-          `${API_BASE_URL}/auth/refresh`,
-          { refreshToken },
-          { timeout: API_REQUEST_TIMEOUT_MS },
-        );
-
-        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
-        localStorage.setItem('cpms_access_token', newAccessToken);
-        if (newRefreshToken) {
-          localStorage.setItem('cpms_refresh_token', newRefreshToken);
-        }
-
-        api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+        const newAccessToken = await refreshAuthentication();
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-        window.dispatchEvent(new Event('auth:token-refreshed'));
-
-        processQueue(null, newAccessToken);
         return api(originalRequest);
       } catch (refreshError) {
-        processQueue(refreshError, null);
-        localStorage.removeItem('cpms_access_token');
-        localStorage.removeItem('cpms_refresh_token');
-        localStorage.removeItem('cpms_user');
-        window.dispatchEvent(new Event('auth:unauthorized'));
+        expireAuthentication();
         throw refreshError;
-      } finally {
-        isRefreshing = false;
       }
     }
 

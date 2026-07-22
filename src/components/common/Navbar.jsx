@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/authContextValue.js';
 import { LogOut, User, Calendar, ShieldCheck, Bell, Wifi } from 'lucide-react';
 import api from '../../services/api';
 import presenceService from '../../services/presence';

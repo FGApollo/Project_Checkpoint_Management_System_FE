@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/authContextValue.js';
 import api from '../../services/api';
 import signalRService from '../../services/signalr';
 import { getBackendUrl } from '../../config/environment';
@@ -30,6 +30,8 @@ const SessionStatusBadge = ({ sessionState }) => {
 
 const DefenseRoomPage = () => {
   const { user } = useAuth();
+  const userId = user?.id;
+  const userFullName = user?.fullName;
   const [searchParams, setSearchParams] = useSearchParams();
   const [mySessions, setMySessions] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState(searchParams.get('session') || '');
@@ -60,8 +62,8 @@ const DefenseRoomPage = () => {
         const response = await api.get('/defense-management/my-board-sessions');
         const list = Array.isArray(response.data) ? response.data : (response.data?.items || []);
         setMySessions(list);
-        if (!selectedSessionId && list.length > 0) {
-          setSelectedSessionId(list[0].id || list[0].code);
+        if (list.length > 0) {
+          setSelectedSessionId((current) => current || list[0].id || list[0].code);
         }
       } catch (err) {
         console.error('Failed to load my board sessions:', err);
@@ -85,7 +87,7 @@ const DefenseRoomPage = () => {
         if (!isMounted) return;
         const data = res.data;
         setSessionState(data);
-        setIsChairman(Boolean(data.isChairman || (user && user.id === data.chairmanId)));
+        setIsChairman(Boolean(data.isChairman || userId === data.chairmanId));
 
         const stList = Array.isArray(data.students) ? data.students : [];
         setStudentsList(stList);
@@ -110,7 +112,7 @@ const DefenseRoomPage = () => {
           await signalRService.joinSession(data.id || selectedSessionId);
           if (isMounted) {
             setConnectionStatus('Connected');
-            setConnectedMembers([{ lecturerId: user?.id || 1, fullName: user?.fullName || 'Me (Connected)' }]);
+            setConnectedMembers([{ lecturerId: userId || 1, fullName: userFullName || 'Me (Connected)' }]);
           }
         } catch (hubErr) {
           console.warn('SignalR Hub join warning (running in REST mode):', hubErr);
@@ -160,7 +162,7 @@ const DefenseRoomPage = () => {
       signalRService.off('defenseSessionClosed', handleSessionClosed);
       signalRService.off('scoreSubmitted', handleScoreSubmitted);
     };
-  }, [selectedSessionId]);
+  }, [selectedSessionId, userFullName, userId]);
 
   const handleScoreChange = (studentId, field, val) => {
     setScores((prev) => ({

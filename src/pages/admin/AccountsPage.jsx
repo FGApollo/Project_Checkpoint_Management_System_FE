@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import api from '../../services/api';
 import { Plus, Search, Filter, UserCheck, UserX, Lock, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import { PageSkeleton, TableSkeletonRows } from '../../components/common/Skeleton';
@@ -32,7 +32,7 @@ const AccountsPage = () => {
     major: 'Software Engineering'
   });
 
-  const fetchAccounts = async (pageNumber = page, size = pageSize) => {
+  const fetchAccounts = useCallback(async (pageNumber = page, size = pageSize) => {
     setLoading(true);
     setError('');
     try {
@@ -57,14 +57,14 @@ const AccountsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, roleFilter, searchTerm]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchAccounts(page, pageSize);
     }, 200);
     return () => clearTimeout(timer);
-  }, [page, pageSize, searchTerm, roleFilter]);
+  }, [fetchAccounts, page, pageSize]);
 
   const getPageNumbers = () => {
     const pages = [];

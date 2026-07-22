@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/authContextValue.js';
 import api from '../../services/api';
 import { BookOpen, User, Users, Wifi, WifiOff, Crown, Calendar, CheckSquare, Award, ArrowRight, Layers, Upload, FileText, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';

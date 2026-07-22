@@ -240,7 +240,7 @@ const ReviewManagementPage = () => {
       } catch (err) {
         console.error('Lỗi tải kỳ học:', err);
       }
-      fetchRounds(formData.semesterId);
+      fetchRounds(1);
     };
     initData();
   }, []);

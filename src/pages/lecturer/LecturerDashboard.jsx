@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/authContextValue.js';
 import api from '../../services/api';
 import { Clock, CheckSquare, Calendar, Users, ArrowRight, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';

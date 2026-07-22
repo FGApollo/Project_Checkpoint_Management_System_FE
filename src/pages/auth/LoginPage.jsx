@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/authContextValue.js';
 import { Award, Lock, User, ShieldAlert, Sparkles, CheckCircle2, ArrowRight } from 'lucide-react';
 
 const GOOGLE_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
