@@ -68,7 +68,8 @@ const Navbar = () => {
   };
 
   return (
-    <header style={{
+    <>
+      <header style={{
       background: '#FFFFFF',
       borderBottom: '1px solid #E2E8F0',
       padding: '0 2rem',
@@ -148,11 +149,6 @@ const Navbar = () => {
 
           <div style={{ width: '1px', height: '28px', background: '#E2E8F0' }} />
 
-          <div title={onlineMembers.map((member) => `${member.displayName} (${member.role})`).join(', ') || 'Chưa có người dùng khác đang hoạt động'} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#10B981', fontSize: '0.75rem', fontWeight: 700, maxWidth: '220px' }}>
-            <Wifi size={15} />
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{onlineMembers.length} online{onlineMembers.length > 0 ? ` · ${onlineMembers.slice(0, 2).map((member) => member.displayName).join(', ')}` : ''}</span>
-          </div>
-
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <div style={{
               width: '36px',
@@ -203,7 +199,17 @@ const Navbar = () => {
           </button>
         </div>
       )}
-    </header>
+      </header>
+
+      <div
+        className="presence-indicator"
+        title={onlineMembers.map((member) => `${member.displayName} (${member.role})`).join(', ') || 'Chưa có người dùng khác đang hoạt động'}
+        aria-label={`${onlineMembers.length} người dùng đang hoạt động`}
+      >
+        <Wifi size={15} aria-hidden="true" />
+        <span>{onlineMembers.length} online{onlineMembers.length > 0 ? ` · ${onlineMembers.slice(0, 2).map((member) => member.displayName).join(', ')}` : ''}</span>
+      </div>
+    </>
   );
 };
 

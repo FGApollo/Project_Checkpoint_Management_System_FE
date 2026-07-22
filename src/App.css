@@ -182,3 +182,38 @@
     border-right-color: var(--border);
   }
 }
+
+.presence-indicator {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: min(260px, calc(100vw - 2rem));
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14);
+  color: #059669;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.presence-indicator span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 640px) {
+  .presence-indicator {
+    left: 0.75rem;
+    bottom: 0.75rem;
+    max-width: calc(100vw - 1.5rem);
+  }
+}

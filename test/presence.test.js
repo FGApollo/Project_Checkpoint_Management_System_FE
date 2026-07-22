@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { uniquePresenceMembers } from '../src/services/presenceUtils.js';
+import { readFile } from 'node:fs/promises';
 
 test('presence counts users instead of SignalR connections', () => {
   const members = [
@@ -13,4 +14,14 @@ test('presence counts users instead of SignalR connections', () => {
     uniquePresenceMembers(members).map((member) => member.connectionId),
     ['tab-1', 'tab-3'],
   );
+});
+
+test('presence indicator is rendered as a fixed bottom-left badge', async () => {
+  const navbar = await readFile(new URL('../src/components/common/Navbar.jsx', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../src/App.css', import.meta.url), 'utf8');
+  const header = navbar.slice(navbar.indexOf('return ('), navbar.indexOf('</header>'));
+
+  assert.match(navbar, /className="presence-indicator"/);
+  assert.match(styles, /\.presence-indicator\s*\{[\s\S]*position:\s*fixed[\s\S]*left:\s*1rem[\s\S]*bottom:\s*1rem/);
+  assert.doesNotMatch(header, /onlineMembers|<Wifi/);
 });
