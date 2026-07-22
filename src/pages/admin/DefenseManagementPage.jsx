@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { Gavel, Plus, Users, ShieldAlert, CheckCircle, AlertCircle, Calendar, ArrowRight, Layers } from 'lucide-react';
+import { PageSkeleton, TableSkeletonRows } from '../../components/common/Skeleton';
 
 const DefenseManagementPage = () => {
   const [activeTab, setActiveTab] = useState('rounds');
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -52,6 +54,7 @@ const DefenseManagementPage = () => {
       setError('Failed to fetch defense rounds.');
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -219,6 +222,8 @@ const DefenseManagementPage = () => {
     }
   };
 
+  if (initialLoading) return <PageSkeleton cards={3} rows={6} />;
+
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
@@ -305,7 +310,7 @@ const DefenseManagementPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {rounds.length === 0 ? (
+                {loading ? <TableSkeletonRows rows={5} columns={6} /> : rounds.length === 0 ? (
                   <tr><td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: '#64748B' }}>Chưa có đợt bảo vệ nào được thiết lập. Vui lòng bấm 'Tạo Đợt Bảo vệ'.</td></tr>
                 ) : (
                   rounds.map((r) => (

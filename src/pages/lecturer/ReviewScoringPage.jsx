@@ -2,6 +2,7 @@ import React, { useCallback, useState, useEffect } from 'react';
 import api from '../../services/api';
 import { listProjectDocuments, downloadProjectDocument, generateProjectDocumentSuggestions } from '../../services/documents';
 import { CheckSquare, Users, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
+import { PageSkeleton, PanelSkeleton } from '../../components/common/Skeleton';
 
 const getTabButtonProps = (activeTab, tab) => {
   if (activeTab === tab) return { className: 'btn btn-primary', style: {} };
@@ -246,6 +247,8 @@ const ReviewScoringPage = () => {
     }
   };
 
+  if (loading && sessions.length === 0) return <PageSkeleton cards={2} rows={6} />;
+
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
@@ -282,9 +285,7 @@ const ReviewScoringPage = () => {
             <span>Ca Review được Phân công ({sessions.length})</span>
           </h3>
 
-          {loading && !sessions.length && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>Đang tải...</div>
-          )}
+          {loading && !sessions.length && <PanelSkeleton rows={5} />}
           {!loading && sessions.length === 0 && (
             <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B', fontSize: '0.8rem' }}>
               Hiện chưa có lịch review nào được phân công cho bạn trong tuần này.

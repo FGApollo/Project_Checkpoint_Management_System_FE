@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { CheckCircle2, AlertCircle, RefreshCw, Save, Send, Check, ArrowLeft, ArrowRight, BookOpen, Sparkles, Calendar, ShieldCheck } from 'lucide-react';
+import { PageSkeleton } from '../../components/common/Skeleton';
 
 const DAYS_OF_WEEK = [
   { id: 1, name: 'Thứ 2' },
@@ -227,6 +228,8 @@ const AvailabilityPage = () => {
   const currentRound = rounds.find(r => r.id === Number(selectedRoundId)) || rounds[0];
   const canEditAvailability = isAvailabilityRoundOpen(currentRound);
   const submissionMeta = getSubmissionMeta(isSubmitted);
+
+  if (loading && rounds.length === 0) return <PageSkeleton cards={3} rows={6} />;
 
   return (
     <div className="page-container animate-fade-in">

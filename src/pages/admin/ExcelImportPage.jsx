@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import api from '../../services/api';
 import { FileSpreadsheet, UploadCloud, CheckCircle2, Layers, Users, BookOpen, Mail, ArrowRight, ShieldAlert } from 'lucide-react';
+import { PanelSkeleton } from '../../components/common/Skeleton';
 
 const ExcelImportPage = () => {
   const [file, setFile] = useState(null);
@@ -95,6 +96,8 @@ const ExcelImportPage = () => {
           </div>
         </div>
       )}
+
+      {loading && <PanelSkeleton rows={4} />}
 
       {result && (
         <div className="glass-card animate-fade-in" style={{ padding: '2rem', marginBottom: '2rem', background: 'radial-gradient(circle at top right, rgba(16, 185, 129, 0.15), #FFFFFF 70%)', border: '1px solid rgba(16, 185, 129, 0.4)' }}>

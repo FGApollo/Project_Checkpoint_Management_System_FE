@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { AlertCircle, Download, FileText, MessageSquare, RefreshCw, ShieldCheck } from 'lucide-react';
+import { PageSkeleton } from '../../components/common/Skeleton';
 
 const completedStatusLabel = (status) => status === 'Submitted' ? 'Đã hoàn thành' : 'Đã lưu nhận xét';
 
@@ -89,6 +90,8 @@ const ReviewResultsPage = () => {
       setError(err.response?.data?.error || 'Không thể tải phiếu nhận xét.');
     }
   };
+
+  if (loading && submissions.length === 0) return <PageSkeleton cards={2} rows={5} />;
 
   return (
     <div className="page-container animate-fade-in">

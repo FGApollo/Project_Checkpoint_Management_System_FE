@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { BookOpen, User, Calendar, CheckSquare, Award, ArrowRight, Layers, Upload, FileText, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { listProjectDocuments, uploadProjectDocument, downloadProjectDocument } from '../../services/documents';
+import { PageSkeleton } from '../../components/common/Skeleton';
 
 const StudentDashboard = () => {
   const { user } = useAuth();
@@ -70,6 +71,8 @@ const StudentDashboard = () => {
     const url = URL.createObjectURL(response.data); const anchor = window.document.createElement('a');
     anchor.href = url; anchor.download = document.fileName; anchor.click(); URL.revokeObjectURL(url);
   };
+
+  if (loading) return <PageSkeleton cards={3} rows={5} />;
 
   return (
     <div className="page-container animate-fade-in">
@@ -182,9 +185,7 @@ const StudentDashboard = () => {
           <span>Lịch Review Chính thức của Nhóm</span>
         </h3>
 
-        {loading && (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B' }}>Đang tải lịch review của nhóm...</div>
-        )}
+
         {!loading && mySchedules.length === 0 && (
           <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B', background: '#F8FAFC', borderRadius: 'var(--radius-md)', border: '1px solid #E2E8F0' }}>
             Nhóm chưa có lịch review chính thức nào được công bố. Nếu bạn đã đăng ký ca rảnh, vui lòng chờ Phòng Đào tạo xếp lịch và thông báo.

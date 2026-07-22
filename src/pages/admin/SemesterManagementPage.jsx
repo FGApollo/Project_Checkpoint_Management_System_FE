@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { Plus, CheckCircle, AlertCircle, RefreshCw, CalendarDays, Lock, Unlock, Trash2, Users, X } from 'lucide-react';
 import { getActivationBlockedMessage, isDateWithinSemester } from '../../features/semesters/semesterDates';
+import { PageSkeleton, PanelSkeleton, TableSkeletonRows } from '../../components/common/Skeleton';
 
 const SemesterManagementPage = () => {
   const [semesters, setSemesters] = useState([]);
@@ -140,6 +141,8 @@ const SemesterManagementPage = () => {
     return pages;
   };
 
+  if (loading && semesters.length === 0) return <PageSkeleton cards={3} rows={5} />;
+
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
@@ -189,9 +192,7 @@ const SemesterManagementPage = () => {
               </tr>
             </thead>
             <tbody>
-              {loading && (
-                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: '#64748B' }}>Đang tải danh sách kỳ học...</td></tr>
-              )}
+              {loading && <TableSkeletonRows rows={5} columns={7} />}
               {!loading && semesters.length === 0 && (
                 <tr><td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: '#64748B' }}>Chưa có kỳ học nào.</td></tr>
               )}
@@ -326,7 +327,7 @@ const SemesterManagementPage = () => {
               </div>
               <button type="button" className="btn btn-secondary" onClick={() => setGroupsModal(null)} aria-label="Đóng"><X size={18} /></button>
             </div>
-            {groupsLoading ? <p>Đang tải dữ liệu nhóm...</p> : (
+            {groupsLoading ? <PanelSkeleton rows={5} /> : (
               <div className="table-container">
                 <table className="table">
                   <thead><tr><th>Mã nhóm</th><th>Đề tài</th><th>Giảng viên hướng dẫn</th><th>Thành viên</th><th>Trạng thái</th></tr></thead>

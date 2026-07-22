@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../services/api';
 import { Layers, UserPlus, Zap, CheckCircle2, AlertCircle, Users, Calendar, ArrowRight, Play, CheckSquare, Lock, Unlock, ShieldAlert } from 'lucide-react';
 import { REVIEW_TYPES, getAvailableReviewTypes, getDuplicateReviewTypes, getExistingReviewTypes } from '../../features/reviews/reviewRoundTypes';
+import { PageSkeleton } from '../../components/common/Skeleton';
 
 const formatReviewType = (type) => {
   if (type === 'Review1' || type === 0) return 'Review 1';
@@ -438,6 +439,8 @@ const ReviewManagementPage = () => {
 
     setActiveStep(targetStep);
   };
+
+  if (loading && rounds.length === 0) return <PageSkeleton cards={4} rows={6} />;
 
   return (
     <div className="page-container animate-fade-in">

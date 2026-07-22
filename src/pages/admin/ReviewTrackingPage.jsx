@@ -15,6 +15,7 @@ import {
   ArrowRight,
   ShieldAlert
 } from 'lucide-react';
+import { TableSkeletonRows } from '../../components/common/Skeleton';
 
 const getReviewRoundLabels = (type, id) => {
   if (typeof type === 'number') {
@@ -534,16 +535,7 @@ const ReviewTrackingPage = () => {
             </thead>
             <tbody>
               {(() => { return (<>
-              {loading && (
-                <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '3.5rem', color: '#64748B' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
-                      <RefreshCw size={28} className="spin" color="#4F46E5" />
-                      <span style={{ fontWeight: 600 }}>Đang đồng bộ dữ liệu tiến độ review...</span>
-                    </div>
-                  </td>
-                </tr>
-              )}
+              {loading && <TableSkeletonRows rows={6} columns={6} />}
               {!loading && filteredList.length === 0 && (
                 <tr>
                   <td colSpan="6" style={{ textAlign: 'center', padding: '3.5rem', color: '#64748B' }}>

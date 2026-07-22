@@ -3,11 +3,13 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { Link } from 'react-router-dom';
 import { Users, CalendarClock, FileSpreadsheet, ArrowRight, Layers, Activity } from 'lucide-react';
+import { PageSkeleton } from '../../components/common/Skeleton';
 
 const AdminDashboard = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState({ accounts: 0, semesters: 0, rounds: 0, groups: 0 });
   const [activeSemester, setActiveSemester] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -30,9 +32,12 @@ const AdminDashboard = () => {
         });
         setActiveSemester(semData);
       } catch { /* ignore */ }
+      finally { setLoading(false); }
     };
     fetchStats();
   }, []);
+
+  if (loading) return <PageSkeleton cards={3} rows={3} />;
 
   const quickLinks = [
     { to: '/admin/accounts', icon: Users, label: 'Quản lý Người dùng', desc: 'Sinh viên, Giảng viên, Moderator', color: '#4F46E5', bg: '#EEF2FF' },

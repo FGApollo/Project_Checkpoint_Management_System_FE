@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { Plus, Search, Filter, UserCheck, UserX, Lock, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { PageSkeleton, TableSkeletonRows } from '../../components/common/Skeleton';
 
 const AccountsPage = () => {
   const [accounts, setAccounts] = useState([]);
@@ -150,6 +151,8 @@ const AccountsPage = () => {
     return matchesSearch && matchesRole;
   });
 
+  if (loading && accounts.length === 0) return <PageSkeleton cards={3} rows={6} />;
+
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
@@ -229,9 +232,7 @@ const AccountsPage = () => {
               </tr>
             </thead>
             <tbody>
-              {loading && (
-                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: '#64748B' }}>Đang tải danh sách tài khoản...</td></tr>
-              )}
+              {loading && <TableSkeletonRows rows={6} columns={6} />}
               {!loading && filteredAccounts.length === 0 && (
                 <tr><td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: '#64748B' }}>Không có tài khoản nào phù hợp với bộ lọc.</td></tr>
               )}

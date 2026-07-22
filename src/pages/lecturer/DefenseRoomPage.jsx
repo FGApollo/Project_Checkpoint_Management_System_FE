@@ -5,6 +5,7 @@ import api from '../../services/api';
 import signalRService from '../../services/signalr';
 import { getBackendUrl } from '../../config/environment';
 import { Gavel, Play, Square, Send, Camera, UploadCloud, Users, CheckCircle2, AlertCircle, Lock, Unlock, Award, Eye, Clock } from 'lucide-react';
+import { PageSkeleton } from '../../components/common/Skeleton';
 
 const addConnectedMember = (members, member) => {
   if (members.some((current) => current.lecturerId === member.lecturerId)) return members;
@@ -85,7 +86,7 @@ const DefenseRoomPage = () => {
         const data = res.data;
         setSessionState(data);
         setIsChairman(Boolean(data.isChairman || (user && user.id === data.chairmanId)));
-        
+
         const stList = Array.isArray(data.students) ? data.students : [];
         setStudentsList(stList);
 
@@ -250,6 +251,8 @@ const DefenseRoomPage = () => {
     }
   };
 
+  if (loading && !sessionState) return <PageSkeleton cards={3} rows={5} />;
+
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
@@ -308,7 +311,7 @@ const DefenseRoomPage = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem' }}>
           {/* Main Scoring Matrix & Controls */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            
+
             {/* Session Header Bar */}
             <div className="glass-card" style={{ padding: '1.5rem', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.25rem', borderLeft: '4px solid #F26522', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
               <div>
@@ -473,7 +476,7 @@ const DefenseRoomPage = () => {
 
           {/* Right Column: Live Council Members & Evidence */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            
+
             {/* Live Council Participants Panel */}
             <div className="glass-card" style={{ padding: '1.5rem', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0F172A' }}>

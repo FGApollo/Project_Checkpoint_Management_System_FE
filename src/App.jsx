@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/common/Navbar';
 import Sidebar from './components/common/Sidebar';
+import { PageSkeleton } from './components/common/Skeleton';
 
 // Auth Page
 import LoginPage from './pages/auth/LoginPage';
@@ -31,16 +32,7 @@ import ReviewResultsPage from './pages/student/ReviewResultsPage';
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFC', color: '#64748B' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ width: '40px', height: '40px', border: '3px solid #F26522', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-          <span style={{ fontWeight: 600, color: '#0F172A' }}>Đang xác thực phiên làm việc CPMS...</span>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <PageSkeleton cards={3} rows={4} />;
 
   if (!user) {
     return <Navigate to="/login" replace />;

@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { Clock, CheckSquare, Calendar, Users, ArrowRight, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { PageSkeleton } from '../../components/common/Skeleton';
 
 const SLOT_LABELS = {
   1: 'Slot 1 (07:30 – 09:00)',
@@ -37,6 +38,8 @@ const LecturerDashboard = () => {
       return d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
     } catch { return dateStr; }
   };
+
+  if (loading && myReviews.length === 0) return <PageSkeleton cards={3} rows={5} />;
 
   return (
     <div className="page-container animate-fade-in">
@@ -130,9 +133,7 @@ const LecturerDashboard = () => {
           </div>
         </div>
 
-        {loading && (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>Đang tải dữ liệu...</div>
-        )}
+
         {!loading && myReviews.length === 0 && (
           <div style={{ padding: '3rem', textAlign: 'center', color: '#94A3B8' }}>
             <Calendar size={40} color="#CBD5E1" style={{ marginBottom: '0.75rem' }} />

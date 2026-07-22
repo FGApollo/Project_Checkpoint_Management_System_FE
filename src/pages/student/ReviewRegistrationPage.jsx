@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Calendar, CheckCircle2, AlertCircle, RefreshCw, Send, BookOpen, Layers, ArrowRight, ArrowLeft, Sparkles, ShieldCheck, Users } from 'lucide-react';
+import { PageSkeleton } from '../../components/common/Skeleton';
 
 const DAYS_OF_WEEK = [
   { id: 1, name: 'Thứ 2' },
@@ -298,6 +299,8 @@ const ReviewRegistrationPage = () => {
 
   const currentRound = rounds.find(r => r.id === Number(selectedRoundId)) || rounds[0];
   const registrationStatusColors = getRegistrationStatusColors(roundStatus);
+
+  if (loading && rounds.length === 0) return <PageSkeleton cards={3} rows={6} />;
 
   return (
     <div className="page-container animate-fade-in">
