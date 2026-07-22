@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api, { refreshAuthentication } from '../services/api';
 import { clearStoredAuthentication, hasUsableAccessToken, parseJwt } from '../services/authSession.js';
-import signalRService from '../services/signalr';
 import { AuthContext } from './authContextValue.js';
 
 export const AuthProvider = ({ children }) => {
@@ -38,7 +37,6 @@ export const AuthProvider = ({ children }) => {
 
     const handleUnauthorized = () => {
       setUser(null);
-      signalRService.stopConnection();
     };
 
     window.addEventListener('auth:unauthorized', handleUnauthorized);
@@ -115,11 +113,6 @@ export const AuthProvider = ({ children }) => {
   }, [login]);
 
   const logout = useCallback(async () => {
-    try {
-      await signalRService.stopConnection();
-    } catch (e) {
-      console.error(e);
-    }
     clearStoredAuthentication();
     setUser(null);
   }, []);

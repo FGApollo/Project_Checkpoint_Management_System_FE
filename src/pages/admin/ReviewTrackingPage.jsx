@@ -46,6 +46,10 @@ const formatFileSize = (size) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+const formatFeedbackTime = (value) => value
+  ? new Date(value).toLocaleString('vi-VN')
+  : 'Chưa xác định';
+
 const FeedbackStatus = ({ item }) => {
   if (item.feedbackStatus === 'COMPLETED') {
     return (
@@ -54,14 +58,27 @@ const FeedbackStatus = ({ item }) => {
           <CheckCircle2 size={15} />
           Đã hoàn thành Review
         </span>
-        <span style={{ fontSize: '0.725rem', color: '#64748B' }}>Đã ghi nhận nhận xét của giảng viên</span>
+        <span style={{ fontSize: '0.725rem', color: '#64748B' }}>
+          Đã nhận đủ {item.submittedFeedbackCount}/{item.expectedFeedbackCount} nhận xét
+        </span>
+      </div>
+    );
+  }
+  if (item.feedbackStatus === 'FEEDBACK_RECEIVED') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#0EA5E9', fontWeight: 700, fontSize: '0.825rem' }}>
+          <CheckCircle2 size={15} />
+          Đã nhận đủ {item.submittedFeedbackCount}/{item.expectedFeedbackCount} nhận xét
+        </span>
+        <span style={{ fontSize: '0.725rem', color: '#64748B' }}>Chờ hoàn tất điểm danh và khóa buổi review</span>
       </div>
     );
   }
   if (item.feedbackStatus === 'OVERDUE_SUBMISSION') {
     return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#EF4444', fontWeight: 600, fontSize: '0.8rem' }}><ShieldAlert size={15} />Chờ SV nộp bài</span>;
   }
-  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#F59E0B', fontWeight: 600, fontSize: '0.8rem' }}><Clock size={15} />Đang chờ giảng viên nhận xét</span>;
+  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#F59E0B', fontWeight: 600, fontSize: '0.8rem' }}><Clock size={15} />Đang chờ nhận xét ({item.submittedFeedbackCount}/{item.expectedFeedbackCount})</span>;
 };
 
 const getSlotTime = (slotNum) => {
@@ -263,8 +280,15 @@ const ReviewTrackingPage = () => {
     studentSubmitted: false,
     submissionTime: 'N/A',
     documentCount: 0,
-    feedbackStatus: item.status === 'Completed' ? 'COMPLETED' : 'PENDING',
-    comments: item.notes || ''
+    reviewerFeedback: Array.isArray(item.reviewerFeedback) ? item.reviewerFeedback : [],
+    submittedFeedbackCount: Array.isArray(item.reviewerFeedback) ? item.reviewerFeedback.length : 0,
+    expectedFeedbackCount: Array.isArray(item.reviewerIds) ? item.reviewerIds.length : 0,
+    feedbackStatus: item.groupStatus === 'Completed'
+      ? 'COMPLETED'
+      : (Array.isArray(item.reviewerIds) && item.reviewerIds.length > 0 &&
+          Array.isArray(item.reviewerFeedback) && item.reviewerFeedback.length >= item.reviewerIds.length
+         ? 'FEEDBACK_RECEIVED'
+         : 'PENDING')
   }), []);
 
   const fetchTrackingData = useCallback(async () => {
@@ -304,8 +328,13 @@ const ReviewTrackingPage = () => {
 
       const groupIds = [...new Set(mappedSessions.map(item => Number(item.groupId)).filter(Number.isFinite))];
       const documentEntries = await Promise.all(groupIds.map(async (groupId) => {
-        const { data } = await listProjectDocuments(groupId);
-        return [groupId, Array.isArray(data) ? data : []];
+        try {
+          const { data } = await listProjectDocuments(groupId);
+          return [groupId, Array.isArray(data) ? data : []];
+        } catch {
+          // A corrupt/missing legacy document must not hide the whole review board.
+          return [groupId, []];
+        }
       }));
       const documentsByGroup = new Map(documentEntries);
 
@@ -631,6 +660,7 @@ const ReviewTrackingPage = () => {
             >
               <option value="ALL">Tất cả trạng thái</option>
               <option value="COMPLETED">Đã hoàn thành và có nhận xét</option>
+              <option value="FEEDBACK_RECEIVED">Đã đủ nhận xét, chờ hoàn tất</option>
               <option value="PENDING">Đang chờ nhận xét</option>
               <option value="OVERDUE_SUBMISSION">SV chưa nộp bài</option>
             </select>
@@ -843,12 +873,37 @@ const ReviewTrackingPage = () => {
                 )}
               </div>
 
-              {/* Comments */}
+              {/* Official reviewer feedback */}
               <div style={{ background: '#FFFFFF', padding: '1rem', borderRadius: '10px', border: '1px solid #CBD5E1' }}>
-                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', margin: '0 0 0.5rem' }}>NHẬN XÉT CỦA HỘI ĐỒNG</h4>
-                <p style={{ fontSize: '0.875rem', color: '#0F172A', lineHeight: 1.5, margin: 0, fontStyle: selectedItem.comments ? 'normal' : 'italic' }}>
-                  "{selectedItem.comments || 'Chưa có nhận xét nào được ghi lại.'}"
-                </p>
+                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', margin: '0 0 0.75rem' }}>NHẬN XÉT CHÍNH THỨC CỦA GIẢNG VIÊN</h4>
+                {selectedItem.reviewerFeedback.length === 0 ? (
+                  <p style={{ fontSize: '0.875rem', color: '#64748B', lineHeight: 1.5, margin: 0, fontStyle: 'italic' }}>
+                    Chưa có giảng viên nào gửi nhận xét chính thức.
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {selectedItem.reviewerFeedback.map((feedback) => (
+                      <div key={feedback.reviewerId} style={{ padding: '0.85rem', borderRadius: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.45rem', flexWrap: 'wrap' }}>
+                          <strong style={{ color: '#0F172A', fontSize: '0.875rem' }}>
+                            {feedback.reviewerName} ({feedback.reviewerCode})
+                          </strong>
+                          <span style={{ color: '#64748B', fontSize: '0.75rem' }}>
+                            Gửi lúc {formatFeedbackTime(feedback.submittedAt)}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: '0.875rem', color: '#334155', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
+                          {feedback.comment || 'Giảng viên không để lại nội dung nhận xét.'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {selectedItem.submittedFeedbackCount < selectedItem.expectedFeedbackCount && (
+                  <p style={{ margin: '0.75rem 0 0', color: '#F59E0B', fontSize: '0.8rem', fontWeight: 700 }}>
+                    Đang chờ {selectedItem.expectedFeedbackCount - selectedItem.submittedFeedbackCount} giảng viên gửi nhận xét.
+                  </p>
+                )}
               </div>
 
               {/* Status footer */}
@@ -860,7 +915,11 @@ const ReviewTrackingPage = () => {
                   </span>
                 </div>
                 <div style={{ fontSize: '0.9rem', fontWeight: 700, color: selectedItem.feedbackStatus === 'COMPLETED' ? '#10B981' : '#F59E0B' }}>
-                  {selectedItem.feedbackStatus === 'COMPLETED' ? 'Review đã hoàn thành' : 'Đang chờ giảng viên nhận xét'}
+                  {selectedItem.feedbackStatus === 'COMPLETED'
+                    ? 'Review đã hoàn thành'
+                    : selectedItem.feedbackStatus === 'FEEDBACK_RECEIVED'
+                      ? 'Đã đủ nhận xét · chờ hoàn tất buổi review'
+                      : `Đang chờ nhận xét (${selectedItem.submittedFeedbackCount}/${selectedItem.expectedFeedbackCount})`}
                 </div>
               </div>
             </div>
