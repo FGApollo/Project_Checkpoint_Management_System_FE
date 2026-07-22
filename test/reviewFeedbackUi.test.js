@@ -105,3 +105,18 @@ test('admin can inspect semester groups and export all review reports', async ()
   assert.match(trackingPage, /review-submissions\/export\.zip/);
   assert.match(reviewManagementPage, /review-scheduling\/student-registrations/);
 });
+
+test('review detail opens at the top and lets admin download submitted documents', async () => {
+  const trackingPage = await readSource('../src/pages/admin/ReviewTrackingPage.jsx');
+
+  assert.match(trackingPage, /groupId: item\.groupId/);
+  assert.match(trackingPage, /listProjectDocuments\(selectedItem\.groupId\)/);
+  assert.match(trackingPage, /studentSubmitted: documents\.length > 0/);
+  assert.match(trackingPage, /documentCount: documents\.length/);
+  assert.doesNotMatch(trackingPage, /studentSubmitted: item\.status !== 'Scheduled'/);
+  assert.match(trackingPage, /downloadProjectDocument\(projectDocument\.id\)/);
+  assert.match(trackingPage, /createPortal\(\(/);
+  assert.match(trackingPage, /\), document\.body\)/);
+  assert.match(trackingPage, /alignItems: 'flex-start'/);
+  assert.match(trackingPage, /TẢI VỀ|Tải về/);
+});
