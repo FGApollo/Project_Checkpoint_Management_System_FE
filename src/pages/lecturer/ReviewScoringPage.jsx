@@ -11,6 +11,10 @@ const getTabButtonProps = (activeTab, tab) => {
   };
 };
 
+const getSessionId = (session) => session?.sessionId ?? session?.id;
+const getSessionKey = (session) => session?.submissionId
+  ?? `${getSessionId(session)}-${session?.groupId ?? 'group'}`;
+
 const ReviewScoringPage = () => {
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -57,17 +61,19 @@ const ReviewScoringPage = () => {
 
   const fetchSessionDetails = useCallback(async (sess) => {
     if (!sess) return;
+    const sessionId = getSessionId(sess);
+    if (!sessionId) return;
     setLoading(true);
     setError('');
     try {
       if (activeTab === 'attendance') {
-        const res = await api.get(`/review-attendance/${sess.id}`, { params: { groupId: sess.groupId } });
+        const res = await api.get(`/review-attendance/${sessionId}`, { params: { groupId: sess.groupId } });
         setAttendanceList(Array.isArray(res.data) ? res.data : (res.data?.students || []));
       } else if (activeTab === 'comments') {
-        const res = await api.get(`/review-attendance/${sess.id}/comments`, { params: { groupId: sess.groupId } });
+        const res = await api.get(`/review-attendance/${sessionId}/comments`, { params: { groupId: sess.groupId } });
         setCommentsList(Array.isArray(res.data) ? res.data : []);
       } else if (activeTab === 'evaluation') {
-        const subId = sess.submissionId || sess.id;
+        const subId = sess.submissionId || sessionId;
         const res = await api.get(`/review-submissions/${subId}`);
         if (res.data) {
           setEvalNotes(res.data.reviewerComment || '');
@@ -124,7 +130,7 @@ const ReviewScoringPage = () => {
     setError('');
     setSuccess('');
     try {
-      await api.post(`/review-attendance/${selectedSession.id}`, {
+      await api.post(`/review-attendance/${getSessionId(selectedSession)}`, {
         groupId: Number(selectedSession.groupId),
         entries: attendanceList.map(item => ({
           studentId: Number(item.studentId || item.id),
@@ -150,7 +156,7 @@ const ReviewScoringPage = () => {
     setError('');
     setSuccess('');
     try {
-      await api.post(`/review-attendance/${selectedSession.id}/comments`, {
+      await api.post(`/review-attendance/${getSessionId(selectedSession)}/comments`, {
         groupId: Number(selectedSession.groupId),
         content: newComment
       });
@@ -164,7 +170,7 @@ const ReviewScoringPage = () => {
 
   const handleSaveEvaluationDraft = async () => {
     if (!selectedSession) return;
-    const subId = selectedSession.submissionId || selectedSession.id;
+    const subId = selectedSession.submissionId || getSessionId(selectedSession);
     setError('');
     setSuccess('');
     try {
@@ -189,7 +195,7 @@ const ReviewScoringPage = () => {
       setError('Vui lòng nhập nhận xét chính thức trước khi kết thúc buổi Review.');
       return;
     }
-    const subId = selectedSession.submissionId || selectedSession.id;
+    const subId = selectedSession.submissionId || getSessionId(selectedSession);
     setError('');
     setSuccess('');
     try {
@@ -221,7 +227,7 @@ const ReviewScoringPage = () => {
 
   const handleDownloadReport = async () => {
     if (!selectedSession) return;
-    const subId = selectedSession.submissionId || selectedSession.id;
+    const subId = selectedSession.submissionId || getSessionId(selectedSession);
     setError('');
     try {
       const response = await api.get(`/review-submissions/${encodeURIComponent(String(subId))}/export.xlsx`, {
@@ -287,11 +293,12 @@ const ReviewScoringPage = () => {
           {sessions.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {sessions.map((sess) => {
-                const isSelected = selectedSession?.id === sess.id;
+                const sessionKey = getSessionKey(sess);
+                const isSelected = getSessionKey(selectedSession) === sessionKey;
                 return (
                   <button
                     type="button"
-                    key={sess.id}
+                    key={sessionKey}
                     onClick={() => setSelectedSession(sess)}
                     style={{
                       padding: '1rem',
@@ -336,7 +343,7 @@ const ReviewScoringPage = () => {
                     Review Checkpoint Nhóm {selectedSession.groupCode || `#${selectedSession.groupId}`}
                   </h2>
                   <p style={{ fontSize: '0.85rem', color: '#64748B' }}>
-                    ID Ca: #{selectedSession.id} — Ngày: {selectedSession.sessionDate} — Phòng: {selectedSession.room || 'N/A'}
+                    ID Ca: #{getSessionId(selectedSession)} — Ngày: {selectedSession.sessionDate} — Phòng: {selectedSession.room || 'N/A'}
                   </p>
                 </div>
 
