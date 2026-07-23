@@ -11,6 +11,8 @@ import {
   getSlotRegistrationCount,
   isSlotRegistrationFull,
 } from '../../features/reviews/slotRegistrationCapacity.js';
+import { REQUIRED_STUDENT_AVAILABILITY_SLOTS } from '../../features/reviews/reviewDomain.js';
+import { replaceStudentAvailability } from '../../features/reviews/studentAvailability.js';
 
 const DAYS_OF_WEEK = [
   { id: 1, name: 'Thứ 2' },
@@ -271,6 +273,10 @@ const ReviewRegistrationPage = () => {
       (registration) => registration.dayOfWeek === dayId && registration.slot === slotId
     );
     const otherRegistrations = Math.max(0, registeredCount - (groupAlreadyCounted ? 1 : 0));
+    if (!exists && selectedSlots.length >= REQUIRED_STUDENT_AVAILABILITY_SLOTS) {
+      setError(`Mỗi nhóm chỉ được chọn đúng ${REQUIRED_STUDENT_AVAILABILITY_SLOTS} slot.`);
+      return;
+    }
     if (!exists && isSlotRegistrationFull(otherRegistrations, maxRegistrationsPerSlot)) {
       setError(`Slot này đã đủ ${maxRegistrationsPerSlot} nhóm. Vui lòng chọn Slot khác.`);
       return;
@@ -300,6 +306,11 @@ const ReviewRegistrationPage = () => {
       setError('Vui lòng chọn đợt review trước khi lưu.');
       return;
     }
+    if (selectedSlots.length !== 0
+      && selectedSlots.length !== REQUIRED_STUDENT_AVAILABILITY_SLOTS) {
+      setError(`Mỗi nhóm phải đăng ký đúng ${REQUIRED_STUDENT_AVAILABILITY_SLOTS} slot.`);
+      return;
+    }
     setError('');
     setSuccess('');
     setLoading(true);
@@ -310,14 +321,22 @@ const ReviewRegistrationPage = () => {
         fetchData();
         return;
       }
-      await api.put('/student-review/slots', {
+      await replaceStudentAvailability(api, {
         roundId: Number(selectedRoundId),
-        slots: selectedSlots.map(s => ({ dayOfWeek: Number(s.dayOfWeek), slot: Number(s.slot) }))
+        slots: selectedSlots,
+        knownGroupId: groupId,
       });
       setSuccess(`Trưởng nhóm #${groupId} đã đăng ký slot thành công cho đợt ${reviewType}!`);
       fetchData();
     } catch (err) {
-      setError(err.response?.data?.error || 'Lỗi khi lưu danh sách nguyện vọng đăng ký.');
+      const validationMessage = Object.values(err.response?.data?.errors || {}).flat()[0];
+      setError(
+        err.response?.data?.error
+          || err.response?.data?.detail
+          || validationMessage
+          || err.message
+          || 'Lỗi khi lưu danh sách nguyện vọng đăng ký.',
+      );
     } finally {
       setLoading(false);
     }
@@ -632,7 +651,7 @@ const ReviewRegistrationPage = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <ShieldCheck size={20} color="#10B981" />
               <span style={{ fontWeight: 700, color: '#334155', fontSize: '0.95rem' }}>
-                Đang chọn: <strong style={{ color: '#F26522', fontSize: '1.1rem' }}>{selectedSlots.length}</strong> / 30 slot trong đợt
+                Đang chọn: <strong style={{ color: '#F26522', fontSize: '1.1rem' }}>{selectedSlots.length}</strong> / {REQUIRED_STUDENT_AVAILABILITY_SLOTS} slot bắt buộc
               </span>
               <span style={{ color: '#64748B', fontSize: '0.82rem', fontWeight: 650 }}>
                 Mỗi Slot nhận tối đa {maxRegistrationsPerSlot} nhóm · số trên ô cho biết chỗ đã dùng và còn trống
@@ -643,7 +662,7 @@ const ReviewRegistrationPage = () => {
               <button type="button" className="btn btn-secondary" onClick={() => setSelectedSlots([])} disabled={!isLeader || roundStatus !== 'Đang mở đăng ký'} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontSize: '0.88rem', fontWeight: 700, padding: '0.65rem 1.25rem', borderRadius: '10px', opacity: !isLeader ? 0.45 : 1, cursor: !isLeader ? 'not-allowed' : 'pointer' }}>
                 Xóa chọn tất cả
               </button>
-              <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={!isLeader || loading || roundStatus !== 'Đang mở đăng ký'} style={{ fontWeight: 800, padding: '0.65rem 1.5rem', borderRadius: '10px', background: !isLeader ? '#94A3B8' : 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: !isLeader ? 'none' : '0 4px 12px rgba(242, 101, 34, 0.25)', cursor: !isLeader ? 'not-allowed' : 'pointer' }}>
+              <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={!isLeader || loading || roundStatus !== 'Đang mở đăng ký' || (selectedSlots.length !== 0 && selectedSlots.length !== REQUIRED_STUDENT_AVAILABILITY_SLOTS)} style={{ fontWeight: 800, padding: '0.65rem 1.5rem', borderRadius: '10px', background: !isLeader ? '#94A3B8' : 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: !isLeader ? 'none' : '0 4px 12px rgba(242, 101, 34, 0.25)', cursor: !isLeader ? 'not-allowed' : 'pointer' }}>
                 <Send size={16} />
                 <span>Lưu đăng ký ({selectedSlots.length} Slot)</span>
               </button>
@@ -691,7 +710,7 @@ const ReviewRegistrationPage = () => {
             />
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-              <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={!isLeader || loading || roundStatus !== 'Đang mở đăng ký'} style={{ padding: '0.85rem 2rem', fontSize: '1.02rem', fontWeight: 800, borderRadius: '12px', background: !isLeader ? '#94A3B8' : 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: !isLeader ? 'none' : '0 4px 14px rgba(242, 101, 34, 0.28)', cursor: !isLeader ? 'not-allowed' : 'pointer' }}>
+              <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={!isLeader || loading || roundStatus !== 'Đang mở đăng ký' || (selectedSlots.length !== 0 && selectedSlots.length !== REQUIRED_STUDENT_AVAILABILITY_SLOTS)} style={{ padding: '0.85rem 2rem', fontSize: '1.02rem', fontWeight: 800, borderRadius: '12px', background: !isLeader ? '#94A3B8' : 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: !isLeader ? 'none' : '0 4px 14px rgba(242, 101, 34, 0.28)', cursor: !isLeader ? 'not-allowed' : 'pointer' }}>
                 <Send size={18} />
                 <span>Lưu Nguyện vọng Đăng ký</span>
               </button>

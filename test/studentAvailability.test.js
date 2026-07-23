@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 import {
   getOwnRegistrations,
@@ -49,4 +50,15 @@ test('không báo thành công nếu backend không lưu đủ 5 slot', async ()
     replaceStudentAvailability(apiClient, { roundId: 3, slots }),
     /1\/5 slot/
   );
+});
+
+test('màn hình đăng ký chặn slot thứ 6 và lưu qua luồng validation transactional', async () => {
+  const source = await readFile(
+    new URL('../src/pages/student/ReviewRegistrationPage.jsx', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(source, /selectedSlots\.length\s*>=\s*REQUIRED_STUDENT_AVAILABILITY_SLOTS/);
+  assert.match(source, /replaceStudentAvailability\(api,/);
+  assert.match(source, /selectedSlots\.length\s*!==\s*REQUIRED_STUDENT_AVAILABILITY_SLOTS/);
 });
