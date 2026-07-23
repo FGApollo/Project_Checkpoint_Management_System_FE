@@ -20,7 +20,7 @@ const normalizePath = (value) => value.split('?')[0]
 
 const files = await listFiles(sourceRoot);
 const calls = [];
-const callPattern = /api\.(get|post|put|patch|delete)\(\s*([`'"])(.*?)\2/gs;
+const callPattern = /\b(?:api|apiClient)\.(get|post|put|patch|delete)\(\s*([`'"])(.*?)\2/gs;
 for (const file of files) {
   const source = await readFile(file, 'utf8');
   for (const match of source.matchAll(callPattern)) {
@@ -48,6 +48,13 @@ const intentionallyBackendOnly = [
   /^get \/student-review\/(attendance|comments)$/,
   /^post \/review-scheduling\/ensure-lecturer-dataset$/,
   /^(post \/review-sessions|post \/review-sessions\/bulk-assign|patch \/review-sessions\/\{\})$/,
+  // Account identity editing and the legacy defense council workflow are separate
+  // administrative/mobile surfaces, not part of the three-review web workflow.
+  /^patch \/accounts\/\{\}\/identity$/,
+  /^get \/defense-management\/my-board-sessions$/,
+  /^get \/defense-sessions\/resolve\/\{\}$/,
+  /^(get|post) \/defense-sessions\/\{\}\/(comments|evidences)$/,
+  /^post \/defense-sessions\/\{\}\/(start|close)$/,
 ];
 const backendOnly = [...operations].filter((operation) =>
   !covered.has(operation) && !intentionallyBackendOnly.some((pattern) => pattern.test(operation))

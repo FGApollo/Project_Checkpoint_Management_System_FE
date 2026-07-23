@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileArchive, FileText, LoaderCircle, X } from 'lucide-react';
 import { downloadProjectDocument } from '../../services/documents.js';
 
@@ -26,13 +26,7 @@ const parsePreview = async (blob, extension) => {
     return { kind: 'text', text: await blob.text() };
   }
   if (extension === '.docx') {
-    const { extractRawText } = await import('mammoth');
-    const result = await extractRawText({ arrayBuffer: await blob.arrayBuffer() });
-    return {
-      kind: 'text',
-      text: result.value || 'Tài liệu DOCX không có nội dung văn bản.',
-      note: 'Bản xem nhanh tập trung vào nội dung văn bản; bố cục có thể khác file gốc.',
-    };
+    return { kind: 'docx', blob };
   }
   if (extension === '.zip') {
     const { default: JSZip } = await import('jszip');
@@ -51,6 +45,49 @@ const parsePreview = async (blob, extension) => {
     };
   }
   return { kind: 'unsupported' };
+};
+
+const DocxPreview = ({ blob, fileName }) => {
+  const containerRef = useRef(null);
+  const [renderError, setRenderError] = useState('');
+
+  useEffect(() => {
+    if (!blob || !containerRef.current) return undefined;
+    let active = true;
+    const container = containerRef.current;
+    container.replaceChildren();
+    setRenderError('');
+
+    import('docx-preview')
+      .then(({ renderAsync }) => renderAsync(blob, container, container, {
+        className: 'docx-preview',
+        inWrapper: true,
+        ignoreWidth: false,
+        ignoreHeight: false,
+        ignoreFonts: false,
+        breakPages: true,
+        useBase64URL: true,
+        renderHeaders: true,
+        renderFooters: true,
+        renderFootnotes: true,
+        renderEndnotes: true,
+      }))
+      .catch(() => {
+        if (active) setRenderError('Không thể dựng bố cục DOCX. Bạn vẫn có thể tải file xuống.');
+      });
+
+    return () => {
+      active = false;
+      container.replaceChildren();
+    };
+  }, [blob]);
+
+  return (
+    <div style={{ height: '100%', overflow: 'auto', padding: '1rem', background: '#CBD5E1' }}>
+      {renderError && <div role="alert" style={{ padding: '0.8rem', marginBottom: '0.75rem', borderRadius: '0.65rem', background: '#FEF2F2', color: '#B91C1C' }}>{renderError}</div>}
+      <div ref={containerRef} aria-label={`Nội dung ${fileName}`} />
+    </div>
+  );
 };
 
 const PreviewBody = ({ preview, objectUrl, fileName }) => {
@@ -79,6 +116,9 @@ const PreviewBody = ({ preview, objectUrl, fileName }) => {
         <img src={objectUrl} alt={fileName} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
       </div>
     );
+  }
+  if (preview.kind === 'docx') {
+    return <DocxPreview blob={preview.blob} fileName={fileName} />;
   }
   if (preview.kind === 'text') {
     return (

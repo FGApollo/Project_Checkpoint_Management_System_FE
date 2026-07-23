@@ -25,6 +25,8 @@ test('document viewer previews the upload formats instead of forcing a download'
   assert.match(viewer, /\.docx/);
   assert.match(viewer, /\.txt/);
   assert.match(viewer, /\.zip/);
-  assert.match(viewer, /extractRawText/);
+  assert.match(viewer, /renderAsync/);
+  assert.match(viewer, /docx-preview/);
+  assert.doesNotMatch(viewer, /extractRawText/);
   assert.match(viewer, /JSZip/);
 });
