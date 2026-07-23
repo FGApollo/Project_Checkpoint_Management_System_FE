@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   buildSlotRegistrationCountMap,
   getSlotRegistrationCount,
+  isSlotRegistrationDisabled,
   isSlotRegistrationFull,
   slotRegistrationKey,
 } from '../src/features/reviews/slotRegistrationCapacity.js';
@@ -26,4 +27,23 @@ test('uses role capacity when determining whether a slot is full', () => {
   assert.equal(isSlotRegistrationFull(4, 4), true);
   assert.equal(isSlotRegistrationFull(3, 3), true);
   assert.equal(isSlotRegistrationFull(4, 3), true);
+});
+
+test('a full slot blocks new registration but still allows its owner to deselect', () => {
+  assert.equal(isSlotRegistrationDisabled({
+    selected: false,
+    registeredCount: 4,
+    capacity: 4,
+  }), true);
+  assert.equal(isSlotRegistrationDisabled({
+    selected: true,
+    registeredCount: 4,
+    capacity: 4,
+  }), false);
+  assert.equal(isSlotRegistrationDisabled({
+    selected: false,
+    registeredByCurrentUser: true,
+    registeredCount: 4,
+    capacity: 4,
+  }), false);
 });

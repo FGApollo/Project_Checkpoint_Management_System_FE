@@ -1,5 +1,6 @@
 import React from 'react';
 import { Check, Users } from 'lucide-react';
+import { isSlotRegistrationDisabled } from '../../features/reviews/slotRegistrationCapacity.js';
 
 const paletteByTone = {
   lecturer: {
@@ -21,6 +22,7 @@ const paletteByTone = {
 const SlotCapacityCell = ({
   selected,
   registeredCount,
+  registeredByCurrentUser = false,
   capacity,
   disabled,
   onClick,
@@ -32,7 +34,13 @@ const SlotCapacityCell = ({
   const safeCapacity = Math.max(1, Number(capacity) || 1);
   const remaining = Math.max(0, safeCapacity - safeCount);
   const isFull = safeCount >= safeCapacity;
-  const cannotSelect = disabled || (isFull && !selected);
+  const cannotSelect = isSlotRegistrationDisabled({
+    selected,
+    registeredByCurrentUser,
+    registeredCount: safeCount,
+    capacity: safeCapacity,
+    disabled,
+  });
   const statusLabel = isFull ? 'Đã đủ' : `Còn ${remaining} chỗ`;
   const accessibleLabel = `${participantLabel}: ${safeCount}/${safeCapacity}, ${statusLabel}${selected ? ', đang chọn' : ''}`;
 

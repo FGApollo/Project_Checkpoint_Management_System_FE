@@ -20,3 +20,17 @@ export const getSlotRegistrationCount = (countMap, dayOfWeek, slot) =>
 
 export const isSlotRegistrationFull = (count, capacity) =>
   Number(capacity) > 0 && Number(count) >= Number(capacity);
+
+export const isSlotRegistrationDisabled = ({
+  selected,
+  registeredByCurrentUser = false,
+  registeredCount,
+  capacity,
+  disabled = false,
+}) => Boolean(
+  disabled || (
+    isSlotRegistrationFull(registeredCount, capacity) &&
+    !selected &&
+    !registeredByCurrentUser
+  ),
+);

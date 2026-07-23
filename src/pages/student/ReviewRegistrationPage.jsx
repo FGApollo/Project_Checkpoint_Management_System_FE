@@ -67,6 +67,7 @@ const RegistrationSlotGrid = ({
   isSlotSelected,
   toggleSlot,
   roundStatus,
+  registrations,
   slotRegistrationCounts,
   maxRegistrationsPerSlot,
 }) => (
@@ -90,11 +91,15 @@ const RegistrationSlotGrid = ({
             {DAYS_OF_WEEK.map((day) => {
               const checked = isSlotSelected(day.id, slot.id);
               const registeredCount = getSlotRegistrationCount(slotRegistrationCounts, day.id, slot.id);
+              const registeredByCurrentUser = registrations.some(
+                (registration) => registration.dayOfWeek === day.id && registration.slot === slot.id
+              );
               return (
                 <td key={`${day.id}-${slot.id}`} style={{ background: checked ? 'rgba(242, 101, 34, 0.14)' : 'transparent', transition: 'all 0.15s ease', padding: '0.85rem' }}>
                   <SlotCapacityCell
                     selected={checked}
                     registeredCount={registeredCount}
+                    registeredByCurrentUser={registeredByCurrentUser}
                     capacity={maxRegistrationsPerSlot}
                     participantLabel="Nhóm đã đăng ký"
                     tone="student"
@@ -262,7 +267,11 @@ const ReviewRegistrationPage = () => {
     setSuccess('');
     const exists = selectedSlots.some((s) => s.dayOfWeek === dayId && s.slot === slotId);
     const registeredCount = getSlotRegistrationCount(slotRegistrationCounts, dayId, slotId);
-    if (!exists && isSlotRegistrationFull(registeredCount, maxRegistrationsPerSlot)) {
+    const groupAlreadyCounted = registrations.some(
+      (registration) => registration.dayOfWeek === dayId && registration.slot === slotId
+    );
+    const otherRegistrations = Math.max(0, registeredCount - (groupAlreadyCounted ? 1 : 0));
+    if (!exists && isSlotRegistrationFull(otherRegistrations, maxRegistrationsPerSlot)) {
       setError(`Slot này đã đủ ${maxRegistrationsPerSlot} nhóm. Vui lòng chọn Slot khác.`);
       return;
     }
@@ -636,7 +645,7 @@ const ReviewRegistrationPage = () => {
               </button>
               <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={!isLeader || loading || roundStatus !== 'Đang mở đăng ký'} style={{ fontWeight: 800, padding: '0.65rem 1.5rem', borderRadius: '10px', background: !isLeader ? '#94A3B8' : 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: !isLeader ? 'none' : '0 4px 12px rgba(242, 101, 34, 0.25)', cursor: !isLeader ? 'not-allowed' : 'pointer' }}>
                 <Send size={16} />
-                <span>Save ({selectedSlots.length} ô available)</span>
+                <span>Lưu đăng ký ({selectedSlots.length} Slot)</span>
               </button>
             </div>
           </div>
@@ -676,6 +685,7 @@ const ReviewRegistrationPage = () => {
               isSlotSelected={isSlotSelected}
               toggleSlot={toggleSlot}
               roundStatus={roundStatus}
+              registrations={registrations}
               slotRegistrationCounts={slotRegistrationCounts}
               maxRegistrationsPerSlot={maxRegistrationsPerSlot}
             />

@@ -77,6 +77,7 @@ const AvailabilityPage = () => {
   const [selectedSlots, setSelectedSlots] = useState([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isEditingSubmitted, setIsEditingSubmitted] = useState(false);
+  const [countedSlots, setCountedSlots] = useState([]);
   const [slotRegistrationCounts, setSlotRegistrationCounts] = useState({});
   const [maxRegistrationsPerSlot, setMaxRegistrationsPerSlot] = useState(4);
   const [loading, setLoading] = useState(false);
@@ -90,6 +91,7 @@ const AvailabilityPage = () => {
     setSelectedRoundId(roundObj.id);
     setSemesterId(roundObj.semesterId || semesterId);
     setStep(2);
+    fetchAvailability(roundObj.id);
   };
 
   const fetchRounds = useCallback(async (semId) => {
@@ -117,25 +119,28 @@ const AvailabilityPage = () => {
     fetchRounds(numId);
   };
 
-  const fetchAvailability = useCallback(async () => {
-    if (!selectedRoundId) return;
+  const fetchAvailability = useCallback(async (roundId = selectedRoundId) => {
+    if (!roundId) return;
     setLoading(true);
     setError('');
     setSuccess('');
     try {
-      const response = await api.get(`/review-availability/week?roundId=${selectedRoundId}`);
+      const response = await api.get(`/review-availability/week?roundId=${roundId}`);
       const data = response.data || {};
-      setSelectedSlots(Array.isArray(data.slots) ? data.slots : []);
+      const loadedSlots = Array.isArray(data.slots) ? data.slots : [];
+      const submitted = Boolean(data.isSubmitted || data.status === 'Submitted');
+      setSelectedSlots(loadedSlots);
+      setCountedSlots(submitted ? loadedSlots : []);
       setSlotRegistrationCounts(buildSlotRegistrationCountMap(data.slotRegistrationCounts));
       setMaxRegistrationsPerSlot(Number(data.maxRegistrationsPerSlot) || 4);
-      setIsSubmitted(Boolean(data.isSubmitted || data.status === 'Submitted'));
+      setIsSubmitted(submitted);
       setIsEditingSubmitted(false);
     } catch (err) {
       console.error('Failed to load availability:', err);
-      setSelectedSlots([]);
-      setSlotRegistrationCounts({});
-      setIsSubmitted(false);
-      setIsEditingSubmitted(false);
+      setError(getApiErrorMessage(
+        err,
+        'Không thể tải số lượng đăng ký Slot. Vui lòng bấm Tải lại trước khi thao tác.',
+      ));
     } finally {
       setLoading(false);
     }
@@ -173,7 +178,9 @@ const AvailabilityPage = () => {
     setSuccess('');
     const exists = selectedSlots.some((s) => s.dayOfWeek === dayId && s.slot === slotId);
     const registeredCount = getSlotRegistrationCount(slotRegistrationCounts, dayId, slotId);
-    if (!exists && isSlotRegistrationFull(registeredCount, maxRegistrationsPerSlot)) {
+    const alreadyCounted = countedSlots.some((s) => s.dayOfWeek === dayId && s.slot === slotId);
+    const otherRegistrations = Math.max(0, registeredCount - (alreadyCounted ? 1 : 0));
+    if (!exists && isSlotRegistrationFull(otherRegistrations, maxRegistrationsPerSlot)) {
       setError(`Slot này đã đủ ${maxRegistrationsPerSlot} giảng viên. Vui lòng chọn Slot khác.`);
       return;
     }
@@ -198,6 +205,7 @@ const AvailabilityPage = () => {
         slots: selectedSlots
       });
       setSlotRegistrationCounts(buildSlotRegistrationCountMap(response.data?.slotRegistrationCounts));
+      setCountedSlots([]);
       setSuccess('Đã lưu bản nháp. Bạn có thể chỉnh sửa trước khi nộp chính thức.');
       setIsSubmitted(false);
       setIsEditingSubmitted(false);
@@ -219,6 +227,7 @@ const AvailabilityPage = () => {
       });
       const response = await api.post(`/review-availability/week/submit?roundId=${selectedRoundId}`);
       setSlotRegistrationCounts(buildSlotRegistrationCountMap(response.data?.slotRegistrationCounts));
+      setCountedSlots(selectedSlots);
       setSuccess('Đã nộp chính thức! Bạn vẫn có thể chỉnh sửa và nộp lại khi đợt đăng ký còn mở.');
       setIsSubmitted(true);
       setIsEditingSubmitted(false);
@@ -249,7 +258,11 @@ const AvailabilityPage = () => {
       const newSlots = [...selectedSlots.filter((s) => s.dayOfWeek !== dayId)];
       SLOTS.forEach((s) => {
         const count = getSlotRegistrationCount(slotRegistrationCounts, dayId, s.id);
-        if (!isSlotRegistrationFull(count, maxRegistrationsPerSlot) || isSlotSelected(dayId, s.id)) {
+        const alreadyCounted = countedSlots.some(
+          (item) => item.dayOfWeek === dayId && item.slot === s.id
+        );
+        const otherRegistrations = Math.max(0, count - (alreadyCounted ? 1 : 0));
+        if (!isSlotRegistrationFull(otherRegistrations, maxRegistrationsPerSlot) || isSlotSelected(dayId, s.id)) {
           newSlots.push({ dayOfWeek: dayId, slot: s.id });
         }
       });
@@ -629,11 +642,15 @@ const AvailabilityPage = () => {
                       {DAYS_OF_WEEK.map((day) => {
                         const selected = isSlotSelected(day.id, slot.id);
                         const registeredCount = getSlotRegistrationCount(slotRegistrationCounts, day.id, slot.id);
+                        const registeredByCurrentUser = countedSlots.some(
+                          (item) => item.dayOfWeek === day.id && item.slot === slot.id
+                        );
                         return (
                           <td key={`${day.id}-${slot.id}`} style={{ padding: '0.5rem', borderBottom: '1px solid #F1F5F9', textAlign: 'center' }}>
                             <SlotCapacityCell
                               selected={selected}
                               registeredCount={registeredCount}
+                              registeredByCurrentUser={registeredByCurrentUser}
                               capacity={maxRegistrationsPerSlot}
                               participantLabel="Giảng viên đã đăng ký"
                               tone="lecturer"
