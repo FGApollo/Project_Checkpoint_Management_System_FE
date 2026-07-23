@@ -152,9 +152,9 @@ test('review submissions support multiple official comments per lecturer', async
   assert.match(lecturerPage, /Thêm nhận xét/);
   assert.match(lecturerPage, /removeEvaluationComment\(index\)/);
   assert.match(lecturerPage, /Hội đồng: \$\{selectedSession\.reviewerCount\} giảng viên/);
-  assert.match(reviewManagementPage, /const \[reviewersPerSession, setReviewersPerSession\] = useState\(4\)/);
-  assert.match(reviewManagementPage, /reviewersPerSession,/);
-  assert.doesNotMatch(reviewManagementPage, /reviewersPerSession: 2/);
+  assert.match(reviewManagementPage, /MAX_REVIEWERS_PER_SLOT = 4/);
+  assert.match(reviewManagementPage, /reviewersPerSession: MIN_REVIEWERS_PER_SESSION/);
+  assert.doesNotMatch(reviewManagementPage, /setReviewersPerSession/);
 });
 
 test('admin can inspect semester groups and export all review reports', async () => {

@@ -1,8 +1,14 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import api from '../../services/api';
-import { CheckCircle2, AlertCircle, RefreshCw, Save, Send, Check, ArrowLeft, ArrowRight, BookOpen, Sparkles, Calendar, ShieldCheck, Pencil, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, RefreshCw, Save, Send, ArrowLeft, ArrowRight, BookOpen, Sparkles, Calendar, ShieldCheck, Pencil, X } from 'lucide-react';
 import { PageSkeleton } from '../../components/common/Skeleton';
 import { REVIEW_LUNCH_BREAK, REVIEW_SLOTS } from '../../features/reviews/reviewSlots';
+import SlotCapacityCell from '../../components/reviews/SlotCapacityCell.jsx';
+import {
+  buildSlotRegistrationCountMap,
+  getSlotRegistrationCount,
+  isSlotRegistrationFull,
+} from '../../features/reviews/slotRegistrationCapacity.js';
 
 const DAYS_OF_WEEK = [
   { id: 1, name: 'Thứ 2' },
@@ -71,6 +77,8 @@ const AvailabilityPage = () => {
   const [selectedSlots, setSelectedSlots] = useState([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isEditingSubmitted, setIsEditingSubmitted] = useState(false);
+  const [slotRegistrationCounts, setSlotRegistrationCounts] = useState({});
+  const [maxRegistrationsPerSlot, setMaxRegistrationsPerSlot] = useState(4);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -118,11 +126,14 @@ const AvailabilityPage = () => {
       const response = await api.get(`/review-availability/week?roundId=${selectedRoundId}`);
       const data = response.data || {};
       setSelectedSlots(Array.isArray(data.slots) ? data.slots : []);
+      setSlotRegistrationCounts(buildSlotRegistrationCountMap(data.slotRegistrationCounts));
+      setMaxRegistrationsPerSlot(Number(data.maxRegistrationsPerSlot) || 4);
       setIsSubmitted(Boolean(data.isSubmitted || data.status === 'Submitted'));
       setIsEditingSubmitted(false);
     } catch (err) {
       console.error('Failed to load availability:', err);
       setSelectedSlots([]);
+      setSlotRegistrationCounts({});
       setIsSubmitted(false);
       setIsEditingSubmitted(false);
     } finally {
@@ -161,6 +172,11 @@ const AvailabilityPage = () => {
     setError('');
     setSuccess('');
     const exists = selectedSlots.some((s) => s.dayOfWeek === dayId && s.slot === slotId);
+    const registeredCount = getSlotRegistrationCount(slotRegistrationCounts, dayId, slotId);
+    if (!exists && isSlotRegistrationFull(registeredCount, maxRegistrationsPerSlot)) {
+      setError(`Slot này đã đủ ${maxRegistrationsPerSlot} giảng viên. Vui lòng chọn Slot khác.`);
+      return;
+    }
     if (exists) {
       setSelectedSlots(selectedSlots.filter((s) => !(s.dayOfWeek === dayId && s.slot === slotId)));
     } else {
@@ -178,9 +194,10 @@ const AvailabilityPage = () => {
     setError('');
     setSuccess('');
     try {
-      await api.put(`/review-availability/week?roundId=${selectedRoundId}`, {
+      const response = await api.put(`/review-availability/week?roundId=${selectedRoundId}`, {
         slots: selectedSlots
       });
+      setSlotRegistrationCounts(buildSlotRegistrationCountMap(response.data?.slotRegistrationCounts));
       setSuccess('Đã lưu bản nháp. Bạn có thể chỉnh sửa trước khi nộp chính thức.');
       setIsSubmitted(false);
       setIsEditingSubmitted(false);
@@ -200,7 +217,8 @@ const AvailabilityPage = () => {
       await api.put(`/review-availability/week?roundId=${selectedRoundId}`, {
         slots: selectedSlots
       });
-      await api.post(`/review-availability/week/submit?roundId=${selectedRoundId}`);
+      const response = await api.post(`/review-availability/week/submit?roundId=${selectedRoundId}`);
+      setSlotRegistrationCounts(buildSlotRegistrationCountMap(response.data?.slotRegistrationCounts));
       setSuccess('Đã nộp chính thức! Bạn vẫn có thể chỉnh sửa và nộp lại khi đợt đăng ký còn mở.');
       setIsSubmitted(true);
       setIsEditingSubmitted(false);
@@ -229,7 +247,12 @@ const AvailabilityPage = () => {
       setSelectedSlots(selectedSlots.filter((s) => s.dayOfWeek !== dayId));
     } else {
       const newSlots = [...selectedSlots.filter((s) => s.dayOfWeek !== dayId)];
-      SLOTS.forEach((s) => newSlots.push({ dayOfWeek: dayId, slot: s.id }));
+      SLOTS.forEach((s) => {
+        const count = getSlotRegistrationCount(slotRegistrationCounts, dayId, s.id);
+        if (!isSlotRegistrationFull(count, maxRegistrationsPerSlot) || isSlotSelected(dayId, s.id)) {
+          newSlots.push({ dayOfWeek: dayId, slot: s.id });
+        }
+      });
       setSelectedSlots(newSlots);
     }
   };
@@ -521,6 +544,9 @@ const AvailabilityPage = () => {
               <span style={{ fontWeight: 700, color: '#334155', fontSize: '0.95rem' }}>
                 Đã chọn: <strong style={{ color: '#4F46E5', fontSize: '1.1rem' }}>{selectedSlots.length}</strong> / 30 slot
               </span>
+              <span style={{ color: '#64748B', fontSize: '0.82rem', fontWeight: 650 }}>
+                Mỗi Slot nhận tối đa {maxRegistrationsPerSlot} giảng viên · cùng chọn một Slot là điều kiện để hệ thống ghép lịch
+              </span>
             </div>
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -602,36 +628,18 @@ const AvailabilityPage = () => {
                       </td>
                       {DAYS_OF_WEEK.map((day) => {
                         const selected = isSlotSelected(day.id, slot.id);
+                        const registeredCount = getSlotRegistrationCount(slotRegistrationCounts, day.id, slot.id);
                         return (
                           <td key={`${day.id}-${slot.id}`} style={{ padding: '0.5rem', borderBottom: '1px solid #F1F5F9', textAlign: 'center' }}>
-                            <button
-                              type="button"
+                            <SlotCapacityCell
+                              selected={selected}
+                              registeredCount={registeredCount}
+                              capacity={maxRegistrationsPerSlot}
+                              participantLabel="Giảng viên đã đăng ký"
+                              tone="lecturer"
                               onClick={() => toggleSlot(day.id, slot.id)}
                               disabled={!canModifyAvailability}
-                              style={{
-                                width: '100%',
-                                height: '48px',
-                                borderRadius: '10px',
-                                border: selected ? '2px solid #4F46E5' : '1px solid #E2E8F0',
-                                background: selected ? '#EEF2FF' : '#FFFFFF',
-                                cursor: canModifyAvailability ? 'pointer' : 'not-allowed',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'all 0.15s ease',
-                                opacity: canModifyAvailability ? 1 : 0.6,
-                                boxShadow: selected ? '0 2px 6px rgba(79, 70, 229, 0.15)' : 'none'
-                              }}
-                            >
-                              {selected ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#4F46E5', fontWeight: 800, fontSize: '0.8rem' }}>
-                                  <Check size={18} strokeWidth={3} />
-                                  <span>Có thể tham gia</span>
-                                </div>
-                              ) : (
-                                <span style={{ fontSize: '0.78rem', color: '#94A3B8', fontWeight: 500 }}>---</span>
-                              )}
-                            </button>
+                            />
                           </td>
                         );
                       })}

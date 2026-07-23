@@ -5,6 +5,12 @@ import { Calendar, CheckCircle2, AlertCircle, RefreshCw, Send, BookOpen, Layers,
 import { PageSkeleton } from '../../components/common/Skeleton';
 import { REVIEW_LUNCH_BREAK, REVIEW_SLOTS } from '../../features/reviews/reviewSlots';
 import StudentReviewSchedule from '../../components/reviews/StudentReviewSchedule.jsx';
+import SlotCapacityCell from '../../components/reviews/SlotCapacityCell.jsx';
+import {
+  buildSlotRegistrationCountMap,
+  getSlotRegistrationCount,
+  isSlotRegistrationFull,
+} from '../../features/reviews/slotRegistrationCapacity.js';
 
 const DAYS_OF_WEEK = [
   { id: 1, name: 'Thứ 2' },
@@ -57,7 +63,13 @@ const isRoundRegistrationOpen = (status) =>
   status === 'Open' || status === 1 ||
   status === 'Đang mở';
 
-const RegistrationSlotGrid = ({ isSlotSelected, toggleSlot, roundStatus }) => (
+const RegistrationSlotGrid = ({
+  isSlotSelected,
+  toggleSlot,
+  roundStatus,
+  slotRegistrationCounts,
+  maxRegistrationsPerSlot,
+}) => (
   <div className="table-container">
     <table className="table" style={{ textAlign: 'center', width: '100%' }}>
       <thead>
@@ -77,20 +89,18 @@ const RegistrationSlotGrid = ({ isSlotSelected, toggleSlot, roundStatus }) => (
             </td>
             {DAYS_OF_WEEK.map((day) => {
               const checked = isSlotSelected(day.id, slot.id);
+              const registeredCount = getSlotRegistrationCount(slotRegistrationCounts, day.id, slot.id);
               return (
                 <td key={`${day.id}-${slot.id}`} style={{ background: checked ? 'rgba(242, 101, 34, 0.14)' : 'transparent', transition: 'all 0.15s ease', padding: '0.85rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', cursor: roundStatus === 'Đang mở đăng ký' ? 'pointer' : 'not-allowed' }}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleSlot(day.id, slot.id)}
-                      disabled={roundStatus !== 'Đang mở đăng ký'}
-                      style={{ width: '19px', height: '19px', accentColor: '#F26522', cursor: 'pointer' }}
-                    />
-                    <span style={{ fontSize: '0.85rem', fontWeight: checked ? 800 : 600, color: checked ? '#F26522' : '#64748B' }}>
-                      {checked ? 'Available' : 'Trống'}
-                    </span>
-                  </label>
+                  <SlotCapacityCell
+                    selected={checked}
+                    registeredCount={registeredCount}
+                    capacity={maxRegistrationsPerSlot}
+                    participantLabel="Nhóm đã đăng ký"
+                    tone="student"
+                    onClick={() => toggleSlot(day.id, slot.id)}
+                    disabled={roundStatus !== 'Đang mở đăng ký'}
+                  />
                 </td>
               );
             })}
@@ -119,6 +129,8 @@ const ReviewRegistrationPage = () => {
   }, [user]);
   const [reviewType, setReviewType] = useState('Review 1');
   const [selectedSlots, setSelectedSlots] = useState([]); // Array of { dayOfWeek, slot }
+  const [slotRegistrationCounts, setSlotRegistrationCounts] = useState({});
+  const [maxRegistrationsPerSlot, setMaxRegistrationsPerSlot] = useState(3);
 
   const [rounds, setRounds] = useState([]);
   const [selectedRoundId, setSelectedRoundId] = useState('');
@@ -191,6 +203,8 @@ const ReviewRegistrationPage = () => {
       if (gridData.isLeader !== undefined) setIsLeader(gridData.isLeader);
       if (gridData.groupId) setGroupId(gridData.groupId);
       if (gridData.groupCode) setGroupCode(gridData.groupCode);
+      setSlotRegistrationCounts(buildSlotRegistrationCountMap(gridData.slotRegistrationCounts));
+      setMaxRegistrationsPerSlot(Number(gridData.maxRegistrationsPerSlot) || 3);
       const myRegistration = gridData.myRegistration;
       const myRegFound = Boolean(myRegistration) || list.length > 0;
       if (myRegistration) {
@@ -247,6 +261,11 @@ const ReviewRegistrationPage = () => {
     setError('');
     setSuccess('');
     const exists = selectedSlots.some((s) => s.dayOfWeek === dayId && s.slot === slotId);
+    const registeredCount = getSlotRegistrationCount(slotRegistrationCounts, dayId, slotId);
+    if (!exists && isSlotRegistrationFull(registeredCount, maxRegistrationsPerSlot)) {
+      setError(`Slot này đã đủ ${maxRegistrationsPerSlot} nhóm. Vui lòng chọn Slot khác.`);
+      return;
+    }
     if (exists) {
       setSelectedSlots(selectedSlots.filter((s) => !(s.dayOfWeek === dayId && s.slot === slotId)));
     } else {
@@ -606,6 +625,9 @@ const ReviewRegistrationPage = () => {
               <span style={{ fontWeight: 700, color: '#334155', fontSize: '0.95rem' }}>
                 Đang chọn: <strong style={{ color: '#F26522', fontSize: '1.1rem' }}>{selectedSlots.length}</strong> / 30 slot trong đợt
               </span>
+              <span style={{ color: '#64748B', fontSize: '0.82rem', fontWeight: 650 }}>
+                Mỗi Slot nhận tối đa {maxRegistrationsPerSlot} nhóm · số trên ô cho biết chỗ đã dùng và còn trống
+              </span>
             </div>
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -650,7 +672,13 @@ const ReviewRegistrationPage = () => {
               </span>
             </div>
 
-            <RegistrationSlotGrid isSlotSelected={isSlotSelected} toggleSlot={toggleSlot} roundStatus={roundStatus} />
+            <RegistrationSlotGrid
+              isSlotSelected={isSlotSelected}
+              toggleSlot={toggleSlot}
+              roundStatus={roundStatus}
+              slotRegistrationCounts={slotRegistrationCounts}
+              maxRegistrationsPerSlot={maxRegistrationsPerSlot}
+            />
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
               <button type="button" className="btn btn-primary" onClick={handleRegisterSlots} disabled={!isLeader || loading || roundStatus !== 'Đang mở đăng ký'} style={{ padding: '0.85rem 2rem', fontSize: '1.02rem', fontWeight: 800, borderRadius: '12px', background: !isLeader ? '#94A3B8' : 'linear-gradient(135deg, #F26522, #D9480F)', border: 'none', boxShadow: !isLeader ? 'none' : '0 4px 14px rgba(242, 101, 34, 0.28)', cursor: !isLeader ? 'not-allowed' : 'pointer' }}>
