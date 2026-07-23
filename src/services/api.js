@@ -17,9 +17,6 @@ export const API_REQUEST_TIMEOUT_MS = 60_000;
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: API_REQUEST_TIMEOUT_MS,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 const isPublicAuthenticationRequest = (url = '') => (
