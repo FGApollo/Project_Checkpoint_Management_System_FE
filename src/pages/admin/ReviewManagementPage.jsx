@@ -560,10 +560,16 @@ const ReviewManagementPage = () => {
       const queuedEmailCount = res.data?.queuedEmailCount ?? 0;
       const sentEmailCount = res.data?.sentEmailCount ?? 0;
       const failedEmailCount = res.data?.failedEmailCount ?? 0;
+
+      const updatedRound = { ...selectedRound, status: 'Published' };
+      setSelectedRound(updatedRound);
+      await fetchRounds(formData.semesterId);
+      await fetchBoardDetails(updatedRound, formData.semesterId);
+
       setSuccess(
         queuedEmailCount > 0
-          ? `Đã công bố ${publishedCount} ca review. ${queuedEmailCount} email lịch cho Giảng viên & Sinh viên đang được gửi nền; bạn có thể tiếp tục sử dụng hệ thống.`
-          : `Đã công bố ${publishedCount} ca review và gửi thành công ${sentEmailCount} email lịch cho Giảng viên & Sinh viên.`
+          ? `Đã công bố ${publishedCount} ca review thành công! ${queuedEmailCount} email thông báo lịch đang được gửi nền cho Giảng viên & Sinh viên.`
+          : `Đã công bố ${publishedCount} ca review thành công và gửi ${sentEmailCount} email thông báo lịch cho Giảng viên & Sinh viên.`
       );
       if (failedEmailCount > 0) {
         setError(`Lịch đã được công bố nhưng có ${failedEmailCount} email gửi thất bại. Vui lòng kiểm tra cấu hình SMTP và nhật ký gửi mail.`);
@@ -1194,24 +1200,56 @@ const ReviewManagementPage = () => {
                   Đang xử lý đợt: {selectedRound.type} ({selectedRound.weekStartDate} đến {selectedRound.weekEndDate})
                 </div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', color: '#0F172A' }}>Bước 4: Publish Lịch & Công bố</h2>
-                <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '12px', padding: '2rem', maxWidth: '540px', margin: '0 auto 2rem' }}>
-                  <CheckCircle2 size={48} color="#10B981" style={{ margin: '0 auto 1rem' }} />
-                  <h3 style={{ fontSize: '1.1rem', color: '#065F46', marginBottom: '0.5rem' }}>Phân công hoàn tất</h3>
-                  {(() => {
-                    const sessionsCount = boardData.sessions.length;
-                    const assignedGroupsCount = new Set(boardData.sessions.filter(s => s.groupId).map(s => s.groupId)).size;
-                    const assignedLecturersCount = new Set(boardData.sessions.flatMap(s => s.reviewerIds || [])).size;
-                    return (
-                      <p style={{ color: '#047857', margin: 0, fontSize: '0.9rem', lineHeight: 1.5 }}>
-                        Đã phân {assignedGroupsCount} nhóm vào {sessionsCount} ca review với {assignedLecturersCount} giảng viên tham gia nhận xét.
-                      </p>
-                    );
-                  })()}
-                </div>
 
-                <button type="button" className="btn btn-success" onClick={handlePublish} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#10B981', color: 'white' }}>
-                  <CheckSquare size={18} /> {loading ? 'Đang công bố...' : 'Công bố Lịch Chính thức'}
-                </button>
+                {isRoundPublished(selectedRound.status) ? (
+                  <div style={{ background: '#ECFDF5', border: '1.5px solid #A7F3D0', borderRadius: '16px', padding: '2.5rem 2rem', maxWidth: '560px', margin: '0 auto 2rem', boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.12)' }}>
+                    <div style={{ width: '64px', height: '64px', background: '#D1FAE5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem' }}>
+                      <CheckCircle2 size={36} color="#10B981" />
+                    </div>
+                    <h3 style={{ fontSize: '1.25rem', color: '#065F46', marginBottom: '0.5rem', fontWeight: 700 }}>
+                      Đã công bố Lịch chính thức!
+                    </h3>
+                    {(() => {
+                      const sessionsCount = boardData.sessions.length;
+                      const assignedGroupsCount = new Set(boardData.sessions.filter(s => s.groupId).map(s => s.groupId)).size;
+                      const assignedLecturersCount = new Set(boardData.sessions.flatMap(s => s.reviewerIds || [])).size;
+                      return (
+                        <p style={{ color: '#047857', margin: '0 0 1.5rem 0', fontSize: '0.95rem', lineHeight: 1.6 }}>
+                          Đợt <strong>{selectedRound.type}</strong> đã được công bố chính thức trên hệ thống ({assignedGroupsCount} nhóm, {sessionsCount} ca review, {assignedLecturersCount} giảng viên). Thông báo và lịch đã được gửi đến Giảng viên và Sinh viên.
+                        </p>
+                      );
+                    })()}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <span style={{ background: '#10B981', color: 'white', padding: '0.5rem 1.25rem', borderRadius: '20px', fontSize: '0.9rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <CheckSquare size={16} /> Đã công bố (Published)
+                      </span>
+                      <button type="button" className="btn btn-outline" onClick={handlePublish} disabled={loading} style={{ borderColor: '#A7F3D0', color: '#047857', padding: '0.4rem 1rem', fontSize: '0.85rem' }}>
+                        {loading ? 'Đang gửi lại...' : 'Gửi lại thông báo'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '12px', padding: '2rem', maxWidth: '540px', margin: '0 auto 2rem' }}>
+                      <CheckCircle2 size={48} color="#10B981" style={{ margin: '0 auto 1rem' }} />
+                      <h3 style={{ fontSize: '1.1rem', color: '#065F46', marginBottom: '0.5rem' }}>Phân công hoàn tất</h3>
+                      {(() => {
+                        const sessionsCount = boardData.sessions.length;
+                        const assignedGroupsCount = new Set(boardData.sessions.filter(s => s.groupId).map(s => s.groupId)).size;
+                        const assignedLecturersCount = new Set(boardData.sessions.flatMap(s => s.reviewerIds || [])).size;
+                        return (
+                          <p style={{ color: '#047857', margin: 0, fontSize: '0.9rem', lineHeight: 1.5 }}>
+                            Đã phân {assignedGroupsCount} nhóm vào {sessionsCount} ca review với {assignedLecturersCount} giảng viên tham gia nhận xét.
+                          </p>
+                        );
+                      })()}
+                    </div>
+
+                    <button type="button" className="btn btn-success" onClick={handlePublish} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#10B981', color: 'white' }}>
+                      <CheckSquare size={18} /> {loading ? 'Đang công bố...' : 'Công bố Lịch Chính thức'}
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>

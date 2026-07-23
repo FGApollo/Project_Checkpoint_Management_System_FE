@@ -74,6 +74,7 @@ const ReviewScoringPage = () => {
 
   // Final reviewer feedback
   const [evalComments, setEvalComments] = useState(['']);
+  const [submissionStatus, setSubmissionStatus] = useState(null);
   const [aiProjectContent, setAiProjectContent] = useState('');
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -93,7 +94,9 @@ const ReviewScoringPage = () => {
   const attendanceIsOpen = selectedSession
     ? isReviewAttendanceOpen(selectedSession.sessionDate, selectedSession.slot, attendanceClock)
     : false;
-  const isSessionCompleted = selectedSession?.groupStatus === 'Completed';
+  const isSessionCompleted = selectedSession?.groupStatus === 'Completed'
+    || selectedSession?.status === 'Completed'
+    || submissionStatus === 'Submitted';
   const sessionAccessUnlocked = selectedSession?.isAccessVerified === true;
   const sessionDateGroups = new Map();
   filteredSessions.forEach((session) => {
@@ -214,6 +217,7 @@ const ReviewScoringPage = () => {
         const subId = sess.submissionId || sessionId;
         const res = await api.get(`/review-submissions/${subId}`);
         if (res.data) {
+          setSubmissionStatus(res.data.status || null);
           const loadedComments = Array.isArray(res.data.reviewerComments)
             ? res.data.reviewerComments.filter((comment) => typeof comment === 'string')
             : [];
@@ -454,6 +458,7 @@ const ReviewScoringPage = () => {
         items: []
       });
       await api.post(`/review-submissions/${subId}/submit`);
+      setSubmissionStatus('Submitted');
       try {
         const completeRes = await api.post(`/review-attendance/${selectedSession.id}/groups/${selectedSession.groupId}/complete`);
         if (completeRes.data?.status === 'Completed') {
@@ -795,7 +800,7 @@ const ReviewScoringPage = () => {
                 <>
               <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', marginBottom: '1.25rem' }}>
                 <strong style={{ color: '#0F172A' }}>Lịch sử tài liệu của nhóm</strong>
-                {documents.length === 0 ? <p style={{ margin: '0.5rem 0 0', color: '#64748B', fontSize: '0.85rem' }}>Nhóm chưa tải tài liệu.</p> : documents.map((document, index) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', paddingTop: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid #E2E8F0' }}><span style={{ fontSize: '0.9rem', overflowWrap: 'anywhere', minWidth: 0 }}><strong>{document.fileName}</strong><small style={{ color: '#64748B', display: 'block', marginTop: '0.2rem' }}>Lần tải #{documents.length - index} · {document.uploadedByName || `Sinh viên #${document.uploadedById}`} · {new Date(document.uploadedAt).toLocaleString('vi-VN')} · {(document.fileSize / 1024 / 1024).toFixed(2)} MB</small></span><span style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}><button type="button" className="btn btn-secondary" onClick={() => openCommentViewer(document)}><FileText size={14} /> Mở & nhận xét</button><button type="button" className="btn btn-primary" disabled={aiLoading || document.fileName.toLowerCase().endsWith('.zip')} onClick={() => handleAnalyzeDocument(document)}><Sparkles size={14} /> AI phân tích</button></span></div>)}
+                {documents.length === 0 ? <p style={{ margin: '0.5rem 0 0', color: '#64748B', fontSize: '0.85rem' }}>Nhóm chưa tải tài liệu.</p> : documents.map((document, index) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', paddingTop: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid #E2E8F0' }}><span style={{ fontSize: '0.9rem', overflowWrap: 'anywhere', minWidth: 0 }}><strong>{document.fileName}</strong><small style={{ color: '#64748B', display: 'block', marginTop: '0.2rem' }}>Lần tải #{documents.length - index} · {document.uploadedByName || `Sinh viên #${document.uploadedById}`} · {new Date(document.uploadedAt).toLocaleString('vi-VN')} · {(document.fileSize / 1024 / 1024).toFixed(2)} MB</small></span><span style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}><button type="button" className="btn btn-secondary" onClick={() => openCommentViewer(document)}><FileText size={14} /> Mở & nhận xét</button></span></div>)}
               </div>
 
               <section
@@ -1100,34 +1105,6 @@ const ReviewScoringPage = () => {
                     Giảng viên ghi rõ nội dung nhóm đã thực hiện, các vấn đề cần khắc phục và định hướng cho giai đoạn tiếp theo.
                   </p>
 
-                  <div className="form-group">
-                    <label htmlFor="rev-ai-project-content" className="form-label" style={{ color: '#334155', fontWeight: 700, fontSize: '0.9rem' }}>Nội dung dự án cho AI tham khảo</label>
-                    <textarea
-                      id="rev-ai-project-content"
-                      className="form-input"
-                      rows="4"
-                      value={aiProjectContent}
-                      disabled={isSessionCompleted}
-                      onChange={(e) => setAiProjectContent(e.target.value)}
-                      placeholder="Dán mô tả dự án, mục tiêu, chức năng hoặc nội dung sinh viên trình bày..."
-                      style={{ background: isSessionCompleted ? '#F1F5F9' : '#F8FAFC', color: isSessionCompleted ? '#475569' : '#0F172A', border: '1px solid #CBD5E1', fontSize: '0.9rem', lineHeight: 1.6 }}
-                    />
-                    <button type="button" className="btn btn-secondary" onClick={handleGenerateAiSuggestion} disabled={aiLoading || isSessionCompleted} style={{ marginTop: '0.75rem', background: '#EEF2FF', border: '1px solid #C7D2FE', color: '#4338CA', fontWeight: 700 }}>
-                      <Sparkles size={16} />
-                      <span>{aiLoading ? 'AI đang phân tích...' : 'Tạo gợi ý nhận xét bằng AI'}</span>
-                    </button>
-                    {aiSuggestion && (
-                      <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '0.75rem', background: '#F8FAFC', border: '1px solid #C7D2FE', color: '#1E293B' }}>
-                        <strong style={{ color: '#4338CA' }}>Gợi ý AI — giảng viên cần kiểm tra và chỉnh sửa trước khi gửi</strong>
-                        <p><b>Tóm tắt:</b> {aiSuggestion.contentSummary}</p>
-                        <p><b>Nội dung làm tốt:</b> {aiSuggestion.strengthsSummary}</p>
-                        <p style={{ marginBottom: 0 }}><b>Cải thiện:</b> {aiSuggestion.improvementSummary}</p>
-                        <button type="button" className="btn btn-secondary" onClick={() => addEvaluationComment(aiSuggestion.improvementSummary)} style={{ marginTop: '0.75rem', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
-                          Thêm phần cải thiện thành một nhận xét
-                        </button>
-                      </div>
-                    )}
-                  </div>
 
                   <div className="form-group" style={{ gap: '0.75rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>

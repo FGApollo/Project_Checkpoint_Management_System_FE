@@ -97,11 +97,11 @@ const StudentCheckInPage = () => {
                           style={{ width: '20px', height: '20px', accentColor: '#10B981' }}
                         />
                         <span>
-                          {confirmed ? <><CheckCircle2 size={15} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />Đã ký lúc {formatDateTime(session.confirmedAt)}</>
-                            : session.canConfirm ? <><PenLine size={15} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />Tích để ký xác nhận</>
-                              : session.groupStatus === 'Completed'
-                                ? <><AlertCircle size={15} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />Không ký — Vắng mặt</>
-                                : <><Clock size={15} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />Mở trước giờ Review 30 phút</>}
+                          {confirmed ? (
+                            <><CheckCircle2 size={15} style={{ verticalAlign: 'middle', marginRight: '0.3rem', color: '#10B981' }} />Đã ký lúc {formatDateTime(session.confirmedAt)}</>
+                          ) : (
+                            <><PenLine size={15} style={{ verticalAlign: 'middle', marginRight: '0.3rem', color: '#F26522' }} />Tích để ký xác nhận</>
+                          )}
                         </span>
                       </label>
                     </td>
