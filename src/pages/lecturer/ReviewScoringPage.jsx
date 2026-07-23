@@ -514,7 +514,11 @@ const ReviewScoringPage = () => {
     setError('');
     setSuccess('');
     try {
-      await verifyReviewSessionAccessCode(sessionId, accessCodeInput);
+      await verifyReviewSessionAccessCode(
+        sessionId,
+        selectedSession.groupId,
+        accessCodeInput
+      );
       setSessions((current) => current.map((session) =>
         getSessionId(session) === sessionId
           ? { ...session, isAccessVerified: true }
@@ -524,7 +528,7 @@ const ReviewScoringPage = () => {
           ? { ...current, isAccessVerified: true }
           : current);
       setAccessCodeInput('');
-      setSuccess(`Đã xác thực mã và mở ca review #${sessionId}.`);
+      setSuccess(`Đã xác thực mã và mở nhóm ${selectedSession.groupCode || `#${selectedSession.groupId}`}.`);
     } catch (err) {
       setError(err.response?.data?.error || 'Mã truy cập không đúng hoặc đã được Phòng Đào tạo thay đổi.');
     } finally {
@@ -743,11 +747,11 @@ const ReviewScoringPage = () => {
                     <span style={{ width: 64, height: 64, margin: '0 auto 1rem', borderRadius: 20, display: 'grid', placeItems: 'center', background: '#4F46E5', color: '#FFFFFF', boxShadow: '0 12px 28px rgba(79, 70, 229, 0.24)' }}>
                       <LockKeyhole size={30} aria-hidden="true" />
                     </span>
-                    <h3 id="review-access-heading" style={{ margin: 0, color: '#1E1B4B', fontSize: '1.2rem' }}>Nhập mã để mở ca review</h3>
+                    <h3 id="review-access-heading" style={{ margin: 0, color: '#1E1B4B', fontSize: '1.2rem' }}>Nhập mã để mở nhóm review</h3>
                     <p style={{ margin: '0.65rem 0 1.25rem', color: '#475569', fontSize: '0.88rem', lineHeight: 1.6 }}>
                       {selectedSession.hasAccessCode
-                        ? `Nhập mã chung do Phòng Đào tạo cấp cho ca ${formatSessionDate(selectedSession.sessionDate)} · Ca ${selectedSession.slot} (${getReviewSlotTime(selectedSession.slot)}). Sau khi xác thực, bạn có thể mở phiên của nhóm này.`
-                        : `Phòng Đào tạo chưa tạo mã chung cho ca ${formatSessionDate(selectedSession.sessionDate)} · Ca ${selectedSession.slot} (${getReviewSlotTime(selectedSession.slot)}). Vui lòng yêu cầu Phòng Đào tạo chọn đúng ngày và ca này để tạo mã.`}
+                        ? `Nhập mã riêng do Phòng Đào tạo cấp cho nhóm ${selectedSession.groupCode || `#${selectedSession.groupId}`} · ${formatSessionDate(selectedSession.sessionDate)} · Ca ${selectedSession.slot} (${getReviewSlotTime(selectedSession.slot)}).`
+                        : `Phòng Đào tạo chưa tạo mã cho nhóm ${selectedSession.groupCode || `#${selectedSession.groupId}`}. Vui lòng yêu cầu Phòng Đào tạo chọn đúng ngày, ca và nhóm để tạo mã.`}
                     </p>
                     {selectedSession.hasAccessCode && (
                       <form onSubmit={handleVerifyAccessCode}>
@@ -773,7 +777,7 @@ const ReviewScoringPage = () => {
                         </p>
                         <button type="submit" className="btn btn-primary" disabled={accessCodeBusy || accessCodeInput.length !== 8} style={{ width: '100%', minHeight: 44, justifyContent: 'center' }}>
                           {accessCodeBusy ? <Loader2 size={17} className="spin" /> : <LockKeyhole size={17} />}
-                          {accessCodeBusy ? 'Đang xác thực...' : 'Mở ca review'}
+                          {accessCodeBusy ? 'Đang xác thực...' : 'Mở nhóm review'}
                         </button>
                       </form>
                     )}

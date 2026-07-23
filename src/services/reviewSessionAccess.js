@@ -1,7 +1,7 @@
 import api from './api';
 
-export const generateReviewSessionAccessCode = (sessionId) =>
-  api.post(`/review-sessions/${sessionId}/access-code`);
+export const generateReviewSessionAccessCode = (sessionId, groupId) =>
+  api.post(`/review-sessions/${sessionId}/groups/${groupId}/access-code`);
 
-export const verifyReviewSessionAccessCode = (sessionId, accessCode) =>
-  api.post(`/review-sessions/${sessionId}/access-code/verify`, { accessCode });
+export const verifyReviewSessionAccessCode = (sessionId, groupId, accessCode) =>
+  api.post(`/review-sessions/${sessionId}/groups/${groupId}/access-code/verify`, { accessCode });

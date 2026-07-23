@@ -36,6 +36,8 @@ const formatReviewSessionDate = (value) => {
 };
 const getReviewAccessCodeSlotKey = (session) =>
   `${String(session?.sessionDate || '').slice(0, 10)}|${session?.slot ?? ''}`;
+const getReviewAccessCodeGroupKey = (session) =>
+  `${getReviewSessionId(session) ?? ''}|${session?.groupId ?? ''}`;
 const formatReviewAccessCodeSlot = (slot) => {
   const rooms = slot.rooms.length > 0 ? slot.rooms.join(', ') : 'Chưa xếp phòng';
   return `${formatReviewSessionDate(slot.sessionDate)} · Ca ${slot.slot ?? '?'} (${getReviewSlotTime(slot.slot)}) · ${slot.sessions.length} nhóm · Phòng ${rooms}`;
@@ -143,9 +145,10 @@ const ReviewManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [accessCodeBusySlotKey, setAccessCodeBusySlotKey] = useState(null);
+  const [accessCodeBusyGroupKey, setAccessCodeBusyGroupKey] = useState(null);
   const [generatedAccessCodes, setGeneratedAccessCodes] = useState({});
   const [selectedAccessCodeSlotKey, setSelectedAccessCodeSlotKey] = useState('');
+  const [selectedAccessCodeGroupKey, setSelectedAccessCodeGroupKey] = useState('');
 
   const [semesters, setSemesters] = useState([]);
   const existingReviewTypes = useMemo(() => getExistingReviewTypes(rounds), [rounds]);
@@ -176,44 +179,47 @@ const ReviewManagementPage = () => {
     registeredGroupsCount: 0,
     sessions: []
   });
-  const uniqueReviewSessions = useMemo(() => {
+  const uniqueReviewGroups = useMemo(() => {
     const byId = new Map();
     boardData.sessions.forEach((session) => {
-      const sessionId = getReviewSessionId(session);
-      if (sessionId != null && !byId.has(sessionId)) byId.set(sessionId, session);
+      const groupKey = getReviewAccessCodeGroupKey(session);
+      if (groupKey !== '|' && !byId.has(groupKey)) byId.set(groupKey, session);
     });
     return Array.from(byId.values());
   }, [boardData.sessions]);
   const reviewAccessCodeSlots = useMemo(() => {
     const bySlot = new Map();
-    uniqueReviewSessions.forEach((session) => {
+    uniqueReviewGroups.forEach((session) => {
       const key = getReviewAccessCodeSlotKey(session);
       const current = bySlot.get(key) || {
         key,
         sessionDate: session.sessionDate,
         slot: session.slot,
         sessions: [],
-        sessionIds: [],
         rooms: []
       };
       current.sessions.push(session);
-      current.sessionIds.push(getReviewSessionId(session));
       if (session.room && !current.rooms.includes(session.room)) current.rooms.push(session.room);
       bySlot.set(key, current);
     });
     return Array.from(bySlot.values())
       .map((slot) => ({
         ...slot,
-        hasAccessCode: slot.sessions.every((session) => session.hasAccessCode),
-        hasAnyAccessCode: slot.sessions.some((session) => session.hasAccessCode)
+        hasAccessCode: slot.sessions.every((session) => session.hasAccessCode)
       }))
       .sort((left, right) =>
         String(left.sessionDate).localeCompare(String(right.sessionDate))
         || Number(left.slot) - Number(right.slot));
-  }, [uniqueReviewSessions]);
+  }, [uniqueReviewGroups]);
   const selectedAccessCodeSlot = useMemo(
     () => reviewAccessCodeSlots.find((slot) => slot.key === selectedAccessCodeSlotKey) || null,
     [reviewAccessCodeSlots, selectedAccessCodeSlotKey]
+  );
+  const selectedAccessCodeGroup = useMemo(
+    () => selectedAccessCodeSlot?.sessions.find(
+      (session) => getReviewAccessCodeGroupKey(session) === selectedAccessCodeGroupKey
+    ) || null,
+    [selectedAccessCodeGroupKey, selectedAccessCodeSlot]
   );
   const canManageAccessCodes = user?.role === 'TrainingDepartment'
     || user?.role === 'SystemAdministrator';
@@ -224,6 +230,17 @@ const ReviewManagementPage = () => {
       return reviewAccessCodeSlots[0]?.key || '';
     });
   }, [reviewAccessCodeSlots]);
+
+  useEffect(() => {
+    setSelectedAccessCodeGroupKey((current) => {
+      if (selectedAccessCodeSlot?.sessions.some(
+        (session) => getReviewAccessCodeGroupKey(session) === current
+      )) return current;
+      return selectedAccessCodeSlot?.sessions[0]
+        ? getReviewAccessCodeGroupKey(selectedAccessCodeSlot.sessions[0])
+        : '';
+    });
+  }, [selectedAccessCodeSlot]);
 
   const fetchRounds = async (semId = formData.semesterId) => {
     setLoading(true);
@@ -558,33 +575,33 @@ const ReviewManagementPage = () => {
     }
   };
 
-  const handleGenerateAccessCode = async (slot) => {
-    const sessionId = slot?.sessionIds?.[0];
-    if (!sessionId || !canManageAccessCodes) return;
+  const handleGenerateAccessCode = async (group) => {
+    const sessionId = getReviewSessionId(group);
+    const groupId = Number(group?.groupId);
+    const groupKey = getReviewAccessCodeGroupKey(group);
+    if (!sessionId || !groupId || !canManageAccessCodes) return;
 
-    if (slot.hasAnyAccessCode) {
+    if (group.hasAccessCode) {
       const confirmed = window.confirm(
-        'Tạo lại mã sẽ vô hiệu hóa mã cũ của toàn bộ nhóm trong ca và yêu cầu tất cả giảng viên nhập mã mới. Bạn có chắc chắn muốn tiếp tục?'
+        `Tạo lại mã sẽ vô hiệu hóa mã cũ của nhóm ${group.groupCode || `#${groupId}`} và yêu cầu các giảng viên của nhóm nhập mã mới. Bạn có chắc chắn muốn tiếp tục?`
       );
       if (!confirmed) return;
     }
 
-    setAccessCodeBusySlotKey(slot.key);
+    setAccessCodeBusyGroupKey(groupKey);
     setError('');
     setSuccess('');
     try {
-      const { data } = await generateReviewSessionAccessCode(sessionId);
-      const affectedSessionIds = Array.isArray(data.affectedSessionIds)
-        ? data.affectedSessionIds.map(Number)
-        : slot.sessionIds.map(Number);
+      const { data } = await generateReviewSessionAccessCode(sessionId, groupId);
       setGeneratedAccessCodes((current) => ({
         ...current,
-        [slot.key]: data.accessCode
+        [groupKey]: data.accessCode
       }));
       setBoardData((current) => ({
         ...current,
         sessions: current.sessions.map((item) =>
-          affectedSessionIds.includes(Number(getReviewSessionId(item)))
+          Number(getReviewSessionId(item)) === Number(sessionId)
+            && Number(item.groupId) === groupId
             ? {
               ...item,
               hasAccessCode: true,
@@ -592,20 +609,20 @@ const ReviewManagementPage = () => {
             }
             : item)
       }));
-      setSuccess(`Đã tạo một mã chung cho ${affectedSessionIds.length} nhóm trong ${formatReviewAccessCodeSlot(slot)}. Hãy gửi mã cho hội đồng ngay vì mã chỉ hiển thị trong lần này.`);
+      setSuccess(`Đã tạo mã riêng cho nhóm ${group.groupCode || `#${groupId}`}. Hãy gửi mã cho đúng hội đồng vì mã chỉ hiển thị trong lần này.`);
     } catch (err) {
-      setError(err.response?.data?.error || 'Không thể tạo mã truy cập cho ca review.');
+      setError(err.response?.data?.error || 'Không thể tạo mã truy cập cho nhóm review.');
     } finally {
-      setAccessCodeBusySlotKey(null);
+      setAccessCodeBusyGroupKey(null);
     }
   };
 
-  const handleCopyAccessCode = async (slotKey) => {
-    const accessCode = generatedAccessCodes[slotKey];
+  const handleCopyAccessCode = async (groupKey) => {
+    const accessCode = generatedAccessCodes[groupKey];
     if (!accessCode) return;
     try {
       await navigator.clipboard.writeText(accessCode);
-      setSuccess('Đã sao chép mã truy cập chung của ca review.');
+      setSuccess('Đã sao chép mã truy cập của nhóm.');
     } catch {
       setError('Trình duyệt không cho phép sao chép tự động. Vui lòng chọn và sao chép mã thủ công.');
     }
@@ -671,9 +688,9 @@ const ReviewManagementPage = () => {
               <KeyRound size={21} aria-hidden="true" />
             </span>
             <div>
-              <h2 style={{ margin: 0, color: '#312E81', fontSize: '1.05rem' }}>Tạo mã theo ca</h2>
+              <h2 style={{ margin: 0, color: '#312E81', fontSize: '1.05rem' }}>Tạo mã theo nhóm</h2>
               <p style={{ margin: '0.2rem 0 0', color: '#4F46E5', fontSize: '0.8rem', lineHeight: 1.45 }}>
-                Mỗi ngày + khung giờ dùng một mã chung cho toàn bộ nhóm và giảng viên được phân công trong ca.
+                Chọn ngày và ca để xem các nhóm, sau đó tạo mã riêng cho đúng nhóm cần mở.
               </p>
             </div>
           </header>
@@ -718,40 +735,64 @@ const ReviewManagementPage = () => {
             </div>
 
             {selectedAccessCodeSlot && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: '1rem', padding: '0.9rem 1rem', border: '1px solid #E2E8F0', borderRadius: '11px', background: '#F8FAFC' }}>
-                <div style={{ minWidth: 0 }}>
-                  <strong style={{ color: '#0F172A' }}>{formatReviewAccessCodeSlot(selectedAccessCodeSlot)}</strong>
-                  <div style={{ marginTop: '0.55rem', display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                    <span className="badge" style={{ color: selectedAccessCodeSlot.hasAccessCode ? '#047857' : '#B45309', background: selectedAccessCodeSlot.hasAccessCode ? '#D1FAE5' : '#FEF3C7', fontWeight: 800 }}>
-                      {selectedAccessCodeSlot.hasAccessCode
-                        ? 'Tất cả nhóm đã có mã'
-                        : selectedAccessCodeSlot.hasAnyAccessCode ? 'Mã chưa đồng bộ đủ nhóm' : 'Chưa có mã'}
-                    </span>
-                    {generatedAccessCodes[selectedAccessCodeSlot.key] && (
-                      <>
-                        <code style={{ padding: '0.45rem 0.7rem', borderRadius: 8, background: '#0F172A', color: '#F8FAFC', fontSize: '1rem', fontWeight: 800, letterSpacing: '0.16em' }}>
-                          {generatedAccessCodes[selectedAccessCodeSlot.key]}
-                        </code>
-                        <button type="button" className="btn btn-secondary" onClick={() => handleCopyAccessCode(selectedAccessCodeSlot.key)} style={{ padding: '0.4rem 0.6rem' }}>
-                          <Copy size={14} /> Sao chép
-                        </button>
-                        <span style={{ color: '#B45309', fontSize: '0.73rem', fontWeight: 700 }}>Mã chỉ hiển thị trong lần tạo này</span>
-                      </>
-                    )}
-                  </div>
+              <div style={{ display: 'grid', gap: '0.75rem', padding: '0.9rem 1rem', border: '1px solid #E2E8F0', borderRadius: '11px', background: '#F8FAFC' }}>
+                <strong style={{ color: '#0F172A' }}>{formatReviewAccessCodeSlot(selectedAccessCodeSlot)}</strong>
+                <div role="radiogroup" aria-label="Chọn nhóm để tạo mã" style={{ display: 'grid', gap: '0.55rem' }}>
+                  {selectedAccessCodeSlot.sessions.map((group) => {
+                    const groupKey = getReviewAccessCodeGroupKey(group);
+                    const isSelected = groupKey === selectedAccessCodeGroupKey;
+                    return (
+                      <label key={groupKey} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', padding: '0.75rem', borderRadius: 10, cursor: 'pointer', border: `1px solid ${isSelected ? '#6366F1' : '#CBD5E1'}`, background: isSelected ? '#EEF2FF' : '#FFFFFF' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', minWidth: 0 }}>
+                          <input
+                            type="radio"
+                            name="review-access-code-group"
+                            value={groupKey}
+                            checked={isSelected}
+                            onChange={() => setSelectedAccessCodeGroupKey(groupKey)}
+                          />
+                          <span style={{ minWidth: 0 }}>
+                            <strong style={{ color: '#0F172A', overflowWrap: 'anywhere' }}>{group.groupCode || `Nhóm #${group.groupId}`}</strong>
+                            <small style={{ display: 'block', color: '#64748B', marginTop: '0.15rem' }}>Phòng {group.room || 'Chưa xếp phòng'} · Phiên #{getReviewSessionId(group)}</small>
+                          </span>
+                        </span>
+                        <span className="badge" style={{ flexShrink: 0, color: group.hasAccessCode ? '#047857' : '#B45309', background: group.hasAccessCode ? '#D1FAE5' : '#FEF3C7', fontWeight: 800 }}>
+                          {group.hasAccessCode ? 'Đã có mã' : 'Chưa có mã'}
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => handleGenerateAccessCode(selectedAccessCodeSlot)}
-                  disabled={accessCodeBusySlotKey === selectedAccessCodeSlot.key}
-                  style={{ whiteSpace: 'nowrap' }}
-                >
-                  <KeyRound size={16} />
-                  {accessCodeBusySlotKey === selectedAccessCodeSlot.key
-                    ? 'Đang tạo...'
-                    : selectedAccessCodeSlot.hasAnyAccessCode ? 'Tạo lại mã chung' : 'Tạo mã chung'}
-                </button>
+
+                {selectedAccessCodeGroup && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', paddingTop: '0.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                      {generatedAccessCodes[selectedAccessCodeGroupKey] && (
+                        <>
+                          <code style={{ padding: '0.45rem 0.7rem', borderRadius: 8, background: '#0F172A', color: '#F8FAFC', fontSize: '1rem', fontWeight: 800, letterSpacing: '0.16em' }}>
+                            {generatedAccessCodes[selectedAccessCodeGroupKey]}
+                          </code>
+                          <button type="button" className="btn btn-secondary" onClick={() => handleCopyAccessCode(selectedAccessCodeGroupKey)} style={{ padding: '0.4rem 0.6rem' }}>
+                            <Copy size={14} /> Sao chép
+                          </button>
+                          <span style={{ color: '#B45309', fontSize: '0.73rem', fontWeight: 700 }}>Mã chỉ hiển thị trong lần tạo này</span>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => handleGenerateAccessCode(selectedAccessCodeGroup)}
+                      disabled={accessCodeBusyGroupKey === selectedAccessCodeGroupKey}
+                      style={{ whiteSpace: 'nowrap' }}
+                    >
+                      <KeyRound size={16} />
+                      {accessCodeBusyGroupKey === selectedAccessCodeGroupKey
+                        ? 'Đang tạo...'
+                        : selectedAccessCodeGroup.hasAccessCode ? 'Tạo lại mã nhóm' : 'Tạo mã cho nhóm'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

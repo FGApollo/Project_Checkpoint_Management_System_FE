@@ -146,31 +146,33 @@ test('training department access codes gate the lecturer review room', async () 
     readSource('../src/services/reviewSessionAccess.js'),
   ]);
 
-  assert.match(accessService, /review-sessions\/\$\{sessionId\}\/access-code/);
-  assert.match(accessService, /review-sessions\/\$\{sessionId\}\/access-code\/verify/);
+  assert.match(accessService, /review-sessions\/\$\{sessionId\}\/groups\/\$\{groupId\}\/access-code/);
+  assert.match(accessService, /review-sessions\/\$\{sessionId\}\/groups\/\$\{groupId\}\/access-code\/verify/);
   assert.match(managementPage, /generateReviewSessionAccessCode/);
-  assert.match(managementPage, /Tạo mã theo ca/);
+  assert.match(managementPage, /Tạo mã theo nhóm/);
   assert.match(managementPage, /user\?\.role === 'TrainingDepartment'/);
   assert.match(managementPage, /chỉ hiển thị trong lần tạo này/i);
   assert.match(lecturerPage, /verifyReviewSessionAccessCode/);
   assert.match(lecturerPage, /selectedSession\?\.isAccessVerified === true/);
   assert.match(lecturerPage, /if \(!selectedSession\.isAccessVerified\)/);
   assert.match(lecturerPage, /if \(!selectedSession\?\.isAccessVerified\) return undefined/);
-  assert.match(lecturerPage, /Nhập mã để mở ca review/);
+  assert.match(lecturerPage, /Nhập mã để mở nhóm review/);
   assert.match(lecturerPage, /Điểm danh Sinh viên/);
 });
 
-test('training department creates one shared code for every group in a selected slot', async () => {
+test('training department selects a group in the chosen slot and creates its own code', async () => {
   const managementPage = await readSource('../src/pages/admin/ReviewManagementPage.jsx');
-  const panelIndex = managementPage.indexOf('Tạo mã theo ca');
+  const panelIndex = managementPage.indexOf('Tạo mã theo nhóm');
   const stepperIndex = managementPage.indexOf('{/* Stepper */}');
 
   assert.ok(panelIndex > 0, 'The standalone access-code selector must be rendered.');
   assert.ok(panelIndex < stepperIndex, 'The selector must be available before the Publish stepper.');
   assert.match(managementPage, /selectedAccessCodeSlotKey/);
+  assert.match(managementPage, /selectedAccessCodeGroupKey/);
   assert.match(managementPage, /reviewAccessCodeSlots/);
-  assert.match(managementPage, /affectedSessionIds/);
-  assert.match(managementPage, /một mã chung cho/);
+  assert.match(managementPage, /Chọn nhóm để tạo mã/);
+  assert.match(managementPage, /Tạo mã cho nhóm/);
+  assert.doesNotMatch(managementPage, /một mã chung cho|Tạo mã chung/);
   assert.match(managementPage, /getReviewSlotTime/);
   assert.match(managementPage, /Chọn ca review/);
 });
