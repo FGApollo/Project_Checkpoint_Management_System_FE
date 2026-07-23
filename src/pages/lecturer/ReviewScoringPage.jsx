@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
-import { listProjectDocuments, downloadProjectDocument, generateProjectDocumentSuggestions, listDocumentComments, createDocumentComment } from '../../services/documents';
+import { listProjectDocuments, generateProjectDocumentSuggestions, listDocumentComments, createDocumentComment } from '../../services/documents';
 import reviewProgressService from '../../services/reviewProgress';
 import { useAuth } from '../../context/authContextValue.js';
 import { CheckSquare, CalendarDays, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles, Wifi, WifiOff, Loader2, Plus, Trash2, LockKeyhole } from 'lucide-react';
@@ -8,6 +8,7 @@ import { PageSkeleton, PanelSkeleton } from '../../components/common/Skeleton';
 import { filterReviewSessions, getReviewDateKey, getReviewReminder, REVIEW_TIME_ZONE } from '../../features/reviews/reviewSessionDates.js';
 import { getReviewSlotTime, isReviewAttendanceOpen } from '../../features/reviews/reviewSlots.js';
 import { verifyReviewSessionAccessCode } from '../../services/reviewSessionAccess';
+import DocumentViewerModal from '../../components/documents/DocumentViewerModal.jsx';
 
 const getTabButtonProps = (activeTab, tab) => {
   if (activeTab === tab) return { className: 'btn btn-primary', style: {} };
@@ -266,12 +267,8 @@ const ReviewScoringPage = () => {
   const openCommentViewer = async (document) => {
     setError('');
     try {
-      const [fileResponse, commentResponse] = await Promise.all([
-        downloadProjectDocument(document.id),
-        listDocumentComments(document.id),
-      ]);
-      const url = URL.createObjectURL(fileResponse.data);
-      setCommentViewer({ document, url });
+      const commentResponse = await listDocumentComments(document.id);
+      setCommentViewer({ document });
       setInlineComments(Array.isArray(commentResponse.data) ? commentResponse.data : []);
       setCommentReference('');
       setInlineCommentText('');
@@ -281,7 +278,6 @@ const ReviewScoringPage = () => {
   };
 
   const closeCommentViewer = () => {
-    if (commentViewer?.url) URL.revokeObjectURL(commentViewer.url);
     setCommentViewer(null);
     setInlineComments([]);
   };
@@ -1031,16 +1027,11 @@ const ReviewScoringPage = () => {
       </div>
 
       {commentViewer && (
-        <div role="dialog" aria-modal="true" aria-label="Mở tài liệu và nhận xét theo vị trí" style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(15, 23, 42, 0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div style={{ width: 'min(1200px, 100%)', height: 'min(850px, 95vh)', background: '#FFFFFF', borderRadius: '1rem', overflow: 'hidden', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', boxShadow: '0 24px 70px rgba(15, 23, 42, 0.35)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-              <div style={{ padding: '0.8rem 1rem', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center' }}>
-                <strong style={{ overflowWrap: 'anywhere' }}>{commentViewer.document.fileName}</strong>
-                <button type="button" className="btn btn-secondary" onClick={closeCommentViewer}>Đóng</button>
-              </div>
-              <iframe title={`Xem ${commentViewer.document.fileName}`} src={commentViewer.url} style={{ width: '100%', flex: 1, border: 0, background: '#F8FAFC' }} />
-            </div>
-            <aside style={{ borderLeft: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <DocumentViewerModal
+          document={commentViewer.document}
+          onClose={closeCommentViewer}
+          aside={(
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
               <div style={{ padding: '1rem', borderBottom: '1px solid #E2E8F0' }}>
                 <strong>Nhận xét theo vị trí</strong>
                 <p style={{ color: '#64748B', fontSize: '0.78rem', lineHeight: 1.45, margin: '0.4rem 0 0' }}>Ghi tham chiếu như “Trang 2, dòng 14” hoặc “Mục 3.1, đoạn 2” để sinh viên tìm đúng nội dung.</p>
@@ -1053,9 +1044,9 @@ const ReviewScoringPage = () => {
                 <textarea className="form-input" value={inlineCommentText} onChange={(event) => setInlineCommentText(event.target.value)} placeholder="Nhập nhận xét cho vị trí này..." rows={4} maxLength={4000} required style={{ marginTop: '0.5rem' }} />
                 <button type="submit" className="btn btn-primary" disabled={inlineCommentBusy || !inlineCommentText.trim()} style={{ width: '100%', marginTop: '0.5rem' }}>{inlineCommentBusy ? 'Đang lưu...' : 'Lưu nhận xét'}</button>
               </form>
-            </aside>
-          </div>
-        </div>
+            </div>
+          )}
+        />
       )}
     </div>
   );
