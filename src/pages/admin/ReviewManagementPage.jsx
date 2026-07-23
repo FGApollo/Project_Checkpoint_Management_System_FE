@@ -12,6 +12,7 @@ import {
 import { PageSkeleton } from '../../components/common/Skeleton';
 import { generateReviewSessionAccessCode } from '../../services/reviewSessionAccess';
 import { useAuth } from '../../context/authContextValue.js';
+import { getReviewSlotTime } from '../../features/reviews/reviewSlots.js';
 
 const formatReviewType = (type) => {
   if (type === 'Review1' || type === 0) return 'Review 1';
@@ -28,6 +29,15 @@ const canOpenRoundRegistration = (status) =>
 const MIN_REVIEWERS_PER_SESSION = 2;
 const MAX_REVIEWERS_PER_SLOT = 4;
 const getReviewSessionId = (session) => session?.sessionId ?? session?.id;
+const formatReviewSessionDate = (value) => {
+  if (!value) return 'Chưa xác định ngày';
+  return new Date(value).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+};
+const formatReviewSessionOption = (session) => {
+  const sessionId = getReviewSessionId(session);
+  const group = session.groupCode || (session.groupId ? `Nhóm #${session.groupId}` : 'Chưa rõ nhóm');
+  return `${formatReviewSessionDate(session.sessionDate)} · Ca ${session.slot ?? '?'} (${getReviewSlotTime(session.slot)}) · ${session.room || 'Chưa xếp phòng'} · ${group} · Phiên #${sessionId}`;
+};
 
 const getRoundStatusMeta = (status) => {
   if (isRoundOpen(status)) {
@@ -133,6 +143,7 @@ const ReviewManagementPage = () => {
   const [success, setSuccess] = useState('');
   const [accessCodeBusySessionId, setAccessCodeBusySessionId] = useState(null);
   const [generatedAccessCodes, setGeneratedAccessCodes] = useState({});
+  const [selectedAccessCodeSessionId, setSelectedAccessCodeSessionId] = useState('');
 
   const [semesters, setSemesters] = useState([]);
   const existingReviewTypes = useMemo(() => getExistingReviewTypes(rounds), [rounds]);
@@ -171,8 +182,24 @@ const ReviewManagementPage = () => {
     });
     return Array.from(byId.values());
   }, [boardData.sessions]);
+  const selectedAccessCodeSession = useMemo(
+    () => uniqueReviewSessions.find(
+      (session) => String(getReviewSessionId(session)) === String(selectedAccessCodeSessionId)
+    ) || null,
+    [selectedAccessCodeSessionId, uniqueReviewSessions]
+  );
   const canManageAccessCodes = user?.role === 'TrainingDepartment'
     || user?.role === 'SystemAdministrator';
+
+  useEffect(() => {
+    setSelectedAccessCodeSessionId((current) => {
+      if (uniqueReviewSessions.some(
+        (session) => String(getReviewSessionId(session)) === String(current)
+      )) return current;
+      const firstSessionId = getReviewSessionId(uniqueReviewSessions[0]);
+      return firstSessionId == null ? '' : String(firstSessionId);
+    });
+  }, [uniqueReviewSessions]);
 
   const fetchRounds = async (semId = formData.semesterId) => {
     setLoading(true);
@@ -610,6 +637,98 @@ const ReviewManagementPage = () => {
         </div>
       )}
 
+      {canManageAccessCodes && (
+        <section style={{ marginBottom: '1.5rem', border: '1px solid #A5B4FC', borderRadius: '14px', overflow: 'hidden', background: '#FFFFFF', boxShadow: '0 8px 24px rgba(79, 70, 229, 0.08)' }}>
+          <header style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '1rem 1.25rem', background: '#EEF2FF', borderBottom: '1px solid #C7D2FE' }}>
+            <span style={{ width: 42, height: 42, display: 'grid', placeItems: 'center', borderRadius: 12, color: '#4338CA', background: '#FFFFFF' }}>
+              <KeyRound size={21} aria-hidden="true" />
+            </span>
+            <div>
+              <h2 style={{ margin: 0, color: '#312E81', fontSize: '1.05rem' }}>Tạo mã theo ca</h2>
+              <p style={{ margin: '0.2rem 0 0', color: '#4F46E5', fontSize: '0.8rem', lineHeight: 1.45 }}>
+                Chọn đợt và ca review theo ngày, giờ, phòng, nhóm để tạo mã mà không cần chuyển tới bước Publish.
+              </p>
+            </div>
+          </header>
+
+          <div style={{ padding: '1rem 1.25rem', display: 'grid', gap: '0.9rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '0.9rem' }}>
+              <label style={{ display: 'grid', gap: '0.35rem', color: '#334155', fontSize: '0.8rem', fontWeight: 800 }}>
+                Chọn đợt Review
+                <select
+                  className="form-select"
+                  value={selectedRound?.id || ''}
+                  onChange={(event) => {
+                    const nextRound = rounds.find((round) => String(round.id) === event.target.value);
+                    setSelectedRound(nextRound || null);
+                  }}
+                >
+                  <option value="">Chọn đợt Review</option>
+                  {rounds.map((round) => (
+                    <option key={round.id} value={round.id}>
+                      {formatReviewType(round.type)} · {round.weekStartDate} – {round.weekEndDate}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label style={{ display: 'grid', gap: '0.35rem', color: '#334155', fontSize: '0.8rem', fontWeight: 800 }}>
+                Chọn ca review
+                <select
+                  className="form-select"
+                  value={selectedAccessCodeSessionId}
+                  onChange={(event) => setSelectedAccessCodeSessionId(event.target.value)}
+                  disabled={uniqueReviewSessions.length === 0}
+                >
+                  <option value="">{uniqueReviewSessions.length === 0 ? 'Đợt này chưa có ca được phân công' : 'Chọn ca review'}</option>
+                  {uniqueReviewSessions.map((session) => (
+                    <option key={getReviewSessionId(session)} value={getReviewSessionId(session)}>
+                      {formatReviewSessionOption(session)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {selectedAccessCodeSession && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: '1rem', padding: '0.9rem 1rem', border: '1px solid #E2E8F0', borderRadius: '11px', background: '#F8FAFC' }}>
+                <div style={{ minWidth: 0 }}>
+                  <strong style={{ color: '#0F172A' }}>{formatReviewSessionOption(selectedAccessCodeSession)}</strong>
+                  <div style={{ marginTop: '0.55rem', display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                    <span className="badge" style={{ color: selectedAccessCodeSession.hasAccessCode ? '#047857' : '#B45309', background: selectedAccessCodeSession.hasAccessCode ? '#D1FAE5' : '#FEF3C7', fontWeight: 800 }}>
+                      {selectedAccessCodeSession.hasAccessCode ? 'Đã có mã' : 'Chưa có mã'}
+                    </span>
+                    {generatedAccessCodes[getReviewSessionId(selectedAccessCodeSession)] && (
+                      <>
+                        <code style={{ padding: '0.45rem 0.7rem', borderRadius: 8, background: '#0F172A', color: '#F8FAFC', fontSize: '1rem', fontWeight: 800, letterSpacing: '0.16em' }}>
+                          {generatedAccessCodes[getReviewSessionId(selectedAccessCodeSession)]}
+                        </code>
+                        <button type="button" className="btn btn-secondary" onClick={() => handleCopyAccessCode(getReviewSessionId(selectedAccessCodeSession))} style={{ padding: '0.4rem 0.6rem' }}>
+                          <Copy size={14} /> Sao chép
+                        </button>
+                        <span style={{ color: '#B45309', fontSize: '0.73rem', fontWeight: 700 }}>Mã chỉ hiển thị trong lần tạo này</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => handleGenerateAccessCode(selectedAccessCodeSession)}
+                  disabled={accessCodeBusySessionId === getReviewSessionId(selectedAccessCodeSession)}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  <KeyRound size={16} />
+                  {accessCodeBusySessionId === getReviewSessionId(selectedAccessCodeSession)
+                    ? 'Đang tạo...'
+                    : selectedAccessCodeSession.hasAccessCode ? 'Tạo lại mã' : 'Tạo mã'}
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Stepper */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', position: 'relative' }}>
         <div style={{ position: 'absolute', top: '50%', left: '0', right: '0', height: '2px', background: '#E2E8F0', zIndex: 0 }}></div>
@@ -1008,64 +1127,6 @@ const ReviewManagementPage = () => {
                     );
                   })()}
                 </div>
-
-                <section style={{ maxWidth: '900px', margin: '0 auto 2rem', textAlign: 'left', border: '1px solid #C7D2FE', borderRadius: '14px', overflow: 'hidden', background: '#FFFFFF' }}>
-                  <header style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '1rem 1.25rem', background: '#EEF2FF', borderBottom: '1px solid #C7D2FE' }}>
-                    <span style={{ width: 42, height: 42, display: 'grid', placeItems: 'center', borderRadius: 12, color: '#4338CA', background: '#FFFFFF' }}>
-                      <KeyRound size={21} aria-hidden="true" />
-                    </span>
-                    <div>
-                      <h3 style={{ margin: 0, color: '#312E81', fontSize: '1rem' }}>Mã truy cập ca review</h3>
-                      <p style={{ margin: '0.2rem 0 0', color: '#4F46E5', fontSize: '0.78rem', lineHeight: 1.45 }}>
-                        Giảng viên phải nhập đúng mã mới mở được tài liệu, điểm danh, trao đổi và ghi nhận xét của ca.
-                      </p>
-                    </div>
-                  </header>
-
-                  <div style={{ display: 'grid', gap: '0.75rem', padding: '1rem' }}>
-                    {uniqueReviewSessions.map((session) => {
-                      const sessionId = getReviewSessionId(session);
-                      const generatedCode = generatedAccessCodes[sessionId];
-                      const isBusy = accessCodeBusySessionId === sessionId;
-                      return (
-                        <article key={sessionId} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: '1rem', padding: '0.9rem 1rem', border: '1px solid #E2E8F0', borderRadius: '11px', background: '#F8FAFC' }}>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' }}>
-                              <strong style={{ color: '#0F172A' }}>Ca #{sessionId}</strong>
-                              <span className="badge" style={{ color: session.hasAccessCode ? '#047857' : '#B45309', background: session.hasAccessCode ? '#D1FAE5' : '#FEF3C7', fontWeight: 800 }}>
-                                {session.hasAccessCode ? 'Đã có mã' : 'Chưa có mã'}
-                              </span>
-                            </div>
-                            <p style={{ margin: '0.3rem 0 0', color: '#64748B', fontSize: '0.78rem' }}>
-                              {session.sessionDate ? new Date(session.sessionDate).toLocaleDateString('vi-VN') : 'Chưa xác định ngày'}
-                              {' · '}Ca {session.slot ?? '?'}
-                              {' · '}Phòng {session.room || 'chưa xếp'}
-                            </p>
-                            {generatedCode && (
-                              <div role="status" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginTop: '0.7rem', flexWrap: 'wrap' }}>
-                                <code style={{ padding: '0.5rem 0.75rem', borderRadius: 8, background: '#0F172A', color: '#F8FAFC', fontSize: '1.05rem', fontWeight: 800, letterSpacing: '0.16em' }}>
-                                  {generatedCode}
-                                </code>
-                                <button type="button" className="btn btn-secondary" onClick={() => handleCopyAccessCode(sessionId)} style={{ padding: '0.45rem 0.65rem' }}>
-                                  <Copy size={14} /> Sao chép
-                                </button>
-                                <span style={{ color: '#B45309', fontSize: '0.73rem', fontWeight: 700 }}>Chỉ hiển thị trong lần tạo này</span>
-                              </div>
-                            )}
-                          </div>
-                          {canManageAccessCodes ? (
-                            <button type="button" className="btn btn-secondary" onClick={() => handleGenerateAccessCode(session)} disabled={isBusy} style={{ whiteSpace: 'nowrap', borderColor: '#A5B4FC', color: '#4338CA', background: '#FFFFFF' }}>
-                              <KeyRound size={16} />
-                              {isBusy ? 'Đang tạo...' : session.hasAccessCode ? 'Tạo lại mã' : 'Tạo mã'}
-                            </button>
-                          ) : (
-                            <span style={{ color: '#64748B', fontSize: '0.75rem', maxWidth: 190, textAlign: 'right' }}>Chỉ Phòng Đào tạo được tạo hoặc đổi mã.</span>
-                          )}
-                        </article>
-                      );
-                    })}
-                  </div>
-                </section>
 
                 <button type="button" className="btn btn-success" onClick={handlePublish} disabled={loading} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: '#10B981', color: 'white' }}>
                   <CheckSquare size={18} /> {loading ? 'Đang công bố...' : 'Công bố Lịch Chính thức'}

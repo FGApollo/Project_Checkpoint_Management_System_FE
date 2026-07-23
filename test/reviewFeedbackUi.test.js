@@ -149,15 +149,27 @@ test('training department access codes gate the lecturer review room', async () 
   assert.match(accessService, /review-sessions\/\$\{sessionId\}\/access-code/);
   assert.match(accessService, /review-sessions\/\$\{sessionId\}\/access-code\/verify/);
   assert.match(managementPage, /generateReviewSessionAccessCode/);
-  assert.match(managementPage, /Mã truy cập ca review/);
+  assert.match(managementPage, /Tạo mã theo ca/);
   assert.match(managementPage, /user\?\.role === 'TrainingDepartment'/);
-  assert.match(managementPage, /Chỉ hiển thị trong lần tạo này/);
+  assert.match(managementPage, /chỉ hiển thị trong lần tạo này/i);
   assert.match(lecturerPage, /verifyReviewSessionAccessCode/);
   assert.match(lecturerPage, /selectedSession\?\.isAccessVerified === true/);
   assert.match(lecturerPage, /if \(!selectedSession\.isAccessVerified\)/);
   assert.match(lecturerPage, /if \(!selectedSession\?\.isAccessVerified\) return undefined/);
   assert.match(lecturerPage, /Nhập mã để mở ca review/);
   assert.match(lecturerPage, /Điểm danh Sinh viên/);
+});
+
+test('training department creates access codes by selecting an assigned session outside Publish', async () => {
+  const managementPage = await readSource('../src/pages/admin/ReviewManagementPage.jsx');
+  const panelIndex = managementPage.indexOf('Tạo mã theo ca');
+  const stepperIndex = managementPage.indexOf('{/* Stepper */}');
+
+  assert.ok(panelIndex > 0, 'The standalone access-code selector must be rendered.');
+  assert.ok(panelIndex < stepperIndex, 'The selector must be available before the Publish stepper.');
+  assert.match(managementPage, /selectedAccessCodeSessionId/);
+  assert.match(managementPage, /getReviewSlotTime/);
+  assert.match(managementPage, /Chọn ca review/);
 });
 
 test('review submissions support multiple official comments per lecturer', async () => {
