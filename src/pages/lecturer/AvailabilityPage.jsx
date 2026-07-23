@@ -20,6 +20,7 @@ const DAYS_OF_WEEK = [
 ];
 
 const SLOTS = REVIEW_SLOTS;
+const MAX_LECTURER_AVAILABILITY_SLOTS = 5;
 
 const formatReviewType = (type) => {
   if (type === 'Review1' || type === 0) return 'Review 1';
@@ -184,6 +185,10 @@ const AvailabilityPage = () => {
       setError(`Slot này đã đủ ${maxRegistrationsPerSlot} giảng viên. Vui lòng chọn Slot khác.`);
       return;
     }
+    if (!exists && selectedSlots.length >= MAX_LECTURER_AVAILABILITY_SLOTS) {
+      setError(`Giảng viên chỉ được đăng ký tối đa ${MAX_LECTURER_AVAILABILITY_SLOTS} ca cho mỗi đợt Review.`);
+      return;
+    }
     if (exists) {
       setSelectedSlots(selectedSlots.filter((s) => !(s.dayOfWeek === dayId && s.slot === slotId)));
     } else {
@@ -197,6 +202,10 @@ const AvailabilityPage = () => {
 
   const handleSaveDraft = async () => {
     if (!selectedRoundId || !canModifyAvailability) return;
+    if (selectedSlots.length > MAX_LECTURER_AVAILABILITY_SLOTS) {
+      setError(`Giảng viên chỉ được đăng ký tối đa ${MAX_LECTURER_AVAILABILITY_SLOTS} ca cho mỗi đợt Review.`);
+      return;
+    }
     setLoading(true);
     setError('');
     setSuccess('');
@@ -218,6 +227,10 @@ const AvailabilityPage = () => {
 
   const handleSubmitFinal = async () => {
     if (!selectedRoundId || !canModifyAvailability) return;
+    if (selectedSlots.length > MAX_LECTURER_AVAILABILITY_SLOTS) {
+      setError(`Giảng viên chỉ được đăng ký tối đa ${MAX_LECTURER_AVAILABILITY_SLOTS} ca cho mỗi đợt Review.`);
+      return;
+    }
     setLoading(true);
     setError('');
     setSuccess('');
@@ -257,6 +270,7 @@ const AvailabilityPage = () => {
     } else {
       const newSlots = [...selectedSlots.filter((s) => s.dayOfWeek !== dayId)];
       SLOTS.forEach((s) => {
+        if (newSlots.length >= MAX_LECTURER_AVAILABILITY_SLOTS) return;
         const count = getSlotRegistrationCount(slotRegistrationCounts, dayId, s.id);
         const alreadyCounted = countedSlots.some(
           (item) => item.dayOfWeek === dayId && item.slot === s.id
@@ -267,6 +281,9 @@ const AvailabilityPage = () => {
         }
       });
       setSelectedSlots(newSlots);
+      if (newSlots.length >= MAX_LECTURER_AVAILABILITY_SLOTS) {
+        setError(`Đã chọn đủ ${MAX_LECTURER_AVAILABILITY_SLOTS} ca tối đa.`);
+      }
     }
   };
 
@@ -555,10 +572,10 @@ const AvailabilityPage = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <ShieldCheck size={20} color="#4F46E5" />
               <span style={{ fontWeight: 700, color: '#334155', fontSize: '0.95rem' }}>
-                Đã chọn: <strong style={{ color: '#4F46E5', fontSize: '1.1rem' }}>{selectedSlots.length}</strong> / 30 slot
+                Đã chọn: <strong style={{ color: '#4F46E5', fontSize: '1.1rem' }}>{selectedSlots.length}</strong> / {MAX_LECTURER_AVAILABILITY_SLOTS} ca tối đa
               </span>
               <span style={{ color: '#64748B', fontSize: '0.82rem', fontWeight: 650 }}>
-                Mỗi Slot nhận tối đa {maxRegistrationsPerSlot} giảng viên · cùng chọn một Slot là điều kiện để hệ thống ghép lịch
+                Mỗi ca nhận tối đa {maxRegistrationsPerSlot} giảng viên · cùng chọn một ca là điều kiện để hệ thống ghép lịch
               </span>
             </div>
 
@@ -566,7 +583,7 @@ const AvailabilityPage = () => {
               <button
                 type="button"
                 onClick={handleSaveDraft}
-                disabled={loading || !canModifyAvailability}
+                disabled={loading || !canModifyAvailability || selectedSlots.length > MAX_LECTURER_AVAILABILITY_SLOTS}
                 className="btn btn-secondary"
                 style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#334155', opacity: canModifyAvailability ? 1 : 0.5, fontWeight: 700, padding: '0.65rem 1.25rem', borderRadius: '10px' }}
               >
@@ -575,7 +592,7 @@ const AvailabilityPage = () => {
               <button
                 type="button"
                 onClick={handleSubmitFinal}
-                disabled={loading || !canModifyAvailability || selectedSlots.length === 0}
+                disabled={loading || !canModifyAvailability || selectedSlots.length === 0 || selectedSlots.length > MAX_LECTURER_AVAILABILITY_SLOTS}
                 className="btn btn-primary"
                 style={{ background: 'linear-gradient(135deg, #4F46E5, #4338CA)', border: 'none', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)', opacity: (!canModifyAvailability || selectedSlots.length === 0) ? 0.5 : 1, fontWeight: 800, padding: '0.65rem 1.5rem', borderRadius: '10px' }}
               >
@@ -672,7 +689,7 @@ const AvailabilityPage = () => {
             <button
               type="button"
               onClick={handleSaveDraft}
-              disabled={loading || !canModifyAvailability}
+              disabled={loading || !canModifyAvailability || selectedSlots.length > MAX_LECTURER_AVAILABILITY_SLOTS}
               className="btn btn-secondary"
               style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#334155', opacity: canModifyAvailability ? 1 : 0.5, fontWeight: 700, padding: '0.8rem 1.5rem', borderRadius: '12px' }}
             >
@@ -681,7 +698,7 @@ const AvailabilityPage = () => {
             <button
               type="button"
               onClick={handleSubmitFinal}
-              disabled={loading || !canModifyAvailability || selectedSlots.length === 0}
+              disabled={loading || !canModifyAvailability || selectedSlots.length === 0 || selectedSlots.length > MAX_LECTURER_AVAILABILITY_SLOTS}
               className="btn btn-primary"
               style={{ background: 'linear-gradient(135deg, #4F46E5, #4338CA)', border: 'none', boxShadow: '0 4px 14px rgba(79, 70, 229, 0.28)', opacity: (!canModifyAvailability || selectedSlots.length === 0) ? 0.5 : 1, fontWeight: 800, padding: '0.8rem 2rem', borderRadius: '12px' }}
             >

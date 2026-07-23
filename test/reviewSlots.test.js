@@ -55,5 +55,17 @@ test('lecturer can edit and resubmit availability while the round remains open',
   assert.match(source, /const canModifyAvailability = canEditAvailability && \(!isSubmitted \|\| isEditingSubmitted\)/);
   assert.match(source, /Chỉnh sửa đăng ký/);
   assert.match(source, /Nộp lại/);
-  assert.match(source, /disabled=\{loading \|\| !canModifyAvailability\}/);
+  assert.match(source, /disabled=\{loading \|\| !canModifyAvailability \|\| selectedSlots\.length > MAX_LECTURER_AVAILABILITY_SLOTS\}/);
+});
+
+test('lecturer can register at most five availability slots', async () => {
+  const source = await readFile(
+    new URL('../src/pages/lecturer/AvailabilityPage.jsx', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(source, /MAX_LECTURER_AVAILABILITY_SLOTS = 5/);
+  assert.match(source, /selectedSlots\.length >= MAX_LECTURER_AVAILABILITY_SLOTS/);
+  assert.match(source, /selectedSlots\.length > MAX_LECTURER_AVAILABILITY_SLOTS/);
+  assert.match(source, /ca tối đa/);
 });
