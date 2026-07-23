@@ -2,19 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { Gavel, Plus, Users, ShieldAlert, CheckCircle, AlertCircle, Calendar, ArrowRight, Layers } from 'lucide-react';
 import { PageSkeleton, TableSkeletonRows } from '../../components/common/Skeleton';
-const formatRoundStatus = (status) => {
-  const s = String(status || '').toUpperCase();
-  if (s === 'INPROGRESS' || s === 'IN_PROGRESS' || s === '1' || s === 'OPEN') {
-    return { label: 'Đang diễn ra', bg: '#DCFCE7', color: '#16A34A' };
-  }
-  if (s === 'PUBLISHED' || s === '3' || s === 'COMPLETED') {
-    return { label: 'Đã công bố', bg: '#EEF2FF', color: '#4F46E5' };
-  }
-  if (s === 'CLOSED' || s === '2') {
-    return { label: 'Đã khóa đăng ký', bg: '#FEF3C7', color: '#D97706' };
-  }
-  return { label: status || 'Đã lên lịch', bg: '#F1F5F9', color: '#475569' };
-};
+import { listDefenseBoards, loadDefenseManagementWorkspace } from '../../services/defenseManagement';
 
 const DefenseManagementPage = () => {
   const [activeTab, setActiveTab] = useState('rounds');
@@ -250,18 +238,14 @@ const DefenseManagementPage = () => {
   if (initialLoading) return <PageSkeleton cards={3} rows={6} />;
 
   return (
-    <div className="page-container animate-fade-in" style={{ paddingTop: '1.25rem' }}>
-      <div className="page-header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '1.25rem', marginBottom: '1.5rem' }}>
+    <div className="page-container animate-fade-in">
+      <div className="page-header">
         <div>
-          <h1 className="page-title" style={{ color: '#0F172A', fontSize: '1.75rem', fontWeight: 800, lineHeight: 1.3 }}>
-            Quản lý Hội đồng & Lịch Bảo vệ Checkpoint
-          </h1>
-          <p className="page-subtitle" style={{ color: '#475569', marginTop: '0.35rem' }}>
-            Thiết lập các đợt bảo vệ, thành lập hội đồng 5 thành viên hoặc 3 thành viên, và phân công ca bảo vệ checkpoint.
-          </p>
+          <h1 className="page-title" style={{ color: '#0F172A' }}>Quản lý Hội đồng & Lịch Bảo vệ Checkpoint</h1>
+          <p className="page-subtitle" style={{ color: '#475569' }}>Thiết lập các đợt bảo vệ, thành lập hội đồng 5 thành viên hoặc 3 thành viên, và phân công ca bảo vệ checkpoint.</p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', width: '100%', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
             type="button"
             className={`btn ${activeTab === 'rounds' ? 'btn-primary' : 'btn-secondary'}`}
@@ -342,23 +326,16 @@ const DefenseManagementPage = () => {
                 {loading ? <TableSkeletonRows rows={5} columns={6} /> : rounds.length === 0 ? (
                   <tr><td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: '#64748B' }}>Chưa có đợt bảo vệ nào được thiết lập. Vui lòng bấm 'Tạo Đợt Bảo vệ'.</td></tr>
                 ) : (
-                  rounds.map((r) => {
-                    const statusInfo = formatRoundStatus(r.status);
-                    return (
-                      <tr key={r.id}>
-                        <td style={{ fontWeight: 600, color: '#0F172A' }}>#{r.id}</td>
-                        <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522' }}>{r.code}</span></td>
-                        <td style={{ fontWeight: 700, color: '#0F172A' }}>{r.name}</td>
-                        <td style={{ color: '#475569' }}>{r.type === 0 || r.type === 'Standard' ? 'Hội đồng 5 thành viên (Tiêu chuẩn)' : 'Hội đồng 3 thành viên (Rút gọn)'}</td>
-                        <td style={{ color: '#64748B' }}>{r.startDate} &rarr; {r.endDate}</td>
-                        <td>
-                          <span className="badge" style={{ background: statusInfo.bg, color: statusInfo.color, fontWeight: 700 }}>
-                            {statusInfo.label}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
+                  rounds.map((r) => (
+                    <tr key={r.id}>
+                      <td style={{ fontWeight: 600, color: '#0F172A' }}>#{r.id}</td>
+                      <td><span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522' }}>{r.code}</span></td>
+                      <td style={{ fontWeight: 700, color: '#0F172A' }}>{r.name}</td>
+                      <td style={{ color: '#475569' }}>{r.type === 0 || r.type === 'Standard' ? 'Hội đồng 5 thành viên (Tiêu chuẩn)' : 'Hội đồng 3 thành viên (Rút gọn)'}</td>
+                      <td style={{ color: '#64748B' }}>{r.startDate} &rarr; {r.endDate}</td>
+                      <td><span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10B981' }}>{r.status || 'Đã lên lịch'}</span></td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>

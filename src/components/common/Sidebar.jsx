@@ -95,12 +95,7 @@ const Sidebar = () => {
               <span>Theo dõi Review</span>
             </NavLink>
 
-            {user.role !== 'Moderator' && (
-              <NavLink to="/admin/defenses" style={navItemStyle}>
-                <Gavel size={18} />
-                <span>Hội đồng & Lịch bảo vệ</span>
-              </NavLink>
-            )}
+
           </>
         )}
 
