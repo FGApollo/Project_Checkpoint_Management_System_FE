@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1300" viewBox="0 0 1600 1300">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fbff"/>
+      <stop offset="1" stop-color="#f8fafc"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#0f172a" flood-opacity=".10"/>
+    </filter>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0L12 6L0 12Z" fill="#1d4ed8"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0L12 6L0 12Z" fill="#059669"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0L12 6L0 12Z" fill="#7c3aed"/>
+    </marker>
+    <style>
+      .title { font: 800 34px "Segoe UI", Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 17px "Segoe UI", Arial, sans-serif; fill: #64748b; }
+      .layer-title { font: 800 28px "Segoe UI", Arial, sans-serif; }
+      .box-title { font: 700 19px "Segoe UI", Arial, sans-serif; fill: #0f172a; }
+      .box-sub { font: 500 14px "Segoe UI", Arial, sans-serif; fill: #64748b; }
+      .flow { font: 700 15px "Segoe UI", Arial, sans-serif; }
+      .pill { font: 700 15px "Segoe UI", Arial, sans-serif; fill: #334155; }
+      .small { font: 600 13px "Segoe UI", Arial, sans-serif; fill: #64748b; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1300" fill="url(#bg)"/>
+
+  <text x="800" y="44" text-anchor="middle" class="title">CPMS – Full System Architecture</text>
+  <text x="800" y="72" text-anchor="middle" class="subtitle">Frontend + ASP.NET Core API + Business Logic + Data Access + External Services</text>
+
+  <!-- Actors -->
+  <g filter="url(#shadow)">
+    <rect x="330" y="96" width="260" height="46" rx="23" fill="#ffffff" stroke="#cbd5e1"/>
+    <rect x="670" y="96" width="260" height="46" rx="23" fill="#ffffff" stroke="#cbd5e1"/>
+    <rect x="1010" y="96" width="260" height="46" rx="23" fill="#ffffff" stroke="#cbd5e1"/>
+  </g>
+  <text x="460" y="126" text-anchor="middle" class="pill">Phòng Đào tạo</text>
+  <text x="800" y="126" text-anchor="middle" class="pill">Giảng viên</text>
+  <text x="1140" y="126" text-anchor="middle" class="pill">Sinh viên</text>
+  <path d="M460 144V174" stroke="#1d4ed8" stroke-width="3" marker-end="url(#arrowBlue)"/>
+  <path d="M800 144V174" stroke="#1d4ed8" stroke-width="3" marker-end="url(#arrowBlue)"/>
+  <path d="M1140 144V174" stroke="#1d4ed8" stroke-width="3" marker-end="url(#arrowBlue)"/>
+
+  <!-- Frontend -->
+  <g filter="url(#shadow)">
+    <rect x="100" y="180" width="1400" height="225" rx="22" fill="#eff6ff" stroke="#2563eb" stroke-width="2.5"/>
+  </g>
+  <text x="800" y="222" text-anchor="middle" class="layer-title" fill="#1d4ed8">Frontend Layer (React + Vite SPA)</text>
+  <g>
+    <rect x="145" y="255" width="295" height="105" rx="14" fill="#fff" stroke="#60a5fa" stroke-width="2"/>
+    <rect x="480" y="255" width="295" height="105" rx="14" fill="#fff" stroke="#60a5fa" stroke-width="2"/>
+    <rect x="815" y="255" width="295" height="105" rx="14" fill="#fff" stroke="#60a5fa" stroke-width="2"/>
+    <rect x="1150" y="255" width="295" height="105" rx="14" fill="#fff" stroke="#60a5fa" stroke-width="2"/>
+    <text x="292" y="298" text-anchor="middle" class="box-title">Pages &amp; Role Routes</text>
+    <text x="292" y="326" text-anchor="middle" class="box-sub">Admin · Lecturer · Student</text>
+    <text x="627" y="298" text-anchor="middle" class="box-title">Reusable UI Components</text>
+    <text x="627" y="326" text-anchor="middle" class="box-sub">Forms · Tables · Skeletons</text>
+    <text x="962" y="298" text-anchor="middle" class="box-title">Context, Hooks &amp; State</text>
+    <text x="962" y="326" text-anchor="middle" class="box-sub">Auth · Notifications · Presence</text>
+    <text x="1297" y="298" text-anchor="middle" class="box-title">Async Client Adapters</text>
+    <text x="1297" y="326" text-anchor="middle" class="box-sub">Axios REST · SignalR Client</text>
+  </g>
+  <text x="1450" y="389" text-anchor="end" class="small">Deployment: Vercel</text>
+
+  <!-- Frontend/API flows -->
+  <path d="M680 408V455" stroke="#1d4ed8" stroke-width="4" marker-end="url(#arrowBlue)"/>
+  <text x="620" y="438" text-anchor="end" class="flow" fill="#1d4ed8">HTTPS REST / JSON</text>
+  <path d="M920 455V408" stroke="#059669" stroke-width="4" stroke-dasharray="9 7" marker-end="url(#arrowGreen)"/>
+  <text x="980" y="438" class="flow" fill="#059669">Async Response</text>
+  <path d="M1260 408V455" stroke="#7c3aed" stroke-width="4" marker-end="url(#arrowPurple)"/>
+  <text x="1280" y="438" class="flow" fill="#7c3aed">SignalR realtime events</text>
+
+  <!-- API -->
+  <g filter="url(#shadow)">
+    <rect x="100" y="460" width="1400" height="205" rx="22" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2.5"/>
+  </g>
+  <text x="800" y="502" text-anchor="middle" class="layer-title" fill="#6d28d9">API Presentation Layer (ASP.NET Core Web API)</text>
+  <g>
+    <rect x="145" y="530" width="295" height="95" rx="14" fill="#fff" stroke="#a78bfa" stroke-width="2"/>
+    <rect x="480" y="530" width="295" height="95" rx="14" fill="#fff" stroke="#a78bfa" stroke-width="2"/>
+    <rect x="815" y="530" width="295" height="95" rx="14" fill="#fff" stroke="#a78bfa" stroke-width="2"/>
+    <rect x="1150" y="530" width="295" height="95" rx="14" fill="#fff" stroke="#a78bfa" stroke-width="2"/>
+    <text x="292" y="571" text-anchor="middle" class="box-title">Controllers &amp; Contracts</text>
+    <text x="292" y="598" text-anchor="middle" class="box-sub">Request / Response DTOs</text>
+    <text x="627" y="571" text-anchor="middle" class="box-title">JWT Auth &amp; Middleware</text>
+    <text x="627" y="598" text-anchor="middle" class="box-sub">RBAC · Validation · Errors</text>
+    <text x="962" y="571" text-anchor="middle" class="box-title">SignalR Hubs</text>
+    <text x="962" y="598" text-anchor="middle" class="box-sub">Presence · Review · Defense</text>
+    <text x="1297" y="571" text-anchor="middle" class="box-title">Swagger &amp; Health</text>
+    <text x="1297" y="598" text-anchor="middle" class="box-sub">OpenAPI · Liveness · Readiness</text>
+  </g>
+  <text x="1450" y="650" text-anchor="end" class="small">Deployment: Render</text>
+
+  <!-- API/BLL flows -->
+  <path d="M600 668V715" stroke="#1d4ed8" stroke-width="4" marker-end="url(#arrowBlue)"/>
+  <text x="540" y="697" text-anchor="end" class="flow" fill="#1d4ed8">Commands / Queries</text>
+  <path d="M840 715V668" stroke="#059669" stroke-width="4" stroke-dasharray="9 7" marker-end="url(#arrowGreen)"/>
+  <text x="900" y="697" class="flow" fill="#059669">Results / Errors</text>
+
+  <!-- BLL -->
+  <g filter="url(#shadow)">
+    <rect x="100" y="720" width="1000" height="225" rx="22" fill="#f0fdf4" stroke="#16a34a" stroke-width="2.5"/>
+  </g>
+  <text x="610" y="762" text-anchor="middle" class="layer-title" fill="#15803d">Business Logic Layer (CPMS.BLL)</text>
+  <g>
+    <rect x="140" y="795" width="215" height="105" rx="14" fill="#fff" stroke="#4ade80" stroke-width="2"/>
+    <rect x="380" y="795" width="215" height="105" rx="14" fill="#fff" stroke="#4ade80" stroke-width="2"/>
+    <rect x="620" y="795" width="215" height="105" rx="14" fill="#fff" stroke="#4ade80" stroke-width="2"/>
+    <rect x="860" y="795" width="215" height="105" rx="14" fill="#fff" stroke="#4ade80" stroke-width="2"/>
+    <text x="247" y="835" text-anchor="middle" class="box-title">Accounts &amp; Semesters</text>
+    <text x="247" y="864" text-anchor="middle" class="box-sub">Identity · Import · Academic</text>
+    <text x="487" y="835" text-anchor="middle" class="box-title">Review Workflow</text>
+    <text x="487" y="864" text-anchor="middle" class="box-sub">Register · Match · Publish</text>
+    <text x="727" y="835" text-anchor="middle" class="box-title">Assessment &amp; Defense</text>
+    <text x="727" y="864" text-anchor="middle" class="box-sub">Attendance · Feedback · Boards</text>
+    <text x="967" y="835" text-anchor="middle" class="box-title">Documents &amp; AI</text>
+    <text x="967" y="864" text-anchor="middle" class="box-sub">Storage rules · AI orchestration</text>
+  </g>
+
+  <!-- BLL/external-service flow: BLL owns the service interfaces; DAL supplies adapters -->
+  <path d="M1102 814H1165" stroke="#7c3aed" stroke-width="4" marker-end="url(#arrowPurple)"/>
+  <path d="M1165 878H1102" stroke="#059669" stroke-width="4" stroke-dasharray="9 7" marker-end="url(#arrowGreen)"/>
+  <text x="1134" y="793" text-anchor="middle" class="small" fill="#7c3aed">Request</text>
+  <text x="1134" y="904" text-anchor="middle" class="small" fill="#059669">Response</text>
+
+  <!-- External services -->
+  <g filter="url(#shadow)">
+    <rect x="1170" y="720" width="330" height="430" rx="22" fill="#fdf4ff" stroke="#9333ea" stroke-width="2.5"/>
+  </g>
+  <text x="1335" y="762" text-anchor="middle" class="layer-title" fill="#7e22ce">External Services</text>
+  <g>
+    <rect x="1210" y="805" width="250" height="82" rx="14" fill="#fff" stroke="#c084fc" stroke-width="2"/>
+    <rect x="1210" y="920" width="250" height="82" rx="14" fill="#fff" stroke="#c084fc" stroke-width="2"/>
+    <rect x="1210" y="1035" width="250" height="82" rx="14" fill="#fff" stroke="#c084fc" stroke-width="2"/>
+    <text x="1335" y="840" text-anchor="middle" class="box-title">Gemini AI API</text>
+    <text x="1335" y="865" text-anchor="middle" class="box-sub">Project review suggestions</text>
+    <text x="1335" y="955" text-anchor="middle" class="box-title">SMTP Email</text>
+    <text x="1335" y="980" text-anchor="middle" class="box-sub">Schedule notifications</text>
+    <text x="1335" y="1070" text-anchor="middle" class="box-title">Supabase Storage</text>
+    <text x="1335" y="1095" text-anchor="middle" class="box-sub">Project documents &amp; evidence</text>
+  </g>
+
+  <!-- BLL/DAL flows -->
+  <path d="M500 948V995" stroke="#1d4ed8" stroke-width="4" marker-end="url(#arrowBlue)"/>
+  <text x="440" y="977" text-anchor="end" class="flow" fill="#1d4ed8">Repository Interfaces</text>
+  <path d="M720 995V948" stroke="#059669" stroke-width="4" stroke-dasharray="9 7" marker-end="url(#arrowGreen)"/>
+  <text x="780" y="977" class="flow" fill="#059669">Async Results</text>
+
+  <!-- DAL -->
+  <g filter="url(#shadow)">
+    <rect x="100" y="1000" width="1020" height="180" rx="22" fill="#fff7ed" stroke="#ea580c" stroke-width="2.5"/>
+  </g>
+  <text x="610" y="1042" text-anchor="middle" class="layer-title" fill="#c2410c">Data Access Layer (CPMS.DAL)</text>
+  <g>
+    <rect x="140" y="1070" width="215" height="75" rx="14" fill="#fff" stroke="#fb923c" stroke-width="2"/>
+    <rect x="380" y="1070" width="215" height="75" rx="14" fill="#fff" stroke="#fb923c" stroke-width="2"/>
+    <rect x="620" y="1070" width="215" height="75" rx="14" fill="#fff" stroke="#fb923c" stroke-width="2"/>
+    <rect x="860" y="1070" width="215" height="75" rx="14" fill="#fff" stroke="#fb923c" stroke-width="2"/>
+    <text x="247" y="1115" text-anchor="middle" class="box-title">Repository Adapters</text>
+    <text x="487" y="1115" text-anchor="middle" class="box-title">EF Core DbContext</text>
+    <text x="727" y="1115" text-anchor="middle" class="box-title">Entities &amp; Migrations</text>
+    <text x="967" y="1105" text-anchor="middle" class="box-title">External Adapters</text>
+    <text x="967" y="1129" text-anchor="middle" class="box-sub">HTTP · SMTP · Storage</text>
+  </g>
+
+  <!-- Database -->
+  <path d="M610 1182V1200" stroke="#1d4ed8" stroke-width="4" marker-end="url(#arrowBlue)"/>
+  <ellipse cx="610" cy="1223" rx="225" ry="31" fill="#ecfeff" stroke="#0891b2" stroke-width="2.5"/>
+  <path d="M385 1223V1260C385 1277 486 1291 610 1291C734 1291 835 1277 835 1260V1223" fill="#ecfeff" stroke="#0891b2" stroke-width="2.5"/>
+  <ellipse cx="610" cy="1260" rx="225" ry="31" fill="#cffafe" stroke="#0891b2" stroke-width="2.5"/>
+  <text x="610" y="1249" text-anchor="middle" class="box-title" fill="#0e7490">PostgreSQL Database</text>
+  <text x="610" y="1274" text-anchor="middle" class="box-sub">Supabase · EF Core async queries</text>
+</svg>
