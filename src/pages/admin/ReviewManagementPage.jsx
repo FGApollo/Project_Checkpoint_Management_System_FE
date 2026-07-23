@@ -13,6 +13,7 @@ import { PageSkeleton } from '../../components/common/Skeleton';
 import { generateReviewSessionAccessCode } from '../../services/reviewSessionAccess';
 import { useAuth } from '../../context/authContextValue.js';
 import { getReviewSlotTime } from '../../features/reviews/reviewSlots.js';
+import { selectRelevantReviewRound } from '../../features/reviews/reviewRoundSelection.js';
 
 const formatReviewType = (type) => {
   if (type === 'Review1' || type === 0) return 'Review 1';
@@ -235,7 +236,7 @@ const ReviewManagementPage = () => {
           if (prev && list.some(r => r.id === prev.id)) {
             return list.find(r => r.id === prev.id);
           }
-          return list[0];
+          return selectRelevantReviewRound(list);
         });
       } else {
         setSelectedRound(null);
