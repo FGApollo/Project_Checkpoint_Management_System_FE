@@ -7,6 +7,7 @@ import { CheckSquare, CalendarDays, MessageSquare, FileText, Download, Save, Sen
 import { PageSkeleton, PanelSkeleton } from '../../components/common/Skeleton';
 import { filterReviewSessions, getReviewDateKey, getReviewReminder, REVIEW_TIME_ZONE } from '../../features/reviews/reviewSessionDates.js';
 import { getReviewSlotTime, isReviewAttendanceOpen } from '../../features/reviews/reviewSlots.js';
+import { verifyReviewSessionAccessCode } from '../../services/reviewSessionAccess';
 
 const getTabButtonProps = (activeTab, tab) => {
   if (activeTab === tab) return { className: 'btn btn-primary', style: {} };
@@ -45,15 +46,17 @@ const getInitials = (value = '') => value
   .map((part) => part[0]?.toUpperCase())
   .join('') || 'GV';
 
-const ReviewScoringPage = ({ attendanceOnly = false }) => {
+const ReviewScoringPage = () => {
   const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
   const [sessionFilter, setSessionFilter] = useState('today');
-  const [activeTab, setActiveTab] = useState(attendanceOnly ? 'attendance' : 'evaluation');
+  const [activeTab, setActiveTab] = useState('evaluation');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [accessCodeInput, setAccessCodeInput] = useState('');
+  const [accessCodeBusy, setAccessCodeBusy] = useState(false);
   const [attendanceClock, setAttendanceClock] = useState(() => new Date());
 
   // Attendance & Comments State
@@ -83,6 +86,7 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
   const attendanceIsOpen = selectedSession
     ? isReviewAttendanceOpen(selectedSession.sessionDate, selectedSession.slot, attendanceClock)
     : false;
+  const sessionAccessUnlocked = selectedSession?.isAccessVerified === true;
   const sessionDateGroups = new Map();
   filteredSessions.forEach((session) => {
     const dateKey = getReviewDateKey(session.sessionDate) || 'unknown';
@@ -140,16 +144,10 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
   }, [fetchMySessions]);
 
   useEffect(() => {
-    setActiveTab(attendanceOnly ? 'attendance' : 'evaluation');
-    setError('');
-    setSuccess('');
-  }, [attendanceOnly]);
-
-  useEffect(() => {
-    if (!attendanceOnly) return undefined;
+    if (activeTab !== 'attendance') return undefined;
     const timer = window.setInterval(() => setAttendanceClock(new Date()), 30_000);
     return () => window.clearInterval(timer);
-  }, [attendanceOnly]);
+  }, [activeTab]);
 
   useEffect(() => () => { reviewProgressService.stop(); }, []);
 
@@ -192,20 +190,27 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
   }, [activeTab]);
 
   useEffect(() => {
-    if (selectedSession) {
-      setAiProjectContent(selectedSession.projectContent || selectedSession.description || '');
-      setAiSuggestion(null);
-      if (!attendanceOnly) {
-        listProjectDocuments(selectedSession.groupId).then(({ data }) => setDocuments(Array.isArray(data) ? data : [])).catch(() => setDocuments([]));
-      } else {
-        setDocuments([]);
-      }
-      fetchSessionDetails(selectedSession);
+    setAccessCodeInput('');
+    setAiSuggestion(null);
+    if (!selectedSession) return;
+
+    setAiProjectContent(selectedSession.projectContent || selectedSession.description || '');
+    if (!selectedSession.isAccessVerified) {
+      setDocuments([]);
+      setAttendanceList([]);
+      setCommentsList([]);
+      setEvalComments(['']);
+      return;
     }
-  }, [selectedSession, fetchSessionDetails, attendanceOnly]);
+
+    listProjectDocuments(selectedSession.groupId)
+      .then(({ data }) => setDocuments(Array.isArray(data) ? data : []))
+      .catch(() => setDocuments([]));
+    fetchSessionDetails(selectedSession);
+  }, [selectedSession, fetchSessionDetails]);
 
   useEffect(() => {
-    if (!selectedSession) return undefined;
+    if (!selectedSession?.isAccessVerified) return undefined;
     const sessionId = getSessionId(selectedSession);
     const groupId = selectedSession.groupId;
     if (!sessionId || !groupId) return undefined;
@@ -445,6 +450,33 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
     }
   };
 
+  const handleVerifyAccessCode = async (event) => {
+    event.preventDefault();
+    if (!selectedSession || accessCodeInput.length !== 8) return;
+
+    const sessionId = getSessionId(selectedSession);
+    setAccessCodeBusy(true);
+    setError('');
+    setSuccess('');
+    try {
+      await verifyReviewSessionAccessCode(sessionId, accessCodeInput);
+      setSessions((current) => current.map((session) =>
+        getSessionId(session) === sessionId
+          ? { ...session, isAccessVerified: true }
+          : session));
+      setSelectedSession((current) =>
+        current && getSessionId(current) === sessionId
+          ? { ...current, isAccessVerified: true }
+          : current);
+      setAccessCodeInput('');
+      setSuccess(`Đã xác thực mã và mở ca review #${sessionId}.`);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Mã truy cập không đúng hoặc đã được Phòng Đào tạo thay đổi.');
+    } finally {
+      setAccessCodeBusy(false);
+    }
+  };
+
   const handleSessionFilterChange = (filter) => {
     setSessionFilter(filter);
     const candidates = filterReviewSessions(sessions, filter);
@@ -459,11 +491,9 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
     <div className="page-container animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title" style={{ color: '#0F172A' }}>{attendanceOnly ? 'Điểm danh Sinh viên' : 'Phòng Bảo vệ Trực tiếp'}</h1>
+          <h1 className="page-title" style={{ color: '#0F172A' }}>Phòng Bảo vệ Trực tiếp</h1>
           <p className="page-subtitle" style={{ color: '#475569' }}>
-            {attendanceOnly
-              ? 'Chọn phiên bảo vệ và xác nhận trạng thái tham dự của từng sinh viên trong nhóm.'
-              : 'Theo dõi phiên bảo vệ, trao đổi và gửi nhận xét chuyên môn cho nhóm.'}
+            Theo dõi phiên bảo vệ, điểm danh sinh viên, trao đổi và gửi nhận xét chuyên môn cho nhóm.
           </p>
         </div>
 
@@ -617,9 +647,7 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
         <div className="glass-card" style={{ padding: '1.75rem', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
           {!selectedSession ? (
             <div style={{ padding: '4rem', textAlign: 'center', color: '#64748B' }}>
-              {attendanceOnly
-                ? 'Vui lòng chọn một phiên bảo vệ từ danh sách bên trái để điểm danh sinh viên.'
-                : 'Vui lòng chọn một phiên bảo vệ từ danh sách bên trái để ghi nhận xét.'}
+              Vui lòng chọn một phiên bảo vệ từ danh sách bên trái để điểm danh và ghi nhận xét.
             </div>
           ) : (
             <div>
@@ -634,7 +662,7 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
                   </p>
                 </div>
 
-                {!attendanceOnly && <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {sessionAccessUnlocked && <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button type="button" className="btn btn-secondary" onClick={handleDownloadReport} title="Xuất Phiếu Nhận xét (.xlsx)" style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A' }}>
                     <Download size={16} color="#10B981" />
                     <span style={{ fontWeight: 600 }}>Phiếu Nhận xét (.xlsx)</span>
@@ -642,13 +670,78 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
                 </div>}
               </div>
 
-              {!attendanceOnly && <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', marginBottom: '1.25rem' }}>
+              {!sessionAccessUnlocked ? (
+                <section
+                  aria-labelledby="review-access-heading"
+                  style={{
+                    minHeight: 360,
+                    display: 'grid',
+                    placeItems: 'center',
+                    padding: '2rem',
+                    border: '1px solid #C7D2FE',
+                    borderRadius: '1rem',
+                    background: 'linear-gradient(145deg, #EEF2FF 0%, #FFFFFF 72%)',
+                    textAlign: 'center'
+                  }}
+                >
+                  <div style={{ width: 'min(440px, 100%)' }}>
+                    <span style={{ width: 64, height: 64, margin: '0 auto 1rem', borderRadius: 20, display: 'grid', placeItems: 'center', background: '#4F46E5', color: '#FFFFFF', boxShadow: '0 12px 28px rgba(79, 70, 229, 0.24)' }}>
+                      <LockKeyhole size={30} aria-hidden="true" />
+                    </span>
+                    <h3 id="review-access-heading" style={{ margin: 0, color: '#1E1B4B', fontSize: '1.2rem' }}>Nhập mã để mở ca review</h3>
+                    <p style={{ margin: '0.65rem 0 1.25rem', color: '#475569', fontSize: '0.88rem', lineHeight: 1.6 }}>
+                      {selectedSession.hasAccessCode
+                        ? 'Mã do Phòng Đào tạo cung cấp cho hội đồng. Sau khi xác thực, bạn có thể xem tài liệu, điểm danh sinh viên, trao đổi và ghi nhận xét.'
+                        : 'Phòng Đào tạo chưa tạo mã truy cập cho ca này. Vui lòng liên hệ Phòng Đào tạo trước khi bắt đầu review.'}
+                    </p>
+                    {selectedSession.hasAccessCode && (
+                      <form onSubmit={handleVerifyAccessCode}>
+                        <label htmlFor="review-session-access-code" style={{ display: 'block', marginBottom: '0.5rem', color: '#334155', fontSize: '0.82rem', fontWeight: 800 }}>
+                          Mã truy cập 8 ký tự
+                        </label>
+                        <input
+                          id="review-session-access-code"
+                          className="form-input"
+                          value={accessCodeInput}
+                          onChange={(event) => setAccessCodeInput(
+                            event.target.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 8)
+                          )}
+                          autoComplete="one-time-code"
+                          inputMode="text"
+                          maxLength={8}
+                          aria-describedby="review-session-access-hint"
+                          placeholder="VD: AB7K9M2P"
+                          style={{ width: '100%', boxSizing: 'border-box', textAlign: 'center', fontFamily: 'monospace', fontSize: '1.2rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', border: '1px solid #A5B4FC', background: '#FFFFFF' }}
+                        />
+                        <p id="review-session-access-hint" style={{ margin: '0.45rem 0 0.9rem', color: '#64748B', fontSize: '0.72rem' }}>
+                          Không phân biệt chữ thường/chữ hoa.
+                        </p>
+                        <button type="submit" className="btn btn-primary" disabled={accessCodeBusy || accessCodeInput.length !== 8} style={{ width: '100%', minHeight: 44, justifyContent: 'center' }}>
+                          {accessCodeBusy ? <Loader2 size={17} className="spin" /> : <LockKeyhole size={17} />}
+                          {accessCodeBusy ? 'Đang xác thực...' : 'Mở ca review'}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </section>
+              ) : (
+                <>
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '0.75rem', padding: '1rem', marginBottom: '1.25rem' }}>
                 <strong style={{ color: '#0F172A' }}>Lịch sử tài liệu của nhóm</strong>
                 {documents.length === 0 ? <p style={{ margin: '0.5rem 0 0', color: '#64748B', fontSize: '0.85rem' }}>Nhóm chưa tải tài liệu.</p> : documents.map((document, index) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', paddingTop: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid #E2E8F0' }}><span style={{ fontSize: '0.9rem', overflowWrap: 'anywhere', minWidth: 0 }}><strong>{document.fileName}</strong><small style={{ color: '#64748B', display: 'block', marginTop: '0.2rem' }}>Lần tải #{documents.length - index} · {document.uploadedByName || `Sinh viên #${document.uploadedById}`} · {new Date(document.uploadedAt).toLocaleString('vi-VN')} · {(document.fileSize / 1024 / 1024).toFixed(2)} MB</small></span><span style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}><button type="button" className="btn btn-secondary" onClick={() => openCommentViewer(document)}><FileText size={14} /> Mở & nhận xét</button><button type="button" className="btn btn-primary" disabled={aiLoading || document.fileName.toLowerCase().endsWith('.zip')} onClick={() => handleAnalyzeDocument(document)}><Sparkles size={14} /> AI phân tích</button></span></div>)}
-              </div>}
+              </div>
 
               {/* Session work areas */}
-              {!attendanceOnly && <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className={getTabButtonProps(activeTab, 'attendance').className}
+                  onClick={() => setActiveTab('attendance')}
+                  style={getTabButtonProps(activeTab, 'attendance').style}
+                >
+                  <CheckSquare size={16} />
+                  <span>Điểm danh Sinh viên</span>
+                </button>
                 <button
                   type="button"
                   className={getTabButtonProps(activeTab, 'evaluation').className}
@@ -667,7 +760,7 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
                   <MessageSquare size={16} />
                   <span>Trao đổi trong Phiên</span>
                 </button>
-              </div>}
+              </div>
 
               {/* ATTENDANCE PANEL */}
               {activeTab === 'attendance' && !attendanceIsOpen && (
@@ -929,6 +1022,8 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
                     </button>
                   </div>
                 </div>
+              )}
+                </>
               )}
             </div>
           )}

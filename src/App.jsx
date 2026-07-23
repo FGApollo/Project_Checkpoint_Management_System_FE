@@ -15,6 +15,7 @@ import ExcelImportPage from './pages/admin/ExcelImportPage';
 import SemesterManagementPage from './pages/admin/SemesterManagementPage';
 import ReviewManagementPage from './pages/admin/ReviewManagementPage';
 import ReviewTrackingPage from './pages/admin/ReviewTrackingPage';
+import DefenseManagementPage from './pages/admin/DefenseManagementPage';
 
 // Lecturer Pages
 import LecturerDashboard from './pages/lecturer/LecturerDashboard';
@@ -139,7 +140,11 @@ const AppContent = () => {
         />
         <Route
           path="/admin/defenses"
-          element={<Navigate to="/admin/reviews" replace />}
+          element={
+            <ProtectedRoute allowedRoles={['SystemAdministrator', 'TrainingDepartment']}>
+              <DefenseManagementPage />
+            </ProtectedRoute>
+          }
         />
 
 
@@ -170,11 +175,7 @@ const AppContent = () => {
         />
         <Route
           path="/lecturer/attendance"
-          element={
-            <ProtectedRoute allowedRoles={['Lecturer']}>
-              <ReviewScoringPage attendanceOnly />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/lecturer/reviews" replace />}
         />
         {/* STUDENT ROUTES */}
         <Route

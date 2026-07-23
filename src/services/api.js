@@ -25,7 +25,6 @@ const api = axios.create({
 const isPublicAuthenticationRequest = (url = '') => (
   url.endsWith('/auth/login')
   || url.endsWith('/auth/google')
-  || url.endsWith('/auth/bootstrap-admin')
   || url.endsWith('/auth/refresh')
 );
 

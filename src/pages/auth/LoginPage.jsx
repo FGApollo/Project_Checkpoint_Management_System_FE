@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/authContextValue.js';
-import { Award, Lock, User, ShieldAlert, Sparkles, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Award, Lock, User, ShieldAlert, Sparkles, ArrowRight } from 'lucide-react';
 
 const GOOGLE_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
@@ -19,7 +19,7 @@ const getDashboardPath = (role) => {
 };
 
 const LoginPage = () => {
-  const { login, googleLogin, bootstrapAdmin, error: authError } = useAuth();
+  const { login, googleLogin, error: authError } = useAuth();
   const navigate = useNavigate();
   const googleButtonRef = useRef(null);
 
@@ -27,13 +27,6 @@ const LoginPage = () => {
   const [password, setPassword] = useState('Test@123456');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-
-  // Bootstrap Admin modal states
-  const [showBootstrap, setShowBootstrap] = useState(false);
-  const [bsUsername, setBsUsername] = useState('admin');
-  const [bsEmail, setBsEmail] = useState('admin@cpms.local');
-  const [bsPassword, setBsPassword] = useState('123456');
-  const [bsSuccess, setBsSuccess] = useState('');
 
   const handleGoogleCredential = useCallback(async (credentialResponse) => {
     if (!credentialResponse?.credential) {
@@ -53,8 +46,6 @@ const LoginPage = () => {
   }, [googleLogin, navigate]);
 
   useEffect(() => {
-    if (showBootstrap) return undefined;
-
     const renderGoogleButton = () => {
       if (!window.google?.accounts?.id || !googleButtonRef.current) return;
       googleIdentityState.credentialHandler = handleGoogleCredential;
@@ -97,7 +88,7 @@ const LoginPage = () => {
         googleIdentityState.credentialHandler = null;
       }
     };
-  }, [handleGoogleCredential, showBootstrap]);
+  }, [handleGoogleCredential]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -117,22 +108,6 @@ const LoginPage = () => {
     setUsername(u);
     setPassword(p);
     setErrorMsg('');
-  };
-
-  const handleBootstrapSubmit = async (e) => {
-    e.preventDefault();
-    setErrorMsg('');
-    setBsSuccess('');
-    setLoading(true);
-    try {
-      await bootstrapAdmin(bsUsername, bsEmail, bsPassword);
-      setBsSuccess('Khởi tạo tài khoản Quản trị viên Gốc thành công! Đang tự động đăng nhập...');
-      setTimeout(() => navigate('/admin/dashboard'), 1200);
-    } catch (err) {
-      setErrorMsg(err.message || 'Khởi tạo tài khoản thất bại.');
-    } finally {
-      setLoading(false);
-    }
   };
 
   return (
@@ -203,27 +178,7 @@ const LoginPage = () => {
             </div>
           )}
 
-          {bsSuccess && (
-            <div style={{
-              background: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              borderRadius: 'var(--radius-md)',
-              padding: '0.875rem 1rem',
-              marginBottom: '1.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              color: '#10B981',
-              fontSize: '0.875rem',
-              fontWeight: 500
-            }}>
-              <CheckCircle2 size={18} style={{ flexShrink: 0 }} />
-              <span>{bsSuccess}</span>
-            </div>
-          )}
-
-          {!showBootstrap ? (
-            <form onSubmit={handleLogin}>
+          <form onSubmit={handleLogin}>
               <div className="form-group">
                 <label htmlFor="login-username" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Tên đăng nhập / Mã GV / Email</label>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -268,76 +223,8 @@ const LoginPage = () => {
                 <ArrowRight size={18} />
               </button>
             </form>
-          ) : (
-            <form onSubmit={handleBootstrapSubmit}>
-              <div style={{ marginBottom: '1.25rem', textAlign: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
-                <span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', marginBottom: '0.5rem' }}>Khởi tạo ban đầu</span>
-                <p style={{ fontSize: '0.8rem', color: '#475569' }}>
-                  Sử dụng chức năng này để tạo tài khoản Quản trị gốc khi cơ sở dữ liệu trắng.
-                </p>
-              </div>
 
-              <div className="form-group">
-                <label htmlFor="bs-username" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Tên Quản trị viên</label>
-                <input
-                  id="bs-username"
-                  type="text"
-                  className="form-input"
-                  value={bsUsername}
-                  onChange={(e) => setBsUsername(e.target.value)}
-                  style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="bs-email" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Email Quản trị viên</label>
-                <input
-                  id="bs-email"
-                  type="email"
-                  className="form-input"
-                  value={bsEmail}
-                  onChange={(e) => setBsEmail(e.target.value)}
-                  style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="bs-password" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Mật khẩu</label>
-                <input
-                  id="bs-password"
-                  type="password"
-                  className="form-input"
-                  value={bsPassword}
-                  onChange={(e) => setBsPassword(e.target.value)}
-                  style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="btn btn-success"
-                disabled={loading}
-                style={{ width: '100%', padding: '0.875rem', marginTop: '0.75rem', fontWeight: 700 }}
-              >
-                <span>Khởi tạo Tài khoản Quản trị</span>
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setShowBootstrap(false)}
-                style={{ width: '100%', marginTop: '0.5rem', background: '#F1F5F9' }}
-              >
-                Quay lại Đăng nhập tiêu chuẩn
-              </button>
-            </form>
-          )}
-
-          {!showBootstrap && (
-            <div style={{ marginTop: '1.25rem' }}>
+          <div style={{ marginTop: '1.25rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', color: '#94A3B8', fontSize: '0.75rem' }}>
                 <span style={{ height: '1px', background: '#E2E8F0', flex: 1 }} />
                 <span>hoặc</span>
@@ -348,11 +235,9 @@ const LoginPage = () => {
                 Email Google phải trùng với email của tài khoản CPMS đã được tạo.
               </p>
             </div>
-          )}
 
           {/* Quick Local Test Switcher */}
-          {!showBootstrap && (
-            <div style={{ marginTop: '2rem', borderTop: '1px solid #E2E8F0', paddingTop: '1.5rem' }}>
+          <div style={{ marginTop: '2rem', borderTop: '1px solid #E2E8F0', paddingTop: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
                   Chuyển nhanh tài khoản kiểm thử
@@ -391,35 +276,9 @@ const LoginPage = () => {
                   <span style={{ fontWeight: 600 }}>Dương Thành Thanh Duy / Nhóm</span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleQuickSelect('admin@gmail.com', '12345')}
-                  className="btn btn-secondary"
-                  style={{ fontSize: '0.75rem', padding: '0.6rem', justifyContent: 'flex-start', background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#0F172A' }}
-                >
-                  <span className="badge" style={{ background: 'rgba(242,101,34,0.15)', color: '#F26522', fontSize: '0.65rem' }}>Admin</span>
-                  <span style={{ fontWeight: 600 }}>Quản trị Gốc</span>
-                </button>
               </div>
 
-              <div style={{ marginTop: '1.25rem', textAlign: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowBootstrap(true)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#64748B',
-                    fontSize: '0.75rem',
-                    cursor: 'pointer',
-                    textDecoration: 'underline'
-                  }}
-                >
-                  Lần đầu chạy? Khởi tạo Quản trị viên Gốc
-                </button>
-              </div>
             </div>
-          )}
         </div>
       </div>
     </div>

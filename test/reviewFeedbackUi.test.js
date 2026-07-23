@@ -20,7 +20,8 @@ test('review feedback UI does not expose scores or pass/fail verdicts', async ()
   assert.match(studentPage, /entry\.fullName \|\| entry\.studentName/);
   assert.doesNotMatch(lecturerPage, /evalResult|resultText:\s*evalResult|Nộp Điểm|Chấm điểm|Phiếu Chấm|ChamBaoVe|ChamNguoi|0\.0 đến 10\.0/i);
   assert.match(lecturerPage, /Phòng Bảo vệ Trực tiếp/);
-  assert.match(lecturerPage, /attendanceOnly \? 'attendance' : 'evaluation'/);
+  assert.match(lecturerPage, /const \[activeTab, setActiveTab\] = useState\('evaluation'\)/);
+  assert.match(lecturerPage, /onClick=\{\(\) => setActiveTab\('attendance'\)\}/);
   assert.match(lecturerPage, /Nhận xét sau Phiên Bảo vệ/);
   assert.doesNotMatch(lecturerPage, /SignalR Live Room|Live Room|Đang dùng dữ liệu API/i);
   assert.doesNotMatch(trackingPage, /scoringStatus|reviewer1Result|reviewer2Result|item\.result|Đạt yêu cầu \(Pass\)|Không đạt \(Fail\)|chấm điểm/i);
@@ -117,7 +118,7 @@ test('progress comments use a scoped realtime channel and an optimistic conversa
   assert.match(lecturerPage, /id="rev-comment-shortcut"/);
 });
 
-test('lecturer navigation separates attendance from the direct defense room', async () => {
+test('lecturer attendance is integrated into the direct defense room', async () => {
   const [app, sidebar, lecturerPage] = await Promise.all([
     readSource('../src/App.jsx'),
     readSource('../src/components/common/Sidebar.jsx'),
@@ -128,16 +129,35 @@ test('lecturer navigation separates attendance from the direct defense room', as
   assert.match(sidebar, /to="\/lecturer\/reviews"/);
   assert.match(sidebar, /Phòng Bảo vệ Trực tiếp/);
   assert.match(app, /path="\/lecturer\/attendance"/);
-  assert.match(app, /<ReviewScoringPage attendanceOnly \/>/);
-  assert.match(sidebar, /to="\/lecturer\/attendance"/);
-  assert.match(sidebar, /Điểm danh Sinh viên/);
-  assert.ok(sidebar.indexOf('to="/lecturer/attendance"') < sidebar.indexOf('to="/lecturer/reviews"'));
+  assert.match(app, /<Navigate to="\/lecturer\/reviews" replace \/>/);
+  assert.doesNotMatch(sidebar, /to="\/lecturer\/attendance"/);
   assert.match(app, /path="\/lecturer\/reviews"/);
   assert.match(app, /<ReviewScoringPage \/>/);
-  assert.doesNotMatch(lecturerPage, /setActiveTab\('attendance'\)/);
-  assert.match(lecturerPage, /setActiveTab\(attendanceOnly \? 'attendance' : 'evaluation'\)/);
-  assert.match(lecturerPage, /\}, \[attendanceOnly\]\);/);
+  assert.match(lecturerPage, /setActiveTab\('attendance'\)/);
+  assert.match(lecturerPage, /<span>Điểm danh Sinh viên<\/span>/);
+  assert.doesNotMatch(lecturerPage, /attendanceOnly/);
   assert.doesNotMatch(sidebar, /SignalR Live Room|Live Room|\/lecturer\/defenses/);
+});
+
+test('training department access codes gate the lecturer review room', async () => {
+  const [managementPage, lecturerPage, accessService] = await Promise.all([
+    readSource('../src/pages/admin/ReviewManagementPage.jsx'),
+    readSource('../src/pages/lecturer/ReviewScoringPage.jsx'),
+    readSource('../src/services/reviewSessionAccess.js'),
+  ]);
+
+  assert.match(accessService, /review-sessions\/\$\{sessionId\}\/access-code/);
+  assert.match(accessService, /review-sessions\/\$\{sessionId\}\/access-code\/verify/);
+  assert.match(managementPage, /generateReviewSessionAccessCode/);
+  assert.match(managementPage, /Mã truy cập ca review/);
+  assert.match(managementPage, /user\?\.role === 'TrainingDepartment'/);
+  assert.match(managementPage, /Chỉ hiển thị trong lần tạo này/);
+  assert.match(lecturerPage, /verifyReviewSessionAccessCode/);
+  assert.match(lecturerPage, /selectedSession\?\.isAccessVerified === true/);
+  assert.match(lecturerPage, /if \(!selectedSession\.isAccessVerified\)/);
+  assert.match(lecturerPage, /if \(!selectedSession\?\.isAccessVerified\) return undefined/);
+  assert.match(lecturerPage, /Nhập mã để mở ca review/);
+  assert.match(lecturerPage, /Điểm danh Sinh viên/);
 });
 
 test('review submissions support multiple official comments per lecturer', async () => {

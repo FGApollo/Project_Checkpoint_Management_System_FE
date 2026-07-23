@@ -11,6 +11,7 @@ import {
   CheckSquare,
   BookOpen,
   ListChecks,
+  Gavel,
   LogOut
 } from 'lucide-react';
 
@@ -93,6 +94,13 @@ const Sidebar = () => {
               <ClipboardCheck size={18} />
               <span>Theo dõi Review</span>
             </NavLink>
+
+            {user.role !== 'Moderator' && (
+              <NavLink to="/admin/defenses" style={navItemStyle}>
+                <Gavel size={18} />
+                <span>Hội đồng & Lịch bảo vệ</span>
+              </NavLink>
+            )}
           </>
         )}
 
@@ -106,10 +114,6 @@ const Sidebar = () => {
             <NavLink to="/lecturer/availability" style={navItemStyle}>
               <Clock size={18} />
               <span>Đăng ký Slot</span>
-            </NavLink>
-            <NavLink to="/lecturer/attendance" style={navItemStyle}>
-              <Users size={18} />
-              <span>Điểm danh Sinh viên</span>
             </NavLink>
             <NavLink to="/lecturer/reviews" style={navItemStyle}>
               <CheckSquare size={18} />

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/authContextValue.js';
 import api from '../../services/api';
 import { Link } from 'react-router-dom';
-import { Users, CalendarClock, FileSpreadsheet, ArrowRight, Layers, Activity } from 'lucide-react';
+import { Users, CalendarClock, FileSpreadsheet, ArrowRight, Layers, Activity, Gavel } from 'lucide-react';
 import { PageSkeleton } from '../../components/common/Skeleton';
 
 const AdminDashboard = () => {
@@ -43,6 +43,9 @@ const AdminDashboard = () => {
     { to: '/admin/accounts', icon: Users, label: 'Quản lý Người dùng', desc: 'Sinh viên, Giảng viên, Moderator', color: '#4F46E5', bg: '#EEF2FF' },
     { to: '/admin/import', icon: FileSpreadsheet, label: 'Nhập liệu Excel', desc: 'Import danh sách từ file .xlsx', color: '#D97706', bg: '#FEF3C7' },
     { to: '/admin/reviews', icon: CalendarClock, label: 'Quản lý Đợt & Xếp lịch', desc: 'Tạo đợt review, phân công, publish', color: '#16A34A', bg: '#DCFCE7' },
+    ...(user?.role === 'Moderator' ? [] : [
+      { to: '/admin/defenses', icon: Gavel, label: 'Hội đồng & Lịch bảo vệ', desc: 'Thành lập hội đồng và phân công nhóm', color: '#C2410C', bg: '#FFF7ED' },
+    ]),
   ];
 
   return (

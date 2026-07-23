@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { Gavel, Plus, Users, ShieldAlert, CheckCircle, AlertCircle, Calendar, ArrowRight, Layers } from 'lucide-react';
 import { PageSkeleton, TableSkeletonRows } from '../../components/common/Skeleton';
+import { listDefenseBoards, loadDefenseManagementWorkspace } from '../../services/defenseManagement';
 
 const DefenseManagementPage = () => {
   const [activeTab, setActiveTab] = useState('rounds');
@@ -13,6 +14,7 @@ const DefenseManagementPage = () => {
   // Defense Rounds State
   const [rounds, setRounds] = useState([]);
   const [sessions, setSessions] = useState([]);
+  const [boards, setBoards] = useState([]);
   const [lecturers, setLecturers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [showCreateRound, setShowCreateRound] = useState(false);
@@ -29,15 +31,16 @@ const DefenseManagementPage = () => {
   const [boardType, setBoardType] = useState(0); // 0=Standard, 1=Reduced
   const [chairmanId, setChairmanId] = useState(1);
   const [secretaryId, setSecretaryId] = useState(2);
-  const [memberIdsStr, setMemberIdsStr] = useState('3, 4, 5');
+  const [memberIds, setMemberIds] = useState([]);
 
   // Add Board Member State
-  const [targetCouncilId, setTargetCouncilId] = useState(1);
+  const [targetCouncilId, setTargetCouncilId] = useState('');
   const [addLecturerId, setAddLecturerId] = useState(3);
   const [addMemberRole, setAddMemberRole] = useState(2); // CouncilMemberRole enum: 0=Chairman, 1=Secretary, 2=Member
 
   // Assign Session State
-  const [sessCouncilId, setSessCouncilId] = useState(1);
+  const [sessCouncilId, setSessCouncilId] = useState('');
+  const [sessRoundId, setSessRoundId] = useState('');
   const [sessGroupId, setSessGroupId] = useState(1);
   const [sessDate, setSessDate] = useState('2026-07-10');
   const [sessSlot, setSessSlot] = useState(1);
@@ -68,42 +71,47 @@ const DefenseManagementPage = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'rounds') fetchRounds();
-    if (activeTab === 'sessions') fetchSessions();
-  }, [activeTab]);
-
-  useEffect(() => {
-    const fetchReferenceData = async () => {
+    const loadWorkspace = async () => {
       try {
-        const semesterResponse = await api.get('/semesters/resolve');
-        const semester = semesterResponse.data;
-        if (!semester?.id) return;
-        setRoundSemesterId(semester.id);
-        setBoardSemesterId(semester.id);
-        const roundsResponse = await api.get('/review-scheduling/rounds', { params: { semesterId: semester.id } });
-        const reviewRounds = Array.isArray(roundsResponse.data) ? roundsResponse.data : [];
-        const reviewRound = reviewRounds[0];
-        if (!reviewRound) return;
-        const boardResponse = await api.get('/review-scheduling/board', {
-          params: { semesterId: semester.id, reviewType: reviewRound.type, weekStart: reviewRound.weekStartDate }
-        });
-        const availableLecturers = boardResponse.data?.lecturers || [];
-        const availableGroups = boardResponse.data?.groups || [];
-        setLecturers(availableLecturers);
-        setGroups(availableGroups);
-        if (availableLecturers.length >= 3) {
-          setChairmanId(availableLecturers[0].id);
-          setSecretaryId(availableLecturers[1].id);
-          setMemberIdsStr(String(availableLecturers[2].id));
-          setAddLecturerId(availableLecturers[2].id);
+        const workspace = await loadDefenseManagementWorkspace();
+        setRounds(workspace.rounds);
+        setBoards(workspace.boards);
+        setSessions(workspace.sessions);
+        setLecturers(workspace.lecturers);
+        setGroups(workspace.groups);
+        if (workspace.semester?.id) {
+          setRoundSemesterId(workspace.semester.id);
+          setBoardSemesterId(workspace.semester.id);
         }
-        if (availableGroups.length > 0) setSessGroupId(availableGroups[0].id);
+        if (workspace.rounds.length > 0) setSessRoundId(workspace.rounds[0].id);
+        if (workspace.boards.length > 0) {
+          setTargetCouncilId(workspace.boards[0].id);
+          setSessCouncilId(workspace.boards[0].id);
+        }
+        if (workspace.lecturers.length >= 3) {
+          setChairmanId(workspace.lecturers[0].id);
+          setSecretaryId(workspace.lecturers[1].id);
+          setMemberIds([workspace.lecturers[2].id]);
+          setAddLecturerId(workspace.lecturers[2].id);
+        }
+        if (workspace.groups.length > 0) setSessGroupId(workspace.groups[0].id);
       } catch (err) {
-        console.error('Failed to load defense reference data:', err);
+        setError(err.response?.data?.error || 'Không thể tải dữ liệu quản lý hội đồng và lịch bảo vệ.');
+      } finally {
+        setInitialLoading(false);
       }
     };
-    fetchReferenceData();
+    loadWorkspace();
   }, []);
+
+  const refreshBoards = async () => {
+    const nextBoards = await listDefenseBoards(Number(boardSemesterId));
+    setBoards(nextBoards);
+    if (nextBoards.length > 0) {
+      setTargetCouncilId((current) => current || nextBoards[0].id);
+      setSessCouncilId((current) => current || nextBoards[0].id);
+    }
+  };
 
   const handleRoundStartChange = (e) => {
     const val = e.target.value;
@@ -158,16 +166,16 @@ const DefenseManagementPage = () => {
     setSuccess('');
     setLoading(true);
     try {
-      const memberIds = memberIdsStr.split(',').map((id) => Number(id.trim())).filter((id) => !Number.isNaN(id) && id > 0);
       const response = await api.post('/defense-management/boards', {
         code: boardCode,
         semesterId: Number(boardSemesterId),
         type: Number(boardType),
         chairmanId: Number(chairmanId),
         secretaryId: Number(secretaryId),
-        memberLecturerIds: memberIds
+        memberLecturerIds: memberIds.map(Number)
       });
       setSuccess(`Defense Council / Board '${boardCode}' (ID: #${response.data.id || 'new'}) established successfully!`);
+      await refreshBoards();
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.error || 'Failed to create defense board. Check that all Lecturer IDs exist.');
@@ -191,6 +199,7 @@ const DefenseManagementPage = () => {
         role: Number(addMemberRole)
       });
       setSuccess(`Lecturer #${addLecturerId} successfully added to Council #${targetCouncilId}!`);
+      await refreshBoards();
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.error || 'Failed to add member to council.');
@@ -201,11 +210,15 @@ const DefenseManagementPage = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    if (!sessRoundId || !sessCouncilId || !sessGroupId) {
+      setError('Vui lòng chọn đầy đủ đợt bảo vệ, hội đồng và nhóm.');
+      return;
+    }
     setLoading(true);
     try {
       await api.post('/defense-management/sessions', {
         code: `DEF_${sessGroupId}_${sessSlot}_${Date.now()}`,
-        defenseRoundId: Number(rounds[0]?.id || 1),
+        defenseRoundId: Number(sessRoundId),
         councilId: Number(sessCouncilId),
         groupId: Number(sessGroupId),
         sessionDate: sessDate,
@@ -335,7 +348,7 @@ const DefenseManagementPage = () => {
         <div className="glass-card" style={{ padding: '2rem', maxWidth: '640px', margin: '0 auto', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
           <h3 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0F172A' }}>
             <Gavel size={22} color="#F26522" />
-            <span>Thành lập Hội đồng Bảo vệ (`POST /boards`)</span>
+            <span>Thành lập Hội đồng Bảo vệ</span>
           </h3>
           <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem', lineHeight: 1.4 }}>
             Hội đồng tiêu chuẩn gồm 5 thành viên (Chủ tịch, Thư ký và 3 Ủy viên). Hội đồng rút gọn gồm 3 thành viên (Chủ tịch, Thư ký và 1 Ủy viên).
@@ -377,19 +390,27 @@ const DefenseManagementPage = () => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="def-members" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Danh sách ID Ủy viên (cách nhau bởi dấu phẩy)</label>
-              <input
+              <label htmlFor="def-members" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Ủy viên hội đồng</label>
+              <select
                 id="def-members"
-                type="text"
-                className="form-input"
-                value={memberIdsStr}
-                onChange={(e) => setMemberIdsStr(e.target.value)}
-                placeholder="3, 4, 5"
+                multiple
+                className="form-select"
+                value={memberIds.map(String)}
+                onChange={(event) => setMemberIds(
+                  Array.from(event.target.selectedOptions, (option) => Number(option.value)),
+                )}
                 required
+                size={Math.min(Math.max(lecturers.length, 3), 7)}
                 style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}
-              />
+              >
+                {lecturers
+                  .filter((lecturer) => Number(lecturer.id) !== Number(chairmanId) && Number(lecturer.id) !== Number(secretaryId))
+                  .map((lecturer) => (
+                    <option key={lecturer.id} value={lecturer.id}>{lecturer.code} — {lecturer.fullName}</option>
+                  ))}
+              </select>
               <span style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '0.2rem', display: 'block' }}>
-                Với hội đồng 5 thành viên, nhập 3 ID giảng viên ủy viên (ví dụ: 3, 4, 5).
+                Giữ Ctrl (Windows) hoặc Cmd (macOS) để chọn nhiều giảng viên.
               </span>
             </div>
 
@@ -406,13 +427,16 @@ const DefenseManagementPage = () => {
         <div className="glass-card" style={{ padding: '2rem', maxWidth: '560px', margin: '0 auto', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
           <h3 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '0.5rem', color: '#0F172A' }}>Thêm / Cập nhật Thành viên Hội đồng</h3>
           <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem', lineHeight: 1.4 }}>
-            Thêm trực tiếp một giảng viên vào hội đồng đã thành lập kèm vai trò cụ thể (`POST /boards/:councilId/members`).
+            Chọn hội đồng đã thành lập và bổ sung giảng viên theo vai trò phù hợp.
           </p>
 
           <form onSubmit={handleAddMember}>
             <div className="form-group">
-              <label htmlFor="def-targetCouncil" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Hội đồng mục tiêu</label>
-              <input id="def-targetCouncil" type="number" className="form-input" value={targetCouncilId} onChange={(e) => setTargetCouncilId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+              <label htmlFor="def-targetCouncil" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Hội đồng</label>
+              <select id="def-targetCouncil" className="form-select" value={targetCouncilId} onChange={(e) => setTargetCouncilId(e.target.value)} required>
+                <option value="">Chọn hội đồng</option>
+                {boards.map((board) => <option key={board.id} value={board.id}>{board.code} — {board.memberLecturerIds?.length || 0} thành viên</option>)}
+              </select>
             </div>
 
             <div className="form-group">
@@ -448,17 +472,27 @@ const DefenseManagementPage = () => {
             <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0F172A' }}>Phân công Lịch Bảo vệ cho Nhóm Checkpoint</h3>
           </div>
           <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '1.5rem', lineHeight: 1.4 }}>
-            Phân công nhóm checkpoint vào hội đồng bảo vệ (`POST /defense-management/sessions`). Hệ thống tự động kiểm tra và ngăn chặn tuyệt đối xung đột giảng viên hướng dẫn (GVHD không được tham gia hội đồng chấm nhóm của mình).
+            Phân công nhóm checkpoint vào hội đồng. Hệ thống tự kiểm tra học kỳ, loại hội đồng, thời gian và xung đột giảng viên.
           </p>
 
           <form onSubmit={handleAssignSession}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
               <div className="form-group">
-                <label htmlFor="def-sessCouncil" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Hội đồng</label>
-                <input id="def-sessCouncil" type="number" className="form-input" value={sessCouncilId} onChange={(e) => setSessCouncilId(e.target.value)} required style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }} />
+                <label htmlFor="def-sessRound" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Đợt bảo vệ</label>
+                <select id="def-sessRound" className="form-select" value={sessRoundId} onChange={(e) => setSessRoundId(e.target.value)} required>
+                  <option value="">Chọn đợt bảo vệ</option>
+                  {rounds.map((round) => <option key={round.id} value={round.id}>{round.code} — {round.name}</option>)}
+                </select>
               </div>
               <div className="form-group">
-                <label htmlFor="def-sessGroup" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>ID Nhóm Checkpoint</label>
+                <label htmlFor="def-sessCouncil" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Hội đồng</label>
+                <select id="def-sessCouncil" className="form-select" value={sessCouncilId} onChange={(e) => setSessCouncilId(e.target.value)} required>
+                  <option value="">Chọn hội đồng</option>
+                  {boards.map((board) => <option key={board.id} value={board.id}>{board.code}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="def-sessGroup" className="form-label" style={{ color: '#334155', fontWeight: 600 }}>Nhóm Checkpoint</label>
                 <select id="def-sessGroup" className="form-select" value={sessGroupId} onChange={(e) => setSessGroupId(e.target.value)} required>
                   {groups.map((group) => <option key={group.id} value={group.id}>{group.code} — {group.projectName}</option>)}
                 </select>

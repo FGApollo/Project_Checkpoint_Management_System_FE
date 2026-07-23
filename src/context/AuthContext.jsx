@@ -96,30 +96,14 @@ export const AuthProvider = ({ children }) => {
     }
   }, [persistAuthentication]);
 
-  const bootstrapAdmin = useCallback(async (username, email, password) => {
-    setLoading(true);
-    setError(null);
-    try {
-      await api.post('/auth/bootstrap-admin', { username, email, password });
-      // Now login using those credentials right away
-      return await login(username, password);
-    } catch (err) {
-      const msg = err.response?.data?.error || 'Khởi tạo tài khoản Quản trị viên Gốc thất bại.';
-      setError(msg);
-      throw new Error(msg);
-    } finally {
-      setLoading(false);
-    }
-  }, [login]);
-
   const logout = useCallback(async () => {
     clearStoredAuthentication();
     setUser(null);
   }, []);
 
   const contextValue = React.useMemo(
-    () => ({ user, loading, error, login, googleLogin, logout, bootstrapAdmin, setUser }),
-    [user, loading, error, login, googleLogin, logout, bootstrapAdmin]
+    () => ({ user, loading, error, login, googleLogin, logout, setUser }),
+    [user, loading, error, login, googleLogin, logout]
   );
 
   return (
