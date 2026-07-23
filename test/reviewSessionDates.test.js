@@ -49,6 +49,8 @@ test('lecturer and student review UIs expose today and upcoming tabs with remind
   assert.match(reviewPage, /label: 'Sắp tới'/);
   assert.match(reviewPage, /filterReviewSessions\(sessions, sessionFilter\)/);
   assert.match(reviewPage, /getReviewReminder\(dateGroup\.date\)/);
+  assert.match(reviewPage, /\{dateGroup\.sessions\.length\} nhóm/);
+  assert.match(reviewPage, /Chưa đến giờ điểm danh/);
   assert.match(lecturerDashboard, /getReviewReminder\(review\.sessionDate/);
   assert.match(studentSchedule, /role="tablist"/);
   assert.match(studentSchedule, /label: 'Hôm nay'/);

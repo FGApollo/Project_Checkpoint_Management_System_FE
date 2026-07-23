@@ -3,9 +3,10 @@ import api from '../../services/api';
 import { listProjectDocuments, downloadProjectDocument, generateProjectDocumentSuggestions, listDocumentComments, createDocumentComment } from '../../services/documents';
 import reviewProgressService from '../../services/reviewProgress';
 import { useAuth } from '../../context/authContextValue.js';
-import { CheckSquare, CalendarDays, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles, Wifi, WifiOff, Loader2, Plus, Trash2 } from 'lucide-react';
+import { CheckSquare, CalendarDays, MessageSquare, FileText, Download, Save, Send, CheckCircle2, AlertCircle, RefreshCw, Sparkles, Wifi, WifiOff, Loader2, Plus, Trash2, LockKeyhole } from 'lucide-react';
 import { PageSkeleton, PanelSkeleton } from '../../components/common/Skeleton';
 import { filterReviewSessions, getReviewDateKey, getReviewReminder, REVIEW_TIME_ZONE } from '../../features/reviews/reviewSessionDates.js';
+import { getReviewSlotTime, isReviewAttendanceOpen } from '../../features/reviews/reviewSlots.js';
 
 const getTabButtonProps = (activeTab, tab) => {
   if (activeTab === tab) return { className: 'btn btn-primary', style: {} };
@@ -53,6 +54,7 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [attendanceClock, setAttendanceClock] = useState(() => new Date());
 
   // Attendance & Comments State
   const [attendanceList, setAttendanceList] = useState([]);
@@ -78,6 +80,9 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
   const filteredSessions = filterReviewSessions(sessions, sessionFilter);
   const canSendComment = newComment.trim().length > 0 && !commentSending;
   const normalizedEvalComments = evalComments.map((comment) => comment.trim()).filter(Boolean);
+  const attendanceIsOpen = selectedSession
+    ? isReviewAttendanceOpen(selectedSession.sessionDate, selectedSession.slot, attendanceClock)
+    : false;
   const sessionDateGroups = new Map();
   filteredSessions.forEach((session) => {
     const dateKey = getReviewDateKey(session.sessionDate) || 'unknown';
@@ -140,6 +145,12 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
     setSuccess('');
   }, [attendanceOnly]);
 
+  useEffect(() => {
+    if (!attendanceOnly) return undefined;
+    const timer = window.setInterval(() => setAttendanceClock(new Date()), 30_000);
+    return () => window.clearInterval(timer);
+  }, [attendanceOnly]);
+
   useEffect(() => () => { reviewProgressService.stop(); }, []);
 
   const fetchSessionDetails = useCallback(async (sess) => {
@@ -150,6 +161,10 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
     setError('');
     try {
       if (activeTab === 'attendance') {
+        if (!isReviewAttendanceOpen(sess.sessionDate, sess.slot)) {
+          setAttendanceList([]);
+          return;
+        }
         const res = await api.get(`/review-attendance/${sessionId}`, {
           params: { groupId: sess.groupId }
         });
@@ -287,6 +302,10 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
 
   const handleSaveAttendance = async () => {
     if (!selectedSession) return;
+    if (!isReviewAttendanceOpen(selectedSession.sessionDate, selectedSession.slot)) {
+      setError(`Điểm danh chỉ mở khi Ca ${selectedSession.slot} bắt đầu lúc ${getReviewSlotTime(selectedSession.slot).split(' – ')[0]}.`);
+      return;
+    }
     setError('');
     setSuccess('');
     try {
@@ -548,7 +567,7 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
                       {getReviewReminder(dateGroup.date) && (
                         <strong style={{ fontSize: '0.72rem' }}>{getReviewReminder(dateGroup.date)}</strong>
                       )}
-                      <span style={{ fontSize: '0.68rem', fontWeight: 700 }}>{dateGroup.sessions.length} ca</span>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 700 }}>{dateGroup.sessions.length} nhóm</span>
                     </span>
                   </div>
 
@@ -651,7 +670,34 @@ const ReviewScoringPage = ({ attendanceOnly = false }) => {
               </div>}
 
               {/* ATTENDANCE PANEL */}
-              {activeTab === 'attendance' && (
+              {activeTab === 'attendance' && !attendanceIsOpen && (
+                <section
+                  role="status"
+                  style={{
+                    minHeight: 280,
+                    display: 'grid',
+                    placeItems: 'center',
+                    textAlign: 'center',
+                    padding: '2rem',
+                    border: '1px solid #FED7AA',
+                    borderRadius: '1rem',
+                    background: '#FFF7ED',
+                    color: '#9A3412'
+                  }}
+                >
+                  <div>
+                    <span style={{ width: 56, height: 56, margin: '0 auto 0.9rem', borderRadius: 18, display: 'grid', placeItems: 'center', background: '#FFEDD5' }}>
+                      <LockKeyhole size={28} aria-hidden="true" />
+                    </span>
+                    <h3 style={{ margin: 0, color: '#9A3412' }}>Chưa đến giờ điểm danh</h3>
+                    <p style={{ margin: '0.55rem 0 0', color: '#C2410C' }}>
+                      Ca {selectedSession.slot} mở lúc {getReviewSlotTime(selectedSession.slot)}. Danh sách và thao tác điểm danh sẽ tự mở khi đến giờ.
+                    </p>
+                  </div>
+                </section>
+              )}
+
+              {activeTab === 'attendance' && attendanceIsOpen && (
                 <div>
                   <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', color: '#0F172A' }}>Xác nhận Điểm danh Sinh viên trong Nhóm</h3>
                   <div className="table-container" style={{ marginBottom: '1.25rem' }}>

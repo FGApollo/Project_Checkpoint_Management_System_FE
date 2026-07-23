@@ -6,6 +6,8 @@ import {
   REVIEW_SLOTS,
   getReviewSlotLabel,
   getReviewSlotTime,
+  getReviewAttendanceOpenTime,
+  isReviewAttendanceOpen,
 } from '../src/features/reviews/reviewSlots.js';
 
 const toMinutes = (value) => {
@@ -35,6 +37,13 @@ test('five review slots cover 07:30 to 19:00 without crossing the lunch break', 
   assert.ok(durations.every((duration) => duration === 120));
   assert.equal(getReviewSlotTime(5), '17:00 – 19:00');
   assert.equal(getReviewSlotLabel(3), 'Slot 3 (12:30 – 14:30)');
+});
+
+test('attendance opens exactly when the selected slot starts in Vietnam time', () => {
+  const sessionDate = '2026-07-23T00:00:00Z';
+  assert.equal(getReviewAttendanceOpenTime(sessionDate, 3)?.toISOString(), '2026-07-23T05:30:00.000Z');
+  assert.equal(isReviewAttendanceOpen(sessionDate, 3, new Date('2026-07-23T05:29:59Z')), false);
+  assert.equal(isReviewAttendanceOpen(sessionDate, 3, new Date('2026-07-23T05:30:00Z')), true);
 });
 
 test('lecturer can edit and resubmit availability while the round remains open', async () => {

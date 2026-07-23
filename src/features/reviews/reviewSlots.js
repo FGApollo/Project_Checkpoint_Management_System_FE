@@ -20,3 +20,29 @@ export const getReviewSlotLabel = (slotId) => {
   const slot = getReviewSlot(slotId);
   return slot ? `${slot.name} (${slot.time})` : `Slot ${slotId || '?'}`;
 };
+
+const getVietnamDateKey = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date).map(({ type, value: partValue }) => [type, partValue]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+};
+
+export const getReviewAttendanceOpenTime = (sessionDate, slotId) => {
+  const dateKey = getVietnamDateKey(sessionDate);
+  const slot = getReviewSlot(slotId);
+  if (!dateKey || !slot) return null;
+  const openTime = new Date(`${dateKey}T${slot.start}:00+07:00`);
+  return Number.isNaN(openTime.getTime()) ? null : openTime;
+};
+
+export const isReviewAttendanceOpen = (sessionDate, slotId, referenceDate = new Date()) => {
+  const openTime = getReviewAttendanceOpenTime(sessionDate, slotId);
+  const reference = referenceDate instanceof Date ? referenceDate : new Date(referenceDate);
+  return openTime !== null && !Number.isNaN(reference.getTime()) && reference >= openTime;
+};
