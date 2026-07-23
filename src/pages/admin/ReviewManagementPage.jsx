@@ -605,11 +605,12 @@ const ReviewManagementPage = () => {
             ? {
               ...item,
               hasAccessCode: true,
+              accessCode: data.accessCode,
               accessCodeGeneratedAt: data.generatedAt
             }
             : item)
       }));
-      setSuccess(`Đã tạo mã riêng cho nhóm ${group.groupCode || `#${groupId}`}. Hãy gửi mã cho đúng hội đồng vì mã chỉ hiển thị trong lần này.`);
+      setSuccess(`Đã tạo mã riêng cho nhóm ${group.groupCode || `#${groupId}`}: ${data.accessCode}. Mã này sẽ hiển thị liên tục đến khi đóng ca.`);
     } catch (err) {
       setError(err.response?.data?.error || 'Không thể tạo mã truy cập cho nhóm review.');
     } finally {
@@ -617,8 +618,8 @@ const ReviewManagementPage = () => {
     }
   };
 
-  const handleCopyAccessCode = async (groupKey) => {
-    const accessCode = generatedAccessCodes[groupKey];
+  const handleCopyAccessCode = async (explicitCode) => {
+    const accessCode = explicitCode || generatedAccessCodes[selectedAccessCodeGroupKey];
     if (!accessCode) return;
     try {
       await navigator.clipboard.writeText(accessCode);
@@ -756,43 +757,53 @@ const ReviewManagementPage = () => {
                             <small style={{ display: 'block', color: '#64748B', marginTop: '0.15rem' }}>Phòng {group.room || 'Chưa xếp phòng'} · Phiên #{getReviewSessionId(group)}</small>
                           </span>
                         </span>
-                        <span className="badge" style={{ flexShrink: 0, color: group.hasAccessCode ? '#047857' : '#B45309', background: group.hasAccessCode ? '#D1FAE5' : '#FEF3C7', fontWeight: 800 }}>
-                          {group.hasAccessCode ? 'Đã có mã' : 'Chưa có mã'}
+                        <span className="badge" style={{ flexShrink: 0, color: group.groupStatus === 'Completed' ? '#065F46' : (group.hasAccessCode || group.accessCode) ? '#047857' : '#B45309', background: group.groupStatus === 'Completed' ? '#A7F3D0' : (group.hasAccessCode || group.accessCode) ? '#D1FAE5' : '#FEF3C7', fontWeight: 800 }}>
+                          {group.groupStatus === 'Completed' ? 'Đã đóng ca (Hoàn thành)' : (group.hasAccessCode || group.accessCode) ? 'Đã có mã' : 'Chưa có mã'}
                         </span>
                       </label>
                     );
                   })}
                 </div>
 
-                {selectedAccessCodeGroup && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', paddingTop: '0.25rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                      {generatedAccessCodes[selectedAccessCodeGroupKey] && (
-                        <>
-                          <code style={{ padding: '0.45rem 0.7rem', borderRadius: 8, background: '#0F172A', color: '#F8FAFC', fontSize: '1rem', fontWeight: 800, letterSpacing: '0.16em' }}>
-                            {generatedAccessCodes[selectedAccessCodeGroupKey]}
-                          </code>
-                          <button type="button" className="btn btn-secondary" onClick={() => handleCopyAccessCode(selectedAccessCodeGroupKey)} style={{ padding: '0.4rem 0.6rem' }}>
-                            <Copy size={14} /> Sao chép
-                          </button>
-                          <span style={{ color: '#B45309', fontSize: '0.73rem', fontWeight: 700 }}>Mã chỉ hiển thị trong lần tạo này</span>
-                        </>
+                {selectedAccessCodeGroup && (() => {
+                  const displayCode = generatedAccessCodes[selectedAccessCodeGroupKey] || selectedAccessCodeGroup.accessCode;
+                  const isCompleted = selectedAccessCodeGroup.groupStatus === 'Completed';
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', paddingTop: '0.25rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                        {displayCode && !isCompleted && (
+                          <>
+                            <code style={{ padding: '0.45rem 0.75rem', borderRadius: 8, background: '#0F172A', color: '#F8FAFC', fontSize: '1.05rem', fontWeight: 800, letterSpacing: '0.16em' }}>
+                              {displayCode}
+                            </code>
+                            <button type="button" className="btn btn-secondary" onClick={() => handleCopyAccessCode(displayCode)} style={{ padding: '0.4rem 0.6rem' }}>
+                              <Copy size={14} /> Sao chép
+                            </button>
+                          </>
+                        )}
+                        {isCompleted && (
+                          <span style={{ color: '#065F46', fontSize: '0.82rem', fontWeight: 800 }}>
+                            🔒 Ca bảo vệ cho nhóm này đã hoàn thành & đóng ca chính thức
+                          </span>
+                        )}
+                      </div>
+                      {!isCompleted && (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => handleGenerateAccessCode(selectedAccessCodeGroup)}
+                          disabled={accessCodeBusyGroupKey === selectedAccessCodeGroupKey}
+                          style={{ whiteSpace: 'nowrap' }}
+                        >
+                          <KeyRound size={16} />
+                          {accessCodeBusyGroupKey === selectedAccessCodeGroupKey
+                            ? 'Đang tạo...'
+                            : (displayCode || selectedAccessCodeGroup.hasAccessCode) ? 'Tạo lại mã nhóm' : 'Tạo mã cho nhóm'}
+                        </button>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => handleGenerateAccessCode(selectedAccessCodeGroup)}
-                      disabled={accessCodeBusyGroupKey === selectedAccessCodeGroupKey}
-                      style={{ whiteSpace: 'nowrap' }}
-                    >
-                      <KeyRound size={16} />
-                      {accessCodeBusyGroupKey === selectedAccessCodeGroupKey
-                        ? 'Đang tạo...'
-                        : selectedAccessCodeGroup.hasAccessCode ? 'Tạo lại mã nhóm' : 'Tạo mã cho nhóm'}
-                    </button>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             )}
           </div>

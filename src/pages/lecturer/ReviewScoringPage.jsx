@@ -93,6 +93,7 @@ const ReviewScoringPage = () => {
   const attendanceIsOpen = selectedSession
     ? isReviewAttendanceOpen(selectedSession.sessionDate, selectedSession.slot, attendanceClock)
     : false;
+  const isSessionCompleted = selectedSession?.groupStatus === 'Completed';
   const sessionAccessUnlocked = selectedSession?.isAccessVerified === true;
   const sessionDateGroups = new Map();
   filteredSessions.forEach((session) => {
@@ -454,15 +455,22 @@ const ReviewScoringPage = () => {
       });
       await api.post(`/review-submissions/${subId}/submit`);
       try {
-        await api.post(`/review-attendance/${selectedSession.id}/groups/${selectedSession.groupId}/complete`);
-        setSuccess('Đã kết thúc phiên bảo vệ. Nhận xét của giảng viên đã được gửi cho sinh viên.');
+        const completeRes = await api.post(`/review-attendance/${selectedSession.id}/groups/${selectedSession.groupId}/complete`);
+        if (completeRes.data?.status === 'Completed') {
+          setSelectedSession((prev) => prev ? { ...prev, groupStatus: 'Completed' } : prev);
+          setSessions((prev) => prev.map((s) => (s.sessionId || s.id) === (selectedSession.sessionId || selectedSession.id) ? { ...s, groupStatus: 'Completed' } : s));
+          setSuccess('Đã kết thúc phiên bảo vệ! Tất cả giảng viên trong hội đồng đã gửi nhận xét và phòng bảo vệ đã được khóa chính thức.');
+        } else {
+          setSuccess('Đã nộp nhận xét của bạn. Phiên bảo vệ sẽ hoàn thành khi mọi giảng viên trong hội đồng đã nộp nhận xét.');
+        }
       } catch (completeError) {
         if (completeError.response?.status === 409) {
-          setSuccess('Đã nộp nhận xét của bạn. Phiên bảo vệ sẽ hoàn thành khi mọi giảng viên đã nộp nhận xét. Sinh viên không ký sẽ tự động được ghi nhận vắng mặt.');
+          setSuccess('Đã nộp nhận xét của bạn. Phiên bảo vệ sẽ hoàn thành khi mọi giảng viên trong hội đồng đã nộp nhận xét.');
         } else {
           throw completeError;
         }
       }
+      fetchMySessions({ preserveSelection: true, silent: true });
       fetchSessionDetails(selectedSession);
     } catch (err) {
       setError(err.response?.data?.error || 'Không thể gửi nhận xét chính thức cho phiên bảo vệ.');
@@ -837,6 +845,42 @@ const ReviewScoringPage = () => {
                 )}
               </section>
 
+              {/* COMPLETED ROOM LOCK BANNER */}
+              {isSessionCompleted && (
+                <div style={{
+                  background: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)',
+                  border: '2px solid #10B981',
+                  borderRadius: '1rem',
+                  padding: '1.15rem 1.4rem',
+                  marginBottom: '1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.12)'
+                }}>
+                  <span style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: '50%',
+                    background: '#10B981',
+                    color: '#FFFFFF',
+                    display: 'grid',
+                    placeItems: 'center',
+                    flexShrink: 0
+                  }}>
+                    <LockKeyhole size={22} />
+                  </span>
+                  <div>
+                    <h3 style={{ margin: 0, color: '#065F46', fontSize: '1.05rem', fontWeight: 800 }}>
+                      PHIÊN BẢO VỆ ĐÃ HOÀN THÀNH — PHÒNG ĐÃ KHÓA
+                    </h3>
+                    <p style={{ margin: '0.2rem 0 0', color: '#047857', fontSize: '0.83rem', lineHeight: 1.5 }}>
+                      Tất cả giảng viên trong hội đồng đã gửi nhận xét đánh giá. Phiên bảo vệ cho nhóm <strong>{selectedSession.groupCode || `#${selectedSession.groupId}`}</strong> đã kết thúc và được khóa chính thức.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Session work areas */}
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                 <button
@@ -1063,11 +1107,12 @@ const ReviewScoringPage = () => {
                       className="form-input"
                       rows="4"
                       value={aiProjectContent}
+                      disabled={isSessionCompleted}
                       onChange={(e) => setAiProjectContent(e.target.value)}
                       placeholder="Dán mô tả dự án, mục tiêu, chức năng hoặc nội dung sinh viên trình bày..."
-                      style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', fontSize: '0.9rem', lineHeight: 1.6 }}
+                      style={{ background: isSessionCompleted ? '#F1F5F9' : '#F8FAFC', color: isSessionCompleted ? '#475569' : '#0F172A', border: '1px solid #CBD5E1', fontSize: '0.9rem', lineHeight: 1.6 }}
                     />
-                    <button type="button" className="btn btn-secondary" onClick={handleGenerateAiSuggestion} disabled={aiLoading} style={{ marginTop: '0.75rem', background: '#EEF2FF', border: '1px solid #C7D2FE', color: '#4338CA', fontWeight: 700 }}>
+                    <button type="button" className="btn btn-secondary" onClick={handleGenerateAiSuggestion} disabled={aiLoading || isSessionCompleted} style={{ marginTop: '0.75rem', background: '#EEF2FF', border: '1px solid #C7D2FE', color: '#4338CA', fontWeight: 700 }}>
                       <Sparkles size={16} />
                       <span>{aiLoading ? 'AI đang phân tích...' : 'Tạo gợi ý nhận xét bằng AI'}</span>
                     </button>
@@ -1090,17 +1135,21 @@ const ReviewScoringPage = () => {
                         <h4 style={{ margin: 0, color: '#334155', fontWeight: 800, fontSize: '0.95rem' }}>Ý kiến nhận xét chuyên môn cho nhóm</h4>
                         <p style={{ margin: '0.25rem 0 0', color: '#64748B', fontSize: '0.78rem' }}>Có thể thêm nhiều nhận xét độc lập trong cùng một phiếu.</p>
                       </div>
-                      <button type="button" className="btn btn-secondary" onClick={() => addEvaluationComment()} style={{ background: '#FFF7ED', border: '1px solid #FDBA74', color: '#C2410C', fontWeight: 700 }}>
-                        <Plus size={16} /> Thêm nhận xét
-                      </button>
+                      {!isSessionCompleted && (
+                        <button type="button" className="btn btn-secondary" onClick={() => addEvaluationComment()} style={{ background: '#FFF7ED', border: '1px solid #FDBA74', color: '#C2410C', fontWeight: 700 }}>
+                          <Plus size={16} /> Thêm nhận xét
+                        </button>
+                      )}
                     </div>
                     {evalComments.map((comment, index) => (
-                      <div key={`evaluation-comment-${index}`} style={{ padding: '1rem', border: '1px solid #E2E8F0', borderRadius: '0.85rem', background: '#FFFFFF' }}>
+                      <div key={`evaluation-comment-${index}`} style={{ padding: '1rem', border: '1px solid #E2E8F0', borderRadius: '0.85rem', background: isSessionCompleted ? '#F8FAFC' : '#FFFFFF' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', gap: '1rem' }}>
                           <label htmlFor={`rev-eval-comment-${index}`} className="form-label" style={{ margin: 0, color: '#334155', fontWeight: 700 }}>Nhận xét {index + 1}</label>
-                          <button type="button" onClick={() => removeEvaluationComment(index)} aria-label={`Xóa nhận xét ${index + 1}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', border: 'none', background: 'transparent', color: '#DC2626', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
-                            <Trash2 size={14} /> Xóa
-                          </button>
+                          {!isSessionCompleted && (
+                            <button type="button" onClick={() => removeEvaluationComment(index)} aria-label={`Xóa nhận xét ${index + 1}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', border: 'none', background: 'transparent', color: '#DC2626', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                              <Trash2 size={14} /> Xóa
+                            </button>
+                          )}
                         </div>
                         <textarea
                           id={`rev-eval-comment-${index}`}
@@ -1108,25 +1157,45 @@ const ReviewScoringPage = () => {
                           rows="4"
                           maxLength={4000}
                           value={comment}
+                          disabled={isSessionCompleted}
                           onChange={(event) => updateEvaluationComment(index, event.target.value)}
                           placeholder="Nhập nhận xét về kiến trúc, chức năng, hạn chế hoặc định hướng tiếp theo..."
-                          style={{ display: 'block', width: '100%', boxSizing: 'border-box', resize: 'vertical', background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', fontSize: '0.9rem', lineHeight: 1.6 }}
+                          style={{ display: 'block', width: '100%', boxSizing: 'border-box', resize: 'vertical', background: isSessionCompleted ? '#F1F5F9' : '#F8FAFC', color: isSessionCompleted ? '#475569' : '#0F172A', border: '1px solid #CBD5E1', fontSize: '0.9rem', lineHeight: 1.6, cursor: isSessionCompleted ? 'not-allowed' : 'text' }}
                         />
                         <div style={{ marginTop: '0.35rem', textAlign: 'right', color: comment.length > 3800 ? '#DC2626' : '#94A3B8', fontSize: '0.7rem', fontWeight: 600 }}>{comment.length}/4000</div>
                       </div>
                     ))}
                   </div>
 
-                  <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
-                    <button type="button" className="btn btn-secondary" onClick={handleSaveEvaluationDraft} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 600 }}>
-                      <Save size={16} color="#0EA5E9" />
-                      <span>Lưu Bản nháp</span>
-                    </button>
-                    <button type="button" className="btn btn-success" onClick={handleSubmitEvaluationFinal} style={{ background: '#10B981', color: 'white', fontWeight: 700, padding: '0.75rem 1.5rem' }}>
-                      <CheckCircle2 size={18} />
-                      <span>Kết thúc Phiên Bảo vệ & Gửi Nhận xét</span>
-                    </button>
-                  </div>
+                  {isSessionCompleted ? (
+                    <div style={{
+                      padding: '1rem 1.5rem',
+                      borderRadius: '0.85rem',
+                      background: 'linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%)',
+                      color: '#065F46',
+                      border: '1px solid #34D399',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.65rem',
+                      marginTop: '1.25rem',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.12)'
+                    }}>
+                      <CheckCircle2 size={20} color="#059669" />
+                      <span>Phiên bảo vệ đã hoàn thành & Phòng đã được khóa chính thức</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+                      <button type="button" className="btn btn-secondary" onClick={handleSaveEvaluationDraft} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', color: '#0F172A', fontWeight: 600 }}>
+                        <Save size={16} color="#0EA5E9" />
+                        <span>Lưu Bản nháp</span>
+                      </button>
+                      <button type="button" className="btn btn-success" onClick={handleSubmitEvaluationFinal} style={{ background: '#10B981', color: 'white', fontWeight: 700, padding: '0.75rem 1.5rem' }}>
+                        <CheckCircle2 size={18} />
+                        <span>Kết thúc Phiên Bảo vệ & Gửi Nhận xét</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
                 </>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../../services/api';
-import { Plus, CheckCircle, AlertCircle, RefreshCw, CalendarDays, Lock, Unlock, Trash2, Users, X } from 'lucide-react';
+import { Plus, CheckCircle, AlertCircle, RefreshCw, CalendarDays, Lock, Unlock, Trash2, Users, X, Crown, UserCheck, Layers } from 'lucide-react';
 import { getActivationBlockedMessage, isDateWithinSemester } from '../../features/semesters/semesterDates';
 import { PageSkeleton, PanelSkeleton, TableSkeletonRows } from '../../components/common/Skeleton';
 
@@ -317,43 +318,190 @@ const SemesterManagementPage = () => {
         )}
       </div>
 
-      {groupsModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: '1rem' }}>
-          <div className="glass-card" style={{ width: 'min(1000px, 96vw)', maxHeight: '88vh', overflow: 'auto', padding: '1.5rem', background: '#FFFFFF' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
-              <div>
-                <h3 style={{ margin: 0, color: '#0F172A' }}>Nhóm đồ án — {groupsModal.name}</h3>
-                <p style={{ margin: '0.25rem 0 0', color: '#64748B' }}>{semesterGroups.length} nhóm lấy trực tiếp từ database.</p>
+      {groupsModal && createPortal(
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(15, 23, 42, 0.7)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '1.5rem',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{
+            width: 'min(1100px, 94vw)',
+            height: 'min(760px, 82vh)',
+            maxHeight: '82vh',
+            display: 'flex',
+            flexDirection: 'column',
+            background: '#FFFFFF',
+            borderRadius: '20px',
+            border: '1px solid #CBD5E1',
+            boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.4)',
+            overflow: 'hidden'
+          }}>
+            
+            {/* Modal Header */}
+            <div style={{ flexShrink: 0, padding: '1.25rem 1.75rem', background: 'linear-gradient(135deg, #FFF7ED 0%, #FFFFFF 100%)', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <span style={{ width: 44, height: 44, borderRadius: 14, background: 'linear-gradient(135deg, #F26522, #FF7A00)', display: 'grid', placeItems: 'center', color: '#FFFFFF', boxShadow: '0 6px 16px rgba(242, 101, 34, 0.25)' }}>
+                  <Users size={22} />
+                </span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 850, color: '#0F172A' }}>
+                    Danh sách Nhóm Đồ án — Kỳ {groupsModal.name} ({groupsModal.code})
+                  </h3>
+                  <p style={{ margin: '0.2rem 0 0', fontSize: '0.83rem', color: '#64748B', fontWeight: 600 }}>
+                    Hiển thị <strong>{semesterGroups.length}</strong> nhóm đồ án thuộc kỳ học {groupsModal.code}
+                  </p>
+                </div>
               </div>
-              <button type="button" className="btn btn-secondary" onClick={() => setGroupsModal(null)} aria-label="Đóng"><X size={18} /></button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setGroupsModal(null)}
+                aria-label="Đóng"
+                style={{ borderRadius: '12px', width: 38, height: 38, padding: 0, display: 'grid', placeItems: 'center', background: '#F1F5F9', border: '1px solid #E2E8F0', color: '#475569' }}
+              >
+                <X size={18} />
+              </button>
             </div>
-            {groupsLoading ? <PanelSkeleton rows={5} /> : (
-              <div className="table-container">
-                <table className="table">
-                  <thead><tr><th>Mã nhóm</th><th>Đề tài</th><th>Giảng viên hướng dẫn</th><th>Thành viên</th><th>Trạng thái</th></tr></thead>
-                  <tbody>
-                    {semesterGroups.map((group) => (
-                      <tr key={group.id}>
-                        <td style={{ fontWeight: 700 }}>{group.code}</td>
-                        <td>{group.topicName || 'Chưa có đề tài'}</td>
-                        <td>{group.supervisorName || 'Chưa phân công'}</td>
-                        <td>{Array.isArray(group.members) ? group.members.map((member) => member.fullName).join(', ') || 'Chưa có thành viên' : 'Chưa có thành viên'}</td>
-                        <td>{group.status}</td>
+
+            {/* Modal Scrollable Body */}
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '1.25rem 1.5rem' }}>
+              {groupsLoading ? <PanelSkeleton rows={6} /> : (
+                <div style={{ border: '1px solid #E2E8F0', borderRadius: '14px', overflow: 'hidden' }}>
+                  <table className="table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                    <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                      <tr style={{ background: '#F8FAFC' }}>
+                        <th style={{ padding: '0.9rem 1.1rem', color: '#334155', fontWeight: 800, minWidth: 110 }}>Mã nhóm</th>
+                        <th style={{ padding: '0.9rem 1.1rem', color: '#334155', fontWeight: 800, minWidth: 200 }}>Đề tài Đồ án</th>
+                        <th style={{ padding: '0.9rem 1.1rem', color: '#334155', fontWeight: 800, minWidth: 180 }}>Giảng viên Hướng dẫn</th>
+                        <th style={{ padding: '0.9rem 1.1rem', color: '#334155', fontWeight: 800 }}>Thành viên Nhóm</th>
+                        <th style={{ padding: '0.9rem 1.1rem', color: '#334155', fontWeight: 800, minWidth: 130, textAlign: 'center' }}>Trạng thái</th>
                       </tr>
-                    ))}
-                    {semesterGroups.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>Kỳ học chưa có nhóm đồ án.</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    </thead>
+                    <tbody>
+                      {semesterGroups.map((group) => {
+                        const membersList = Array.isArray(group.members) ? group.members : [];
+                        return (
+                          <tr key={group.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                            <td style={{ padding: '1rem 1.1rem', verticalAlign: 'top' }}>
+                              <span className="badge" style={{ background: 'rgba(242, 101, 34, 0.14)', color: '#F26522', fontWeight: 850, padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.88rem', display: 'inline-block' }}>
+                                {group.code}
+                              </span>
+                            </td>
+                            <td style={{ padding: '1rem 1.1rem', verticalAlign: 'top' }}>
+                              <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '0.92rem', lineHeight: 1.4 }}>
+                                {group.topicName || 'Chưa cập nhật đề tài'}
+                              </div>
+                            </td>
+                            <td style={{ padding: '1rem 1.1rem', verticalAlign: 'top' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.35rem 0.75rem', borderRadius: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0', fontWeight: 700, color: '#334155', fontSize: '0.85rem' }}>
+                                <UserCheck size={16} color="#4F46E5" />
+                                <span>{group.supervisorName || 'Chưa phân công'}</span>
+                              </div>
+                            </td>
+                            <td style={{ padding: '1rem 1.1rem', verticalAlign: 'top' }}>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                                {membersList.length === 0 ? (
+                                  <span style={{ color: '#94A3B8', fontSize: '0.85rem', fontStyle: 'italic' }}>Chưa có thành viên</span>
+                                ) : (
+                                  membersList.map((member, idx) => {
+                                    const isLeader = member.isLeader || (typeof member.fullName === 'string' && member.fullName.includes('(Nhóm Trưởng)'));
+                                    const cleanName = typeof member.fullName === 'string' ? member.fullName.replace(/\s*\(Nhóm Trưởng\)/i, '') : member.fullName;
+                                    return (
+                                      <span
+                                        key={member.id || `${member.code}-${idx}`}
+                                        title={member.email || member.code || ''}
+                                        style={{
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '0.35rem',
+                                          background: isLeader ? '#FFEDD5' : '#F8FAFC',
+                                          color: isLeader ? '#C2410C' : '#334155',
+                                          border: `1px solid ${isLeader ? '#FED7AA' : '#E2E8F0'}`,
+                                          padding: '0.3rem 0.65rem',
+                                          borderRadius: '8px',
+                                          fontSize: '0.8rem',
+                                          fontWeight: isLeader ? 800 : 600
+                                        }}
+                                      >
+                                        {isLeader && <Crown size={13} color="#EA580C" />}
+                                        <span>{cleanName}</span>
+                                        {isLeader && <span style={{ fontSize: '0.7rem', opacity: 0.85, fontWeight: 700 }}>(Trưởng nhóm)</span>}
+                                      </span>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </td>
+                            <td style={{ padding: '1rem 1.1rem', verticalAlign: 'top', textAlign: 'center' }}>
+                              <span className="badge" style={{
+                                background: group.status === 'Active' ? '#DCFCE7' : '#F1F5F9',
+                                color: group.status === 'Active' ? '#15803D' : '#64748B',
+                                border: `1px solid ${group.status === 'Active' ? '#86EFAC' : '#E2E8F0'}`,
+                                fontWeight: 800,
+                                padding: '0.35rem 0.75rem',
+                                borderRadius: '999px',
+                                fontSize: '0.78rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem'
+                              }}>
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />
+                                {group.status === 'Active' ? 'Hoạt động' : (group.status || 'N/A')}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {semesterGroups.length === 0 && (
+                        <tr>
+                          <td colSpan="5" style={{ textAlign: 'center', padding: '3rem 1rem', color: '#64748B', fontWeight: 600 }}>
+                            Kỳ học này chưa có nhóm đồ án nào trong cơ sở dữ liệu.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ flexShrink: 0, padding: '1rem 1.75rem', background: '#F8FAFC', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 650 }}>
+                Tổng cộng: <strong style={{ color: '#0F172A' }}>{semesterGroups.length}</strong> nhóm đồ án
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setGroupsModal(null)}
+                style={{ padding: '0.55rem 1.5rem', fontWeight: 700, borderRadius: '10px', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}
+              >
+                Đóng cửa sổ
+              </button>
+            </div>
+
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Create Modal */}
-      {showCreateModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '560px', padding: '2rem', background: '#FFFFFF', border: '1px solid #E2E8F0', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
+      {showCreateModal && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '560px', padding: '2rem', background: '#FFFFFF', border: '1px solid #E2E8F0', boxShadow: '0 20px 50px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto', borderRadius: '16px' }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.25rem', color: '#0F172A' }}>Tạo Kỳ học Mới</h3>
             <form onSubmit={handleCreateSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -448,7 +596,8 @@ const SemesterManagementPage = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

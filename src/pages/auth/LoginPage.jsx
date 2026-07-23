@@ -248,7 +248,7 @@ const LoginPage = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                 <button
                   type="button"
-                  onClick={() => handleQuickSelect('pdt.dieuphoi@fpt.edu.vn', 'Test@123456')}
+                  onClick={() => handleQuickSelect('pdt.dieuphoi@fpt.edu.vn', '12345')}
                   className="btn btn-secondary"
                   style={{ fontSize: '0.75rem', padding: '0.6rem', justifyContent: 'flex-start', background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#0F172A' }}
                 >
@@ -258,7 +258,7 @@ const LoginPage = () => {
 
                 <button
                   type="button"
-                  onClick={() => handleQuickSelect('minhnd.gv24001@fpt.edu.vn', 'Test@123456')}
+                  onClick={() => handleQuickSelect('minhnd.gv24001@fpt.edu.vn', '12345')}
                   className="btn btn-secondary"
                   style={{ fontSize: '0.75rem', padding: '0.6rem', justifyContent: 'flex-start', background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#0F172A' }}
                 >
@@ -268,12 +268,12 @@ const LoginPage = () => {
 
                 <button
                   type="button"
-                  onClick={() => handleQuickSelect('duongduy12314@gmail.com', 'Test@123456')}
+                  onClick={() => handleQuickSelect('se199901@fpt.edu.vn', '12345')}
                   className="btn btn-secondary"
-                  style={{ fontSize: '0.75rem', padding: '0.6rem', justifyContent: 'flex-start', background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#0F172A' }}
+                  style={{ fontSize: '0.75rem', padding: '0.6rem', justifyContent: 'flex-start', background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#0F172A', gridColumn: 'span 2' }}
                 >
                   <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>SV</span>
-                  <span style={{ fontWeight: 600 }}>Dương Thành Thanh Duy / Nhóm</span>
+                  <span style={{ fontWeight: 600 }}>Nguyễn Văn Leader / Nhóm SE2620</span>
                 </button>
 
               </div>

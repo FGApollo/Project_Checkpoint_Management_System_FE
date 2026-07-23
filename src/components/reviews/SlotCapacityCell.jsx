@@ -32,6 +32,7 @@ const SlotCapacityCell = ({
   const palette = paletteByTone[tone] || paletteByTone.lecturer;
   const safeCount = Math.max(0, Number(registeredCount) || 0);
   const safeCapacity = Math.max(1, Number(capacity) || 1);
+  const displayCount = Math.min(safeCount, safeCapacity);
   const remaining = Math.max(0, safeCapacity - safeCount);
   const isFull = safeCount >= safeCapacity;
   const cannotSelect = isSlotRegistrationDisabled({
@@ -42,7 +43,7 @@ const SlotCapacityCell = ({
     disabled,
   });
   const statusLabel = isFull ? 'Đã đủ' : `Còn ${remaining} chỗ`;
-  const accessibleLabel = `${participantLabel}: ${safeCount}/${safeCapacity}, ${statusLabel}${selected ? ', đang chọn' : ''}`;
+  const accessibleLabel = `${participantLabel}: ${displayCount}/${safeCapacity}, ${statusLabel}${selected ? ', đang chọn' : ''}`;
 
   return (
     <button
@@ -79,7 +80,7 @@ const SlotCapacityCell = ({
     >
       <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: selected ? palette.primary : '#334155', fontWeight: 850, fontSize: '0.82rem' }}>
         {selected ? <Check size={16} strokeWidth={3} /> : <Users size={15} />}
-        <span>{safeCount}/{safeCapacity}</span>
+        <span>{displayCount}/{safeCapacity}</span>
       </span>
       <span style={{
         padding: '0.18rem 0.48rem',
