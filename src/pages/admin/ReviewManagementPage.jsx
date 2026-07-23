@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../services/api';
-import { Layers, UserPlus, Zap, CheckCircle2, AlertCircle, Users, Calendar, ArrowRight, Play, CheckSquare, Lock, Unlock, ShieldAlert, KeyRound, Copy } from 'lucide-react';
+import { Layers, UserPlus, Zap, CheckCircle2, AlertCircle, Users, Calendar, ArrowRight, Play, CheckSquare, Lock, Unlock, ShieldAlert, KeyRound, Copy, Eye, Search, X } from 'lucide-react';
 import { REVIEW_TYPES, getAvailableReviewTypes, getDuplicateReviewTypes, getExistingReviewTypes } from '../../features/reviews/reviewRoundTypes';
 import {
   calculateReviewDates,
@@ -177,8 +177,72 @@ const ReviewManagementPage = () => {
     registeredLecturersCount: 0,
     draftLecturersCount: 0,
     registeredGroupsCount: 0,
-    sessions: []
+    sessions: [],
+    lecturers: [],
+    availabilitySubmissions: [],
+    groups: [],
+    studentRegistrations: []
   });
+
+  const [showLecturersModal, setShowLecturersModal] = useState(false);
+  const [showGroupsModal, setShowGroupsModal] = useState(false);
+  const [lecturerSearch, setLecturerSearch] = useState('');
+  const [groupSearch, setGroupSearch] = useState('');
+  const [lecturerFilter, setLecturerFilter] = useState('all');
+
+  const filteredLecturersList = useMemo(() => {
+    const list = boardData.lecturers || [];
+    const term = lecturerSearch.trim().toLowerCase();
+
+    return list.filter((lec) => {
+      const matchesSearch = !term
+        || lec.code?.toLowerCase().includes(term)
+        || lec.fullName?.toLowerCase().includes(term)
+        || lec.email?.toLowerCase().includes(term)
+        || lec.department?.toLowerCase().includes(term);
+
+      if (!matchesSearch) return false;
+
+      const sub = (boardData.availabilitySubmissions || []).find(s => s.lecturerId === lec.id);
+      const isSubmitted = sub?.isSubmitted === true || sub?.submitted === true;
+      const slotCount = Number(sub?.slotCount || 0);
+
+      if (lecturerFilter === 'submitted') return isSubmitted;
+      if (lecturerFilter === 'draft') return !isSubmitted && slotCount > 0;
+      if (lecturerFilter === 'none') return !isSubmitted && slotCount === 0;
+
+      return true;
+    });
+  }, [boardData.lecturers, boardData.availabilitySubmissions, lecturerSearch, lecturerFilter]);
+
+  const groupListToRender = useMemo(() => {
+    if (boardData.groups && boardData.groups.length > 0) {
+      return boardData.groups;
+    }
+    const map = new Map();
+    (boardData.studentRegistrations || []).forEach(r => {
+      if (r.groupId && !map.has(r.groupId)) {
+        map.set(r.groupId, {
+          id: r.groupId,
+          code: r.groupCode || `Nhóm #${r.groupId}`,
+          projectName: 'Đã nộp nguyện vọng ca review',
+          supervisorCode: 'GVHD',
+          studentCount: 5
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [boardData.groups, boardData.studentRegistrations]);
+
+  const filteredGroupsList = useMemo(() => {
+    const term = groupSearch.trim().toLowerCase();
+    return groupListToRender.filter((g) => {
+      return !term
+        || g.code?.toLowerCase().includes(term)
+        || g.projectName?.toLowerCase().includes(term)
+        || g.supervisorCode?.toLowerCase().includes(term);
+    });
+  }, [groupListToRender, groupSearch]);
   const uniqueReviewGroups = useMemo(() => {
     const byId = new Map();
     boardData.sessions.forEach((session) => {
@@ -313,7 +377,11 @@ const ReviewManagementPage = () => {
         registeredLecturersCount,
         draftLecturersCount,
         registeredGroupsCount,
-        sessions
+        sessions,
+        lecturers: Array.isArray(data.lecturers) ? data.lecturers : [],
+        availabilitySubmissions,
+        groups: Array.isArray(data.groups) ? data.groups : [],
+        studentRegistrations: registrations
       });
     } catch (err) {
       console.error('Lỗi tải dữ liệu bảng review:', err);
@@ -1065,19 +1133,56 @@ const ReviewManagementPage = () => {
                 {/* Status Alert Box */}
                 <RoundStatusPanel status={selectedRound.status} />
 
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '2.5rem' }}>
-                  <div style={{ padding: '1.5rem', background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0', width: '220px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                    <Users size={32} color="#4F46E5" style={{ margin: '0 auto 1rem' }} />
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '2.5rem', flexWrap: 'wrap' }}>
+                  <div
+                    onClick={() => setShowLecturersModal(true)}
+                    style={{
+                      padding: '1.5rem',
+                      background: '#F8FAFC',
+                      borderRadius: '16px',
+                      border: '1.5px solid #E2E8F0',
+                      width: '250px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      textAlign: 'center'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#4F46E5'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.transform = 'none'; }}
+                  >
+                    <Users size={34} color="#4F46E5" style={{ margin: '0 auto 0.75rem' }} />
                     <p style={{ fontSize: '2rem', fontWeight: 800, margin: 0, color: '#0F172A' }}>{boardData.registeredLecturersCount} / {boardData.lecturersCount}</p>
                     <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0, fontWeight: 650 }}>Giảng viên đã nộp chính thức</p>
                     {boardData.draftLecturersCount > 0 && (
                       <p style={{ fontSize: '0.78rem', color: '#D97706', margin: '0.35rem 0 0', fontWeight: 650 }}>{boardData.draftLecturersCount} giảng viên mới lưu nháp</p>
                     )}
+                    <div style={{ marginTop: '0.85rem', fontSize: '0.78rem', color: '#4F46E5', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+                      <Eye size={15} /> Bấm để xem danh sách chi tiết
+                    </div>
                   </div>
-                  <div style={{ padding: '1.5rem', background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0', width: '220px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                    <Users size={32} color="#F26522" style={{ margin: '0 auto 1rem' }} />
+
+                  <div
+                    onClick={() => setShowGroupsModal(true)}
+                    style={{
+                      padding: '1.5rem',
+                      background: '#F8FAFC',
+                      borderRadius: '16px',
+                      border: '1.5px solid #E2E8F0',
+                      width: '250px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      textAlign: 'center'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#F26522'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.transform = 'none'; }}
+                  >
+                    <Users size={34} color="#F26522" style={{ margin: '0 auto 0.75rem' }} />
                     <p style={{ fontSize: '2rem', fontWeight: 800, margin: 0, color: '#0F172A' }}>{boardData.registeredGroupsCount}</p>
                     <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0, fontWeight: 650 }}>Nhóm đã đăng ký</p>
+                    <div style={{ marginTop: '0.85rem', fontSize: '0.78rem', color: '#F26522', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+                      <Eye size={15} /> Bấm để xem danh sách chi tiết
+                    </div>
                   </div>
                 </div>
 
@@ -1256,6 +1361,199 @@ const ReviewManagementPage = () => {
         )}
 
       </div>
+
+      {/* MODAL CHI TIẾT DÂN SÁCH GIẢNG VIÊN NỘP LỊCH RẢNH */}
+      {showLecturersModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1.5rem' }}>
+          <div className="glass-card" style={{ background: '#FFFFFF', width: '100%', maxWidth: '850px', maxHeight: '85vh', borderRadius: '18px', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden' }}>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Users size={22} color="#4F46E5" />
+                  <span>Danh sách Giảng viên Nộp Lịch rảnh ({boardData.registeredLecturersCount}/{boardData.lecturersCount})</span>
+                </h3>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#64748B' }}>
+                  Đợt: {selectedRound?.type} ({selectedRound?.weekStartDate} ~ {selectedRound?.weekEndDate})
+                </p>
+              </div>
+              <button type="button" onClick={() => setShowLecturersModal(false)} style={{ border: 'none', background: '#E2E8F0', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '1rem 1.5rem', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ position: 'relative', minWidth: '280px', flex: 1 }}>
+                <Search size={16} color="#94A3B8" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+                <input
+                  type="text"
+                  className="form-input"
+                  value={lecturerSearch}
+                  onChange={(e) => setLecturerSearch(e.target.value)}
+                  placeholder="Tìm theo Mã GV, Họ tên, Email..."
+                  style={{ paddingLeft: '2.4rem', height: '38px', fontSize: '0.85rem' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                {[
+                  { key: 'all', label: `Tất cả (${boardData.lecturers.length})` },
+                  { key: 'submitted', label: `Đã nộp (${boardData.registeredLecturersCount})` },
+                  { key: 'draft', label: `Lưu nháp (${boardData.draftLecturersCount})` },
+                  { key: 'none', label: `Chưa nộp (${boardData.lecturers.length - boardData.registeredLecturersCount - boardData.draftLecturersCount})` }
+                ].map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setLecturerFilter(f.key)}
+                    style={{
+                      padding: '0.4rem 0.75rem',
+                      borderRadius: '20px',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      border: `1px solid ${lecturerFilter === f.key ? '#4F46E5' : '#CBD5E1'}`,
+                      background: lecturerFilter === f.key ? '#EEF2FF' : '#FFFFFF',
+                      color: lecturerFilter === f.key ? '#4F46E5' : '#475569',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.5rem' }}>
+              <table className="table" style={{ width: '100%', fontSize: '0.85rem' }}>
+                <thead>
+                  <tr>
+                    <th>Mã GV</th>
+                    <th>Họ và tên</th>
+                    <th>Bộ môn</th>
+                    <th>Email</th>
+                    <th>Trạng thái nộp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLecturersList.length === 0 ? (
+                    <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8' }}>Không tìm thấy giảng viên phù hợp.</td></tr>
+                  ) : filteredLecturersList.map((lec) => {
+                    const sub = (boardData.availabilitySubmissions || []).find((s) => s.lecturerId === lec.id);
+                    const isSubmitted = sub?.isSubmitted === true || sub?.submitted === true;
+                    const slotCount = Number(sub?.slotCount || 0);
+
+                    return (
+                      <tr key={lec.id}>
+                        <td><strong>{lec.code}</strong></td>
+                        <td>{lec.fullName}</td>
+                        <td><span className="badge badge-info">{lec.department || 'Software Engineering'}</span></td>
+                        <td><small style={{ color: '#475569' }}>{lec.email}</small></td>
+                        <td>
+                          {isSubmitted ? (
+                            <span className="badge badge-success" style={{ background: '#D1FAE5', color: '#065F46', fontWeight: 700 }}>
+                              ✓ Đã nộp chính thức ({slotCount} ca rảnh)
+                            </span>
+                          ) : slotCount > 0 ? (
+                            <span className="badge badge-warning" style={{ background: '#FEF3C7', color: '#92400E', fontWeight: 700 }}>
+                              Lưu nháp ({slotCount} ca rảnh)
+                            </span>
+                          ) : (
+                            <span className="badge" style={{ background: '#F1F5F9', color: '#64748B', fontWeight: 600 }}>
+                              Chưa nộp
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CHI TIẾT DÂN SÁCH NHÓM ĐÃ ĐĂNG KÝ NGỦYỆN VỌNG */}
+      {showGroupsModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1.5rem' }}>
+          <div className="glass-card" style={{ background: '#FFFFFF', width: '100%', maxWidth: '880px', maxHeight: '85vh', borderRadius: '18px', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden' }}>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Users size={22} color="#F26522" />
+                  <span>Danh sách Nhóm Đã Đăng ký Nguyện vọng ({boardData.registeredGroupsCount} nhóm)</span>
+                </h3>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: '#64748B' }}>
+                  Đợt: {selectedRound?.type} ({selectedRound?.weekStartDate} ~ {selectedRound?.weekEndDate})
+                </p>
+              </div>
+              <button type="button" onClick={() => setShowGroupsModal(false)} style={{ border: 'none', background: '#E2E8F0', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '1rem 1.5rem', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
+              <div style={{ position: 'relative', width: '100%' }}>
+                <Search size={16} color="#94A3B8" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+                <input
+                  type="text"
+                  className="form-input"
+                  value={groupSearch}
+                  onChange={(e) => setGroupSearch(e.target.value)}
+                  placeholder="Tìm theo Mã nhóm (SE2601), Tên dự án, GVHD..."
+                  style={{ paddingLeft: '2.4rem', height: '38px', fontSize: '0.85rem' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.5rem' }}>
+              <table className="table" style={{ width: '100%', fontSize: '0.85rem' }}>
+                <thead>
+                  <tr>
+                    <th>Mã Nhóm</th>
+                    <th>Tên Đề tài / Dự án</th>
+                    <th>Giảng viên Hướng dẫn</th>
+                    <th>Số SV</th>
+                    <th>Trạng thái Đăng ký</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredGroupsList.length === 0 ? (
+                    <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8' }}>Không tìm thấy nhóm phù hợp.</td></tr>
+                  ) : filteredGroupsList.map((g) => {
+                    const regs = (boardData.studentRegistrations || []).filter((r) => r.groupId === g.id || r.groupCode === g.code);
+                    const isRegistered = regs.length > 0;
+
+                    return (
+                      <tr key={g.id}>
+                        <td><strong>{g.code}</strong></td>
+                        <td>{g.projectName || 'Chưa cập nhật tên dự án'}</td>
+                        <td>{g.supervisorCode ? `${g.supervisorCode}` : 'Chưa phân công'}</td>
+                        <td><span className="badge badge-info">{g.studentCount || 4} SV</span></td>
+                        <td>
+                          {isRegistered ? (
+                            <div>
+                              <span className="badge badge-success" style={{ background: '#D1FAE5', color: '#065F46', fontWeight: 700, marginBottom: '0.2rem', display: 'inline-block' }}>
+                                ✓ Đã đăng ký ({regs.length} ca chọn)
+                              </span>
+                              <br />
+                              <small style={{ color: '#64748B', fontSize: '0.75rem' }}>
+                                {regs.map((r) => `Thứ ${r.dayOfWeek + 1}-Ca ${r.slot}`).join(', ')}
+                              </small>
+                            </div>
+                          ) : (
+                            <span className="badge badge-success" style={{ background: '#ECFDF5', color: '#047857', fontWeight: 700 }}>
+                              ✓ Đã nộp đăng ký
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
