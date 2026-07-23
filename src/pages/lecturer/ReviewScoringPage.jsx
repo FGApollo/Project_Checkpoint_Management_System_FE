@@ -46,6 +46,10 @@ const getInitials = (value = '') => value
   .slice(-2)
   .map((part) => part[0]?.toUpperCase())
   .join('') || 'GV';
+const formatReviewTypeLabel = (value) => {
+  const match = String(value ?? '').match(/(\d+)/);
+  return match ? `Review ${match[1]}` : 'Review trước';
+};
 
 const ReviewScoringPage = () => {
   const { user } = useAuth();
@@ -74,6 +78,8 @@ const ReviewScoringPage = () => {
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [documents, setDocuments] = useState([]);
+  const [previousReviewFeedback, setPreviousReviewFeedback] = useState([]);
+  const [previousReviewFeedbackLoading, setPreviousReviewFeedbackLoading] = useState(false);
   const [commentViewer, setCommentViewer] = useState(null);
   const [inlineComments, setInlineComments] = useState([]);
   const [commentReference, setCommentReference] = useState('');
@@ -228,16 +234,39 @@ const ReviewScoringPage = () => {
     setAiProjectContent(selectedSession.projectContent || selectedSession.description || '');
     if (!selectedSession.isAccessVerified) {
       setDocuments([]);
+      setPreviousReviewFeedback([]);
+      setPreviousReviewFeedbackLoading(false);
       setAttendanceList([]);
       setCommentsList([]);
       setEvalComments(['']);
       return;
     }
 
+    let isCurrentSession = true;
     listProjectDocuments(selectedSession.groupId)
-      .then(({ data }) => setDocuments(Array.isArray(data) ? data : []))
-      .catch(() => setDocuments([]));
+      .then(({ data }) => {
+        if (isCurrentSession) setDocuments(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (isCurrentSession) setDocuments([]);
+      });
+    const submissionId = selectedSession.submissionId || getSessionId(selectedSession);
+    setPreviousReviewFeedback([]);
+    setPreviousReviewFeedbackLoading(true);
+    api.get(`/review-submissions/${encodeURIComponent(String(submissionId))}/previous`)
+      .then(({ data }) => {
+        if (isCurrentSession) setPreviousReviewFeedback(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (isCurrentSession) setPreviousReviewFeedback([]);
+      })
+      .finally(() => {
+        if (isCurrentSession) setPreviousReviewFeedbackLoading(false);
+      });
     fetchSessionDetails(selectedSession);
+    return () => {
+      isCurrentSession = false;
+    };
   }, [selectedSession, fetchSessionDetails]);
 
   useEffect(() => {
@@ -756,6 +785,53 @@ const ReviewScoringPage = () => {
                 <strong style={{ color: '#0F172A' }}>Lịch sử tài liệu của nhóm</strong>
                 {documents.length === 0 ? <p style={{ margin: '0.5rem 0 0', color: '#64748B', fontSize: '0.85rem' }}>Nhóm chưa tải tài liệu.</p> : documents.map((document, index) => <div key={document.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', paddingTop: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid #E2E8F0' }}><span style={{ fontSize: '0.9rem', overflowWrap: 'anywhere', minWidth: 0 }}><strong>{document.fileName}</strong><small style={{ color: '#64748B', display: 'block', marginTop: '0.2rem' }}>Lần tải #{documents.length - index} · {document.uploadedByName || `Sinh viên #${document.uploadedById}`} · {new Date(document.uploadedAt).toLocaleString('vi-VN')} · {(document.fileSize / 1024 / 1024).toFixed(2)} MB</small></span><span style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}><button type="button" className="btn btn-secondary" onClick={() => openCommentViewer(document)}><FileText size={14} /> Mở & nhận xét</button><button type="button" className="btn btn-primary" disabled={aiLoading || document.fileName.toLowerCase().endsWith('.zip')} onClick={() => handleAnalyzeDocument(document)}><Sparkles size={14} /> AI phân tích</button></span></div>)}
               </div>
+
+              <section
+                aria-labelledby="previous-review-feedback-title"
+                style={{ background: '#FFFFFF', border: '1px solid #C7D2FE', borderRadius: '0.9rem', padding: '1rem', marginBottom: '1.25rem' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.7rem' }}>
+                  <span style={{ width: 36, height: 36, borderRadius: 10, display: 'grid', placeItems: 'center', flexShrink: 0, color: '#4338CA', background: '#EEF2FF' }}>
+                    <MessageSquare size={18} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <strong id="previous-review-feedback-title" style={{ color: '#0F172A' }}>
+                      Nhận xét từ các đợt Review trước
+                    </strong>
+                    <p style={{ margin: '0.2rem 0 0', color: '#64748B', fontSize: '0.8rem' }}>
+                      Nhận xét chính thức đã gửi cho cùng nhóm, giúp giảng viên theo dõi nội dung cần cải thiện.
+                    </p>
+                  </div>
+                </div>
+
+                {previousReviewFeedbackLoading ? (
+                  <div style={{ marginTop: '0.85rem' }}><PanelSkeleton lines={3} /></div>
+                ) : previousReviewFeedback.length === 0 ? (
+                  <p style={{ margin: '0.85rem 0 0', padding: '0.8rem', borderRadius: '0.7rem', background: '#F8FAFC', color: '#64748B', fontSize: '0.85rem' }}>
+                    Chưa có nhận xét chính thức từ đợt Review trước.
+                  </p>
+                ) : (
+                  <div style={{ display: 'grid', gap: '0.7rem', marginTop: '0.85rem' }}>
+                    {previousReviewFeedback.map((feedback) => (
+                      <article key={feedback.submissionId} style={{ padding: '0.85rem', borderRadius: '0.75rem', border: '1px solid #E2E8F0', background: '#F8FAFC' }}>
+                        <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                          <span className="badge" style={{ background: '#E0E7FF', color: '#4338CA', fontWeight: 800 }}>
+                            {formatReviewTypeLabel(feedback.reviewType)}
+                          </span>
+                          <small style={{ color: '#64748B' }}>
+                            {feedback.reviewerName || 'Giảng viên'} · {feedback.submittedAt ? new Date(feedback.submittedAt).toLocaleString('vi-VN') : 'Đã gửi'}
+                          </small>
+                        </header>
+                        <ul style={{ margin: '0.65rem 0 0', paddingLeft: '1.15rem', color: '#334155', lineHeight: 1.55 }}>
+                          {(feedback.reviewerComments || []).map((comment, index) => (
+                            <li key={`${feedback.submissionId}-${index}`} style={{ marginTop: index === 0 ? 0 : '0.35rem' }}>{comment}</li>
+                          ))}
+                        </ul>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
 
               {/* Session work areas */}
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>

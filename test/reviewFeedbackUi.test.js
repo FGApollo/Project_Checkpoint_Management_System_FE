@@ -192,6 +192,15 @@ test('review submissions support multiple official comments per lecturer', async
   assert.doesNotMatch(reviewManagementPage, /setReviewersPerSession/);
 });
 
+test('lecturer review room shows official feedback from previous review rounds', async () => {
+  const lecturerPage = await readSource('../src/pages/lecturer/ReviewScoringPage.jsx');
+
+  assert.match(lecturerPage, /review-submissions\/\$\{encodeURIComponent\(String\(submissionId\)\)\}\/previous/);
+  assert.match(lecturerPage, /Nhận xét từ các đợt Review trước/);
+  assert.match(lecturerPage, /feedback\.reviewerComments/);
+  assert.match(lecturerPage, /feedback\.reviewerName/);
+});
+
 test('admin can inspect semester groups and export all review reports', async () => {
   const [semesterPage, trackingPage, reviewManagementPage] = await Promise.all([
     readSource('../src/pages/admin/SemesterManagementPage.jsx'),
