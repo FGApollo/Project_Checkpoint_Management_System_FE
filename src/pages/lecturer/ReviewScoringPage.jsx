@@ -620,9 +620,9 @@ const ReviewScoringPage = () => {
                             font: 'inherit'
                           }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', gap: '0.75rem' }}>
-                            <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>{sess.groupCode || `Nhóm #${sess.groupId}`}</span>
-                            <span className="badge" style={{ background: isSelected ? 'rgba(255,255,255,0.25)' : 'rgba(242,101,34,0.12)', color: isSelected ? 'white' : '#F26522', fontWeight: 700 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', gap: '0.75rem', alignItems: 'flex-start' }}>
+                            <span style={{ fontWeight: 800, fontSize: '0.9rem', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{sess.groupCode || `Nhóm #${sess.groupId}`}</span>
+                            <span className="badge" style={{ background: isSelected ? 'rgba(255,255,255,0.25)' : 'rgba(242,101,34,0.12)', color: isSelected ? 'white' : '#F26522', fontWeight: 700, flexShrink: 0 }}>
                               Ca {sess.slot}
                             </span>
                           </div>
@@ -649,7 +649,7 @@ const ReviewScoringPage = () => {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #CBD5E1', paddingBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
-                  <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0F172A' }}>
+                  <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0F172A', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                     Phiên Bảo vệ Checkpoint: Nhóm {selectedSession.groupCode || `#${selectedSession.groupId}`}
                   </h2>
                   <p style={{ fontSize: '0.85rem', color: '#64748B' }}>
