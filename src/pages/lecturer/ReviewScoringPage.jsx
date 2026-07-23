@@ -116,9 +116,10 @@ const ReviewScoringPage = () => {
     });
   }, []);
 
-  const fetchMySessions = useCallback(async () => {
-    setLoading(true);
-    setError('');
+  const fetchMySessions = useCallback(async (options = {}) => {
+    const { preserveSelection = false, silent = false } = options;
+    if (!silent) setLoading(true);
+    if (!silent) setError('');
     try {
       const response = await api.get('/review-sessions/my');
       const rawList = Array.isArray(response.data) ? response.data : (response.data.items || []);
@@ -131,17 +132,46 @@ const ReviewScoringPage = () => {
       const today = filterReviewSessions(list, 'today');
       const upcoming = filterReviewSessions(list, 'upcoming');
       const preferredSession = today[0] || upcoming[0] || list[0] || null;
-      setSessionFilter(today.length > 0 ? 'today' : upcoming.length > 0 ? 'upcoming' : 'all');
-      setSelectedSession(preferredSession);
+      setSelectedSession((current) => {
+        if (preserveSelection && current) {
+          const refreshed = list.find((item) => getSessionKey(item) === getSessionKey(current));
+          if (refreshed) {
+            const accessStateChanged = refreshed.hasAccessCode !== current.hasAccessCode
+              || refreshed.isAccessVerified !== current.isAccessVerified;
+            return accessStateChanged ? refreshed : current;
+          }
+        }
+        return preferredSession;
+      });
+      if (!preserveSelection) {
+        setSessionFilter(today.length > 0 ? 'today' : upcoming.length > 0 ? 'upcoming' : 'all');
+      }
     } catch (err) {
-      setError(err.response?.data?.error || 'Không thể tải danh sách phiên bảo vệ được phân công.');
+      if (!silent) {
+        setError(err.response?.data?.error || 'Không thể tải danh sách phiên review được phân công.');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
-
   useEffect(() => {
     fetchMySessions();
+  }, [fetchMySessions]);
+
+  useEffect(() => {
+    const syncAccessCodeState = () => {
+      if (document.visibilityState === 'visible') {
+        fetchMySessions({ preserveSelection: true, silent: true });
+      }
+    };
+    const intervalId = window.setInterval(syncAccessCodeState, 30_000);
+    window.addEventListener('focus', syncAccessCodeState);
+    document.addEventListener('visibilitychange', syncAccessCodeState);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', syncAccessCodeState);
+      document.removeEventListener('visibilitychange', syncAccessCodeState);
+    };
   }, [fetchMySessions]);
 
   useEffect(() => {
@@ -493,7 +523,7 @@ const ReviewScoringPage = () => {
           </p>
         </div>
 
-        <button type="button" className="btn btn-secondary" onClick={fetchMySessions} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
+        <button type="button" className="btn btn-secondary" onClick={() => fetchMySessions()} style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#0F172A' }}>
           <RefreshCw size={16} color="#F26522" />
           <span style={{ fontWeight: 600 }}>Tải lại danh sách phiên bảo vệ</span>
         </button>
