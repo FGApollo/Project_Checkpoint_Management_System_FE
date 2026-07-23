@@ -160,14 +160,17 @@ test('training department access codes gate the lecturer review room', async () 
   assert.match(lecturerPage, /Điểm danh Sinh viên/);
 });
 
-test('training department creates access codes by selecting an assigned session outside Publish', async () => {
+test('training department creates one shared code for every group in a selected slot', async () => {
   const managementPage = await readSource('../src/pages/admin/ReviewManagementPage.jsx');
   const panelIndex = managementPage.indexOf('Tạo mã theo ca');
   const stepperIndex = managementPage.indexOf('{/* Stepper */}');
 
   assert.ok(panelIndex > 0, 'The standalone access-code selector must be rendered.');
   assert.ok(panelIndex < stepperIndex, 'The selector must be available before the Publish stepper.');
-  assert.match(managementPage, /selectedAccessCodeSessionId/);
+  assert.match(managementPage, /selectedAccessCodeSlotKey/);
+  assert.match(managementPage, /reviewAccessCodeSlots/);
+  assert.match(managementPage, /affectedSessionIds/);
+  assert.match(managementPage, /một mã chung cho/);
   assert.match(managementPage, /getReviewSlotTime/);
   assert.match(managementPage, /Chọn ca review/);
 });

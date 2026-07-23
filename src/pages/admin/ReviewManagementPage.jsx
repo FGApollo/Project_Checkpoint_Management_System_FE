@@ -33,10 +33,11 @@ const formatReviewSessionDate = (value) => {
   if (!value) return 'Chưa xác định ngày';
   return new Date(value).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
 };
-const formatReviewSessionOption = (session) => {
-  const sessionId = getReviewSessionId(session);
-  const group = session.groupCode || (session.groupId ? `Nhóm #${session.groupId}` : 'Chưa rõ nhóm');
-  return `${formatReviewSessionDate(session.sessionDate)} · Ca ${session.slot ?? '?'} (${getReviewSlotTime(session.slot)}) · ${session.room || 'Chưa xếp phòng'} · ${group} · Phiên #${sessionId}`;
+const getReviewAccessCodeSlotKey = (session) =>
+  `${String(session?.sessionDate || '').slice(0, 10)}|${session?.slot ?? ''}`;
+const formatReviewAccessCodeSlot = (slot) => {
+  const rooms = slot.rooms.length > 0 ? slot.rooms.join(', ') : 'Chưa xếp phòng';
+  return `${formatReviewSessionDate(slot.sessionDate)} · Ca ${slot.slot ?? '?'} (${getReviewSlotTime(slot.slot)}) · ${slot.sessions.length} nhóm · Phòng ${rooms}`;
 };
 
 const getRoundStatusMeta = (status) => {
@@ -141,9 +142,9 @@ const ReviewManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [accessCodeBusySessionId, setAccessCodeBusySessionId] = useState(null);
+  const [accessCodeBusySlotKey, setAccessCodeBusySlotKey] = useState(null);
   const [generatedAccessCodes, setGeneratedAccessCodes] = useState({});
-  const [selectedAccessCodeSessionId, setSelectedAccessCodeSessionId] = useState('');
+  const [selectedAccessCodeSlotKey, setSelectedAccessCodeSlotKey] = useState('');
 
   const [semesters, setSemesters] = useState([]);
   const existingReviewTypes = useMemo(() => getExistingReviewTypes(rounds), [rounds]);
@@ -182,24 +183,46 @@ const ReviewManagementPage = () => {
     });
     return Array.from(byId.values());
   }, [boardData.sessions]);
-  const selectedAccessCodeSession = useMemo(
-    () => uniqueReviewSessions.find(
-      (session) => String(getReviewSessionId(session)) === String(selectedAccessCodeSessionId)
-    ) || null,
-    [selectedAccessCodeSessionId, uniqueReviewSessions]
+  const reviewAccessCodeSlots = useMemo(() => {
+    const bySlot = new Map();
+    uniqueReviewSessions.forEach((session) => {
+      const key = getReviewAccessCodeSlotKey(session);
+      const current = bySlot.get(key) || {
+        key,
+        sessionDate: session.sessionDate,
+        slot: session.slot,
+        sessions: [],
+        sessionIds: [],
+        rooms: []
+      };
+      current.sessions.push(session);
+      current.sessionIds.push(getReviewSessionId(session));
+      if (session.room && !current.rooms.includes(session.room)) current.rooms.push(session.room);
+      bySlot.set(key, current);
+    });
+    return Array.from(bySlot.values())
+      .map((slot) => ({
+        ...slot,
+        hasAccessCode: slot.sessions.every((session) => session.hasAccessCode),
+        hasAnyAccessCode: slot.sessions.some((session) => session.hasAccessCode)
+      }))
+      .sort((left, right) =>
+        String(left.sessionDate).localeCompare(String(right.sessionDate))
+        || Number(left.slot) - Number(right.slot));
+  }, [uniqueReviewSessions]);
+  const selectedAccessCodeSlot = useMemo(
+    () => reviewAccessCodeSlots.find((slot) => slot.key === selectedAccessCodeSlotKey) || null,
+    [reviewAccessCodeSlots, selectedAccessCodeSlotKey]
   );
   const canManageAccessCodes = user?.role === 'TrainingDepartment'
     || user?.role === 'SystemAdministrator';
 
   useEffect(() => {
-    setSelectedAccessCodeSessionId((current) => {
-      if (uniqueReviewSessions.some(
-        (session) => String(getReviewSessionId(session)) === String(current)
-      )) return current;
-      const firstSessionId = getReviewSessionId(uniqueReviewSessions[0]);
-      return firstSessionId == null ? '' : String(firstSessionId);
+    setSelectedAccessCodeSlotKey((current) => {
+      if (reviewAccessCodeSlots.some((slot) => slot.key === current)) return current;
+      return reviewAccessCodeSlots[0]?.key || '';
     });
-  }, [uniqueReviewSessions]);
+  }, [reviewAccessCodeSlots]);
 
   const fetchRounds = async (semId = formData.semesterId) => {
     setLoading(true);
@@ -534,30 +557,33 @@ const ReviewManagementPage = () => {
     }
   };
 
-  const handleGenerateAccessCode = async (session) => {
-    const sessionId = getReviewSessionId(session);
+  const handleGenerateAccessCode = async (slot) => {
+    const sessionId = slot?.sessionIds?.[0];
     if (!sessionId || !canManageAccessCodes) return;
 
-    if (session.hasAccessCode) {
+    if (slot.hasAnyAccessCode) {
       const confirmed = window.confirm(
-        'Tạo lại mã sẽ vô hiệu hóa mã cũ và yêu cầu tất cả giảng viên nhập mã mới. Bạn có chắc chắn muốn tiếp tục?'
+        'Tạo lại mã sẽ vô hiệu hóa mã cũ của toàn bộ nhóm trong ca và yêu cầu tất cả giảng viên nhập mã mới. Bạn có chắc chắn muốn tiếp tục?'
       );
       if (!confirmed) return;
     }
 
-    setAccessCodeBusySessionId(sessionId);
+    setAccessCodeBusySlotKey(slot.key);
     setError('');
     setSuccess('');
     try {
       const { data } = await generateReviewSessionAccessCode(sessionId);
+      const affectedSessionIds = Array.isArray(data.affectedSessionIds)
+        ? data.affectedSessionIds.map(Number)
+        : slot.sessionIds.map(Number);
       setGeneratedAccessCodes((current) => ({
         ...current,
-        [sessionId]: data.accessCode
+        [slot.key]: data.accessCode
       }));
       setBoardData((current) => ({
         ...current,
         sessions: current.sessions.map((item) =>
-          getReviewSessionId(item) === sessionId
+          affectedSessionIds.includes(Number(getReviewSessionId(item)))
             ? {
               ...item,
               hasAccessCode: true,
@@ -565,20 +591,20 @@ const ReviewManagementPage = () => {
             }
             : item)
       }));
-      setSuccess(`Đã tạo mã truy cập cho ca #${sessionId}. Hãy lưu hoặc gửi mã cho hội đồng ngay vì mã chỉ hiển thị trong lần này.`);
+      setSuccess(`Đã tạo một mã chung cho ${affectedSessionIds.length} nhóm trong ${formatReviewAccessCodeSlot(slot)}. Hãy gửi mã cho hội đồng ngay vì mã chỉ hiển thị trong lần này.`);
     } catch (err) {
       setError(err.response?.data?.error || 'Không thể tạo mã truy cập cho ca review.');
     } finally {
-      setAccessCodeBusySessionId(null);
+      setAccessCodeBusySlotKey(null);
     }
   };
 
-  const handleCopyAccessCode = async (sessionId) => {
-    const accessCode = generatedAccessCodes[sessionId];
+  const handleCopyAccessCode = async (slotKey) => {
+    const accessCode = generatedAccessCodes[slotKey];
     if (!accessCode) return;
     try {
       await navigator.clipboard.writeText(accessCode);
-      setSuccess(`Đã sao chép mã truy cập ca #${sessionId}.`);
+      setSuccess('Đã sao chép mã truy cập chung của ca review.');
     } catch {
       setError('Trình duyệt không cho phép sao chép tự động. Vui lòng chọn và sao chép mã thủ công.');
     }
@@ -646,7 +672,7 @@ const ReviewManagementPage = () => {
             <div>
               <h2 style={{ margin: 0, color: '#312E81', fontSize: '1.05rem' }}>Tạo mã theo ca</h2>
               <p style={{ margin: '0.2rem 0 0', color: '#4F46E5', fontSize: '0.8rem', lineHeight: 1.45 }}>
-                Chọn đợt và ca review theo ngày, giờ, phòng, nhóm để tạo mã mà không cần chuyển tới bước Publish.
+                Mỗi ngày + khung giờ dùng một mã chung cho toàn bộ nhóm và giảng viên được phân công trong ca.
               </p>
             </div>
           </header>
@@ -676,34 +702,36 @@ const ReviewManagementPage = () => {
                 Chọn ca review
                 <select
                   className="form-select"
-                  value={selectedAccessCodeSessionId}
-                  onChange={(event) => setSelectedAccessCodeSessionId(event.target.value)}
-                  disabled={uniqueReviewSessions.length === 0}
+                  value={selectedAccessCodeSlotKey}
+                  onChange={(event) => setSelectedAccessCodeSlotKey(event.target.value)}
+                  disabled={reviewAccessCodeSlots.length === 0}
                 >
-                  <option value="">{uniqueReviewSessions.length === 0 ? 'Đợt này chưa có ca được phân công' : 'Chọn ca review'}</option>
-                  {uniqueReviewSessions.map((session) => (
-                    <option key={getReviewSessionId(session)} value={getReviewSessionId(session)}>
-                      {formatReviewSessionOption(session)}
+                  <option value="">{reviewAccessCodeSlots.length === 0 ? 'Đợt này chưa có ca được phân công' : 'Chọn ca review'}</option>
+                  {reviewAccessCodeSlots.map((slot) => (
+                    <option key={slot.key} value={slot.key}>
+                      {formatReviewAccessCodeSlot(slot)}
                     </option>
                   ))}
                 </select>
               </label>
             </div>
 
-            {selectedAccessCodeSession && (
+            {selectedAccessCodeSlot && (
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: '1rem', padding: '0.9rem 1rem', border: '1px solid #E2E8F0', borderRadius: '11px', background: '#F8FAFC' }}>
                 <div style={{ minWidth: 0 }}>
-                  <strong style={{ color: '#0F172A' }}>{formatReviewSessionOption(selectedAccessCodeSession)}</strong>
+                  <strong style={{ color: '#0F172A' }}>{formatReviewAccessCodeSlot(selectedAccessCodeSlot)}</strong>
                   <div style={{ marginTop: '0.55rem', display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                    <span className="badge" style={{ color: selectedAccessCodeSession.hasAccessCode ? '#047857' : '#B45309', background: selectedAccessCodeSession.hasAccessCode ? '#D1FAE5' : '#FEF3C7', fontWeight: 800 }}>
-                      {selectedAccessCodeSession.hasAccessCode ? 'Đã có mã' : 'Chưa có mã'}
+                    <span className="badge" style={{ color: selectedAccessCodeSlot.hasAccessCode ? '#047857' : '#B45309', background: selectedAccessCodeSlot.hasAccessCode ? '#D1FAE5' : '#FEF3C7', fontWeight: 800 }}>
+                      {selectedAccessCodeSlot.hasAccessCode
+                        ? 'Tất cả nhóm đã có mã'
+                        : selectedAccessCodeSlot.hasAnyAccessCode ? 'Mã chưa đồng bộ đủ nhóm' : 'Chưa có mã'}
                     </span>
-                    {generatedAccessCodes[getReviewSessionId(selectedAccessCodeSession)] && (
+                    {generatedAccessCodes[selectedAccessCodeSlot.key] && (
                       <>
                         <code style={{ padding: '0.45rem 0.7rem', borderRadius: 8, background: '#0F172A', color: '#F8FAFC', fontSize: '1rem', fontWeight: 800, letterSpacing: '0.16em' }}>
-                          {generatedAccessCodes[getReviewSessionId(selectedAccessCodeSession)]}
+                          {generatedAccessCodes[selectedAccessCodeSlot.key]}
                         </code>
-                        <button type="button" className="btn btn-secondary" onClick={() => handleCopyAccessCode(getReviewSessionId(selectedAccessCodeSession))} style={{ padding: '0.4rem 0.6rem' }}>
+                        <button type="button" className="btn btn-secondary" onClick={() => handleCopyAccessCode(selectedAccessCodeSlot.key)} style={{ padding: '0.4rem 0.6rem' }}>
                           <Copy size={14} /> Sao chép
                         </button>
                         <span style={{ color: '#B45309', fontSize: '0.73rem', fontWeight: 700 }}>Mã chỉ hiển thị trong lần tạo này</span>
@@ -714,14 +742,14 @@ const ReviewManagementPage = () => {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  onClick={() => handleGenerateAccessCode(selectedAccessCodeSession)}
-                  disabled={accessCodeBusySessionId === getReviewSessionId(selectedAccessCodeSession)}
+                  onClick={() => handleGenerateAccessCode(selectedAccessCodeSlot)}
+                  disabled={accessCodeBusySlotKey === selectedAccessCodeSlot.key}
                   style={{ whiteSpace: 'nowrap' }}
                 >
                   <KeyRound size={16} />
-                  {accessCodeBusySessionId === getReviewSessionId(selectedAccessCodeSession)
+                  {accessCodeBusySlotKey === selectedAccessCodeSlot.key
                     ? 'Đang tạo...'
-                    : selectedAccessCodeSession.hasAccessCode ? 'Tạo lại mã' : 'Tạo mã'}
+                    : selectedAccessCodeSlot.hasAnyAccessCode ? 'Tạo lại mã chung' : 'Tạo mã chung'}
                 </button>
               </div>
             )}

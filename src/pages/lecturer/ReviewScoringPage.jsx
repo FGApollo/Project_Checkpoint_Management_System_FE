@@ -687,8 +687,8 @@ const ReviewScoringPage = () => {
                     <h3 id="review-access-heading" style={{ margin: 0, color: '#1E1B4B', fontSize: '1.2rem' }}>Nhập mã để mở ca review</h3>
                     <p style={{ margin: '0.65rem 0 1.25rem', color: '#475569', fontSize: '0.88rem', lineHeight: 1.6 }}>
                       {selectedSession.hasAccessCode
-                        ? 'Mã do Phòng Đào tạo cung cấp cho hội đồng. Sau khi xác thực, bạn có thể xem tài liệu, điểm danh sinh viên, trao đổi và ghi nhận xét.'
-                        : 'Phòng Đào tạo chưa tạo mã truy cập cho ca này. Vui lòng liên hệ Phòng Đào tạo trước khi bắt đầu review.'}
+                        ? `Nhập mã chung do Phòng Đào tạo cấp cho ca ${formatSessionDate(selectedSession.sessionDate)} · Ca ${selectedSession.slot} (${getReviewSlotTime(selectedSession.slot)}). Sau khi xác thực, bạn có thể mở phiên của nhóm này.`
+                        : `Phòng Đào tạo chưa tạo mã chung cho ca ${formatSessionDate(selectedSession.sessionDate)} · Ca ${selectedSession.slot} (${getReviewSlotTime(selectedSession.slot)}). Vui lòng yêu cầu Phòng Đào tạo chọn đúng ngày và ca này để tạo mã.`}
                     </p>
                     {selectedSession.hasAccessCode && (
                       <form onSubmit={handleVerifyAccessCode}>
